@@ -9,6 +9,9 @@
 - Settings: "Show places nearby" (on by default) and "Read aloud when approaching" (off by default).
 - 29 new unit tests (Wikipedia tag validation, Overpass query/grid, parsers, proximity, spoken intro).
 
+### Infrastructure
+- GitHub Actions: unit tests, lint and debug APK on every push/PR; GitHub Release with the APK on `v*` tags.
+
 ### Security / privacy
 - Overpass requests are built around the center of a ~500 m grid cell, never the exact position; track outlines are simplified to ≤ 80 vertices.
 - Wikipedia language codes from OSM tags are validated before being used as a hostname; only `https://*.wikipedia.org` URLs from responses are accepted.

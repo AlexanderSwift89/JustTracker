@@ -1,5 +1,7 @@
 # TrekLog — GPS-трекер маршрутов для Android
 
+[![Android CI](https://github.com/AlexanderSwift89/treklog-android/actions/workflows/android.yml/badge.svg)](https://github.com/AlexanderSwift89/treklog-android/actions/workflows/android.yml)
+
 MVP-приложение: запись GPS-трека по команде пользователя, карта (OpenStreetMap), история, статистика, автоопределение типа движения, экспорт GPX. Без бэкенда, без аккаунтов — все данные на устройстве.
 
 С версии 1.1 — «Интересное рядом»: метки достопримечательностей (Overpass API + Wikipedia) вокруг пользователя и вдоль трека, карточка с описанием и кнопкой «Прочитать вслух» (системный TTS), опциональная авто-озвучка при приближении (выключена по умолчанию). На серверы уходит только примерный район (~500 м), функция отключается в настройках.
@@ -26,6 +28,21 @@ CHANGELOG.md
 - JDK 17+ (используется JBR из Android Studio: `D:\Android_studio\jbr`)
 - Android SDK с platform 37 и build-tools 36+ (`android/local.properties` → `sdk.dir`)
 - Gradle 9.6 (wrapper скачает сам), AGP 9.4, Kotlin 2.3 (встроенный в AGP)
+
+## Скачать APK (без сборки)
+
+- **Релизы:** [github.com/AlexanderSwift89/treklog-android/releases](https://github.com/AlexanderSwift89/treklog-android/releases) — файл `TrekLog-<версия>-debug.apk`. Скопируйте на телефон и откройте (разрешите установку из этого источника) или `adb install -r TrekLog-1.1.0-debug.apk`.
+- **Последний коммит в `main`:** вкладка [Actions](https://github.com/AlexanderSwift89/treklog-android/actions) → нужный запуск → раздел Artifacts (нужен вход в GitHub; хранится 30 дней).
+
+APK подписан debug-ключом и предназначен для установки вручную; сборка для Google Play подписывается локально (см. ниже).
+
+### CI
+
+`.github/workflows/android.yml`: на каждый push/PR в `main` — unit-тесты, lint, `assembleDebug`, APK и отчёты как артефакты. На тег `v*` дополнительно создаётся GitHub Release с APK:
+
+```bash
+git tag v1.1.0 && git push origin v1.1.0
+```
 
 ## Сборка
 

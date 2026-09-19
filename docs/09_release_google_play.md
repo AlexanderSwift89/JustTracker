@@ -26,6 +26,12 @@ cd android && .\gradlew.bat :app:bundleRelease
 ```
 Результат: `android/app/build/outputs/bundle/release/app-release.aab` (~5 МБ). Проверьте release-сборку на устройстве через `bundletool` или установите `assembleRelease` APK.
 
+### 1.4. CI и сборка для тестировщиков
+
+GitHub Actions (`.github/workflows/android.yml`) на каждый push в `main` прогоняет unit-тесты и lint и собирает `TrekLog-<versionName>-debug.apk` (артефакт, 30 дней). Тег `vX.Y.Z` создаёт GitHub Release с этим APK — удобно раздавать тестировщикам без Play Console. Release-AAB для Play в CI **не** собирается: ключ подписи хранится только локально (`keystore.properties`, в `.gitignore`), см. §1.1.
+
+Порядок выпуска: обновить `versionCode`/`versionName` → `CHANGELOG.md` → commit → `git tag v1.1.0 && git push origin main v1.1.0` → дождаться зелёного CI → локально `bundleRelease` → Play Console.
+
 ## 2. Google Play Console — пошагово
 
 1. **Аккаунт разработчика**: play.google.com/console, единоразовая плата $25, подтверждение личности (для персонального аккаунта с 2023 г. требуется также закрытое тестирование ≥ 12 тестировщиков в течение 14 дней перед production).
