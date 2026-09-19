@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.0] - 2026-09-20 (Places nearby — stage 1 + A, minimal)
+
+### Added
+- Places nearby: pins for OpenStreetMap objects with a Wikipedia article around the user (Record screen, ~1.2 km) and within 400 m of a saved track (Detail screen). Source: Overpass API.
+- Place card (bottom sheet): name, category, distance, Wikipedia lead summary, "Read aloud" (device TTS, ducks other audio), "Wikipedia" link, CC BY-SA attribution.
+- Optional auto read-aloud while recording when within 150 m of a place, once per track, works with the screen off. **Off by default.**
+- Settings: "Show places nearby" (on by default) and "Read aloud when approaching" (off by default).
+- 29 new unit tests (Wikipedia tag validation, Overpass query/grid, parsers, proximity, spoken intro).
+
+### Security / privacy
+- Overpass requests are built around the center of a ~500 m grid cell, never the exact position; track outlines are simplified to ≤ 80 vertices.
+- Wikipedia language codes from OSM tags are validated before being used as a hostname; only `https://*.wikipedia.org` URLs from responses are accepted.
+- HTTPS only, 2 MB response cap, timeouts, ≥ 15 s between Overpass calls, 60 s backoff after errors; User-Agent without device identifiers.
+- Privacy policy and Data safety answers updated (approximate location shared with OpenStreetMap Overpass / Wikimedia, optional).
+
 ## [1.0.0] - 2026-09-19 (MVP, internal)
 
 ### Added

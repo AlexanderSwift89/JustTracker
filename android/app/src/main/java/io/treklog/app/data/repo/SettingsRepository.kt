@@ -24,6 +24,8 @@ class SettingsRepository(private val context: Context) {
         val MAX_ACCURACY = intPreferencesKey("max_accuracy_m")
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
+        val POI_ENABLED = booleanPreferencesKey("poi_enabled")
+        val POI_AUTO_SPEAK = booleanPreferencesKey("poi_auto_speak")
     }
 
     val settings: Flow<AppSettings> = context.settingsStore.data.map { p ->
@@ -33,6 +35,8 @@ class SettingsRepository(private val context: Context) {
             maxAccuracyM = p[Keys.MAX_ACCURACY] ?: 50,
             keepScreenOn = p[Keys.KEEP_SCREEN_ON] ?: false,
             onboardingDone = p[Keys.ONBOARDING_DONE] ?: false,
+            poiEnabled = p[Keys.POI_ENABLED] ?: true,
+            poiAutoSpeak = p[Keys.POI_AUTO_SPEAK] ?: false,
         )
     }
 
@@ -43,4 +47,6 @@ class SettingsRepository(private val context: Context) {
     suspend fun setMaxAccuracy(meters: Int) = context.settingsStore.edit { it[Keys.MAX_ACCURACY] = meters.coerceIn(10, 100) }
     suspend fun setKeepScreenOn(on: Boolean) = context.settingsStore.edit { it[Keys.KEEP_SCREEN_ON] = on }
     suspend fun setOnboardingDone() = context.settingsStore.edit { it[Keys.ONBOARDING_DONE] = true }
+    suspend fun setPoiEnabled(on: Boolean) = context.settingsStore.edit { it[Keys.POI_ENABLED] = on }
+    suspend fun setPoiAutoSpeak(on: Boolean) = context.settingsStore.edit { it[Keys.POI_AUTO_SPEAK] = on }
 }

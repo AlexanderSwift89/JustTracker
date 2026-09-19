@@ -50,11 +50,12 @@ cd android && .\gradlew.bat :app:bundleRelease
 |--------|-------|
 | Does your app collect or share any of the required user data types? | Yes |
 | Location → Precise location | Collected: Yes. Shared: No. Processed ephemerally: No. Required: Yes. Purpose: App functionality. |
-| Is all of the user data collected by your app encrypted in transit? | Данные не передаются с устройства; выберите «Yes» (тайлы карт запрашиваются по HTTPS). |
+| Location → Approximate location (с 1.1) | Collected: Yes. **Shared: Yes** (with OpenStreetMap Overpass API and Wikimedia for the optional "Places nearby" feature). Processed ephemerally: Yes. Required: No (can be turned off in Settings). Purpose: App functionality. |
+| Is all of the user data collected by your app encrypted in transit? | Yes — все запросы (тайлы, Overpass, Wikipedia) только по HTTPS. |
 | Do you provide a way for users to request that their data is deleted? | Yes — удаление треков в приложении / удаление приложения. |
 | Other data types (Personal info, Financial, Health, Messages, Photos, Files, Contacts, Calendar, Device IDs, App activity, Crash logs) | Not collected. |
 
-Примечание для рецензента (поле «Data safety → About this app's privacy practices» не существует, но в описании укажите): «Треки хранятся только локально. Приложение обращается в сеть только за фрагментами карт OpenStreetMap».
+Примечание для рецензента (в описании укажите): «Треки хранятся только локально. Приложение обращается в сеть за фрагментами карт OpenStreetMap и, если включена функция „Интересное рядом“, за списком достопримечательностей (Overpass API, передаётся район ≈ 500 м) и описаниями (Wikipedia)».
 
 ## 4. Декларация Foreground Service (тип location)
 
@@ -126,14 +127,21 @@ gps трекер, запись маршрута, gpx, трек, пробег, в
 >
 > To display the map, the app downloads map tiles from OpenStreetMap servers (https://www.openstreetmap.org). As with any web request, your IP address and the coordinates of the requested tiles are transmitted to those servers; their processing is governed by the OpenStreetMap Foundation privacy policy.
 >
+> The optional "Places nearby" feature (can be disabled in Settings) asks the Overpass API (https://overpass-api.de, OpenStreetMap data) for points of interest. Only an **approximate area of about 500 m**, not your exact position, is sent; for a saved track you open, a simplified outline of that track is sent. When you open a place card or enable automatic read-aloud, the description of that specific article is requested from Wikipedia (https://www.wikipedia.org, Wikimedia Foundation). None of these requests contain device or account identifiers. Read-aloud uses your device's own text-to-speech engine.
+>
 > You can delete any route inside the app or uninstall the app to permanently delete all data. GPX files you export are under your control.
 >
 > The app is not directed at children under 13 and collects no data about them.
 >
 > Contact: privacy@treklog.app
 
-## 7. Release notes 1.0.0
+## 7. Release notes
 
+### 1.1.0
+- RU: «Интересное рядом: метки достопримечательностей из OpenStreetMap и Википедии вокруг вас и вдоль трека, карточка с описанием и кнопкой „Прочитать вслух“. Новая настройка: озвучивать объекты при приближении (выключено по умолчанию).»
+- EN: "Places nearby: pins for OpenStreetMap/Wikipedia points of interest around you and along your track, a card with the description and a Read-aloud button. New setting: announce places automatically when approaching (off by default)."
+
+### 1.0.0
 - RU: «Первый выпуск: запись GPS-треков, карта, история, статистика, автоопределение типа движения, экспорт GPX.»
 - EN: "Initial release: GPS track recording, map, history, statistics, automatic activity detection, GPX export."
 

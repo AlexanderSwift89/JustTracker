@@ -11,11 +11,17 @@ import io.treklog.app.domain.model.ActivityType
 import io.treklog.app.domain.model.Track
 import io.treklog.app.domain.model.TrackPoint
 import io.treklog.app.domain.model.UnitSystem
+import io.treklog.app.data.poi.PoiResult
+import io.treklog.app.domain.poi.Poi
 import io.treklog.app.util.AppLog
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -27,17 +33,33 @@ data class TrackDetailUiState(
     val segments: List<List<GeoPoint>> = emptyList(),
     val units: UnitSystem = UnitSystem.METRIC,
     val loaded: Boolean = false,
+    /** Places with a Wikipedia article within 400 m of the track; empty when disabled/offline. */
+    val pois: List<Poi> = emptyList(),
 )
 
 class TrackDetailViewModel(private val container: AppContainer, private val trackId: Long) : ViewModel() {
     private val repo = container.trackRepository
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val pois: Flow<List<Poi>> = combine(repo.observePoints(trackId), container.settingsRepository.settings) { points, s ->
+        if (s.poiEnabled && points.size >= 2) points.map { it.lat to it.lon } else emptyList()
+    }
+        .distinctUntilChanged()
+        .mapLatest { line ->
+            if (line.isEmpty()) emptyList()
+            else when (val r = container.poiRepository.aroundTrack(trackId, line)) {
+                is PoiResult.Found -> r.pois
+                PoiResult.Unavailable -> emptyList()
+            }
+        }
+
     val state: StateFlow<TrackDetailUiState> = combine(
         repo.observeTrack(trackId),
         repo.observePoints(trackId),
         container.settingsRepository.settings,
-    ) { track, points, settings ->
-        TrackDetailUiState(track, toSegments(points), settings.units, loaded = true)
+        pois,
+    ) { track, points, settings, poiList ->
+        TrackDetailUiState(track, toSegments(points), settings.units, loaded = true, pois = poiList)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrackDetailUiState())
 
     fun rename(name: String) = viewModelScope.launch { repo.rename(trackId, name) }

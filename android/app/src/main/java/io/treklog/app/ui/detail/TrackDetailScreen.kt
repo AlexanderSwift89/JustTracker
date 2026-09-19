@@ -48,6 +48,8 @@ import io.treklog.app.ui.common.TrackMap
 import io.treklog.app.ui.common.appViewModel
 import io.treklog.app.ui.history.DeleteDialog
 import io.treklog.app.ui.history.RenameDialog
+import io.treklog.app.ui.poi.PoiCard
+import io.treklog.app.ui.poi.PoiCardViewModel
 import io.treklog.app.ui.theme.ActivityColors
 import io.treklog.app.util.TimeFormat
 import io.treklog.app.util.UnitFormatter
@@ -60,8 +62,10 @@ fun TrackDetailScreen(
     trackId: Long,
     onBack: () -> Unit,
     viewModel: TrackDetailViewModel = appViewModel(key = "detail-$trackId") { TrackDetailViewModel(it, trackId) },
+    poiCardViewModel: PoiCardViewModel = appViewModel(key = "poi-detail-$trackId") { PoiCardViewModel(it) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val poiCard by poiCardViewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
@@ -141,6 +145,8 @@ fun TrackDetailScreen(
                 lineColor = ActivityColors.of(track.activityType),
                 fitToTrack = true,
                 showStartFinish = true,
+                pois = state.pois,
+                onPoiClick = { poi -> poiCardViewModel.open(poi, distanceM = null) },
             )
             Row(
                 Modifier
@@ -188,6 +194,14 @@ fun TrackDetailScreen(
         }
     }
 
+    poiCard?.let { card ->
+        PoiCard(
+            state = card,
+            formatter = formatter,
+            onDismiss = poiCardViewModel::close,
+            onToggleSpeak = poiCardViewModel::toggleSpeak,
+        )
+    }
     if (showRename && track != null) {
         RenameDialog(initial = track.name, onDismiss = { showRename = false }, onSave = {
             viewModel.rename(it)

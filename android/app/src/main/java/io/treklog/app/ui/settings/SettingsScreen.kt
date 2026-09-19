@@ -55,6 +55,8 @@ class SettingsViewModel(container: AppContainer) : ViewModel() {
     fun setTheme(theme: ThemeMode) = viewModelScope.launch { repo.setTheme(theme) }
     fun setMaxAccuracy(m: Int) = viewModelScope.launch { repo.setMaxAccuracy(m) }
     fun setKeepScreenOn(on: Boolean) = viewModelScope.launch { repo.setKeepScreenOn(on) }
+    fun setPoiEnabled(on: Boolean) = viewModelScope.launch { repo.setPoiEnabled(on) }
+    fun setPoiAutoSpeak(on: Boolean) = viewModelScope.launch { repo.setPoiAutoSpeak(on) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -106,6 +108,31 @@ fun SettingsScreen(viewModel: SettingsViewModel = appViewModel { SettingsViewMod
                 modifier = Modifier.clickable { viewModel.setKeepScreenOn(!settings.keepScreenOn) },
             )
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Text(
+                stringResource(R.string.settings_poi_section),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_poi_enabled)) },
+                supportingContent = { Text(stringResource(R.string.settings_poi_enabled_desc)) },
+                trailingContent = { Switch(checked = settings.poiEnabled, onCheckedChange = viewModel::setPoiEnabled) },
+                modifier = Modifier.clickable { viewModel.setPoiEnabled(!settings.poiEnabled) },
+            )
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_poi_auto_speak)) },
+                supportingContent = { Text(stringResource(R.string.settings_poi_auto_speak_desc)) },
+                trailingContent = {
+                    Switch(
+                        checked = settings.poiEnabled && settings.poiAutoSpeak,
+                        enabled = settings.poiEnabled,
+                        onCheckedChange = viewModel::setPoiAutoSpeak,
+                    )
+                },
+                modifier = Modifier.clickable(enabled = settings.poiEnabled) { viewModel.setPoiAutoSpeak(!settings.poiAutoSpeak) },
+            )
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
             ListItem(
                 headlineContent = { Text(stringResource(R.string.settings_privacy)) },
                 supportingContent = { Text(privacyUrl) },
@@ -116,6 +143,12 @@ fun SettingsScreen(viewModel: SettingsViewModel = appViewModel { SettingsViewMod
             ListItem(
                 headlineContent = { Text(stringResource(R.string.settings_version)) },
                 supportingContent = { Text(BuildConfig.VERSION_NAME) },
+            )
+            Text(
+                stringResource(R.string.settings_poi_attribution),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             )
             Text(
                 stringResource(R.string.settings_map_attribution),

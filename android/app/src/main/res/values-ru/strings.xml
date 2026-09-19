@@ -113,6 +113,24 @@
     <string name="settings_privacy">Политика конфиденциальности</string>
     <string name="settings_version">Версия</string>
     <string name="settings_map_attribution">Данные карты © участники OpenStreetMap</string>
+    <string name="settings_poi_section">Интересное рядом</string>
+    <string name="settings_poi_enabled">Показывать интересные места</string>
+    <string name="settings_poi_enabled_desc">Метки объектов со статьёй в Википедии вокруг вас и вдоль треков. На серверы OpenStreetMap Overpass отправляется примерный район (не точное положение).</string>
+    <string name="settings_poi_auto_speak">Озвучивать при приближении</string>
+    <string name="settings_poi_auto_speak_desc">Во время записи рассказывает об объекте, когда вы оказываетесь ближе 150 м. Использует синтез речи устройства.</string>
+    <string name="settings_poi_attribution">Места: © участники OpenStreetMap (Overpass API). Описания: Википедия, CC BY-SA 4.0.</string>
+
+    <string name="poi_read_aloud">Прочитать вслух</string>
+    <string name="poi_stop_reading">Стоп</string>
+    <string name="poi_open_wikipedia">Википедия</string>
+    <string name="poi_summary_unavailable">Описание недоступно — проверьте подключение или откройте статью.</string>
+    <string name="poi_attribution">Текст из Википедии, CC BY-SA 4.0</string>
+    <string name="poi_kind_museum">Музей</string>
+    <string name="poi_kind_attraction">Достопримечательность</string>
+    <string name="poi_kind_historic">Историческое место</string>
+    <string name="poi_kind_worship">Храм</string>
+    <string name="poi_kind_nature">Природа</string>
+    <string name="poi_kind_place">Место</string>
 
     <string name="activity_walk">Пешком</string>
     <string name="activity_run">Бег</string>

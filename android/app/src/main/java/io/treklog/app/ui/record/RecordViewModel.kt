@@ -7,12 +7,19 @@ import io.treklog.app.domain.model.Track
 import io.treklog.app.domain.model.TrackPoint
 import io.treklog.app.domain.model.TrackStatus
 import io.treklog.app.domain.model.UnitSystem
+import io.treklog.app.data.poi.PoiResult
+import io.treklog.app.domain.poi.GeoCell
+import io.treklog.app.domain.poi.Poi
 import io.treklog.app.service.LiveTrackingState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
@@ -28,6 +35,8 @@ data class RecordUiState(
     val units: UnitSystem = UnitSystem.METRIC,
     val keepScreenOn: Boolean = false,
     val nowMs: Long = System.currentTimeMillis(),
+    /** Places with a Wikipedia article around the current grid cell (empty when disabled/offline). */
+    val pois: List<Poi> = emptyList(),
 ) {
     val status: RecordStatus
         get() = when (track?.status) {
@@ -69,13 +78,29 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
         .flatMapLatest { track -> if (track == null) flowOf(emptyList()) else container.trackRepository.observePoints(track.id) }
         .flatMapLatest { points -> flowOf(toSegments(points)) }
 
+    /**
+     * One Overpass lookup per ~500 m grid cell the user is in (cached in the repository); the
+     * previous list stays on screen while the next cell loads. Empty when the feature is off.
+     */
+    private val pois: Flow<List<Poi>> = combine(controller.live, container.settingsRepository.settings) { live, s ->
+        if (s.poiEnabled && live.lastLat != null && live.lastLon != null) GeoCell.of(live.lastLat, live.lastLon) else null
+    }
+        .distinctUntilChanged()
+        .mapLatest { cell ->
+            if (cell == null) emptyList()
+            else when (val r = container.poiRepository.aroundCell(cell)) {
+                is PoiResult.Found -> r.pois
+                PoiResult.Unavailable -> null
+            }
+        }
+        .scan(emptyList<Poi>()) { prev, next -> next ?: prev }
+
     val state: StateFlow<RecordUiState> = combine(
-        activeTrack,
-        segments,
+        combine(activeTrack, segments, pois) { t, s, p -> Triple(t, s, p) },
         controller.live,
         container.settingsRepository.settings,
         ticker,
-    ) { track, segs, live, settings, now ->
+    ) { (track, segs, poiList), live, settings, now ->
         RecordUiState(
             track = track,
             segments = segs,
@@ -83,6 +108,7 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
             units = settings.units,
             keepScreenOn = settings.keepScreenOn,
             nowMs = now,
+            pois = poiList,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RecordUiState())
 

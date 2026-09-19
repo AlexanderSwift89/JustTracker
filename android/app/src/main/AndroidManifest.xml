@@ -8,9 +8,16 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- Network: map tiles only -->
+    <!-- Network: map tiles, Overpass API (places nearby) and Wikipedia summaries — HTTPS only, see docs/07_security.md -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Package visibility (Android 11+): the text-to-speech engine used by "Read aloud" -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
 
     <!-- GPS is essential: the whole product is GPS track recording -->
     <uses-feature

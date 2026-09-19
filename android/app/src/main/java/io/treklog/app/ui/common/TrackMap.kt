@@ -20,9 +20,11 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import io.treklog.app.R
+import io.treklog.app.domain.poi.Poi
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
@@ -42,6 +44,8 @@ private class MapHolder(val map: MapView) {
     var fitted = false
     var lastFollowTarget: GeoPoint? = null
     var lineColor: Int = 0
+    val poiMarkers = LinkedHashMap<String, Marker>()
+    var onPoiClick: ((Poi) -> Unit)? = null
 }
 
 /**
@@ -51,6 +55,7 @@ private class MapHolder(val map: MapView) {
  * @param position current user position; drawn as a dot and followed when [follow] is true.
  * @param fitToTrack when true, the camera fits the whole track once (detail mode).
  * @param onUserGesture invoked when the user drags the map (used to disable follow mode).
+ * @param pois places with a Wikipedia article drawn as pins; tapping one calls [onPoiClick].
  */
 @SuppressLint("ClickableViewAccessibility")
 @Composable
@@ -63,6 +68,8 @@ fun TrackMap(
     fitToTrack: Boolean = false,
     showStartFinish: Boolean = false,
     onUserGesture: (() -> Unit)? = null,
+    pois: List<Poi> = emptyList(),
+    onPoiClick: ((Poi) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -121,6 +128,8 @@ fun TrackMap(
             syncPolylines(holder, segments, lineColor.toArgb(), strokePx)
             syncStartFinish(holder, segments, showStartFinish, startColor, finishColor)
             syncPosition(holder, position, primaryArgb)
+            holder.onPoiClick = onPoiClick
+            syncPois(holder, pois)
 
             if (fitToTrack && !holder.fitted) {
                 val all = segments.flatten()
@@ -205,6 +214,38 @@ private fun syncPosition(holder: MapHolder, position: GeoPoint?, color: Int) {
         map.overlays.add(it)
     }
     marker.position = position
+}
+
+/** Adds/removes pins by POI id so unchanged markers keep their state between updates. */
+private fun syncPois(holder: MapHolder, pois: List<Poi>) {
+    val map = holder.map
+    val wanted = pois.associateBy { it.id }
+    val stale = holder.poiMarkers.keys.filter { it !in wanted }
+    for (id in stale) holder.poiMarkers.remove(id)?.let { map.overlays.remove(it) }
+    if (holder.poiMarkers.keys.containsAll(wanted.keys)) return
+    val icon = ContextCompat.getDrawable(map.context, R.drawable.ic_poi_marker)
+    for (poi in pois) {
+        if (poi.id in holder.poiMarkers) continue
+        val marker = Marker(map).apply {
+            position = GeoPoint(poi.lat, poi.lon)
+            this.icon = icon
+            title = poi.name
+            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+            setInfoWindow(null)
+            isDraggable = false
+            setOnMarkerClickListener { _, _ ->
+                holder.onPoiClick?.invoke(poi)
+                true
+            }
+        }
+        holder.poiMarkers[poi.id] = marker
+        // Below the position dot (added later) but above polylines (inserted at index 0).
+        map.overlays.add(marker)
+    }
+    holder.positionMarker?.let { pos ->
+        map.overlays.remove(pos)
+        map.overlays.add(pos)
+    }
 }
 
 private fun dotMarker(map: MapView, color: Int, sizeDp: Float): Marker {

@@ -70,18 +70,22 @@ io.treklog.app
 ├── data/
 │   ├── db/ (TrekLogDatabase, TrackDao, TrackEntity, TrackPointEntity, Converters)
 │   ├── repo/ (TrackRepository, SettingsRepository)
-│   └── location/ (LocationSource, FusedLocationSource)
+│   ├── location/ (LocationSource, FusedLocationSource)
+│   ├── poi/ (Http, OverpassParser, WikiSummaryParser, PoiRepository)   // 1.1
+│   └── tts/ (TtsSpeaker)                                                // 1.1
 ├── domain/
 │   ├── model/ (Track, TrackPoint, ActivityType, TrackStatus, TrackStats, UnitSystem)
 │   ├── geo/ (Geo.kt — haversine, LocationFilter, ElevationCalculator)
 │   ├── stats/ (TrackStatsCalculator)
 │   ├── activity/ (ActivityClassifier)
-│   └── gpx/ (GpxWriter)
-├── service/ (TrackingService, TrackingController, TrackingNotification)
+│   ├── gpx/ (GpxWriter)
+│   └── poi/ (Poi, WikipediaRef, GeoCell, OverpassQl, PoiFactory, PoiProximity)  // 1.1
+├── service/ (TrackingService, TrackingController, TrackingNotification, PoiAnnouncer)
 ├── ui/
 │   ├── MainActivity.kt, TrekLogApp.kt (NavHost + BottomBar)
 │   ├── theme/
 │   ├── common/ (StatTile, ActivityIcon, TrackMap, UnitFormatter, PermissionHelper)
+│   ├── poi/ (PoiCard, PoiCardViewModel)                                  // 1.1
 │   ├── onboarding/, record/, history/, detail/, stats/, settings/
 └── util/ (AppLog, TimeFormat)
 ```
@@ -157,7 +161,7 @@ erDiagram
 
 ## 7. Карта
 
-`TrackMap` — Compose-обёртка над `osmdroid.MapView` через `AndroidView`. Параметры: список сегментов (список списков `GeoPoint`), текущее положение, режим follow, колбэк `onUserGesture`. Слои: `TilesOverlay` (Mapnik), `Polyline` на сегмент, `Marker` для положения/старт/финиш. Тайлы кэшируются osmdroid в `cacheDir/osmdroid` (не в external storage — без дополнительных разрешений). `User-Agent` = applicationId (требование политики OSM tile usage).
+`TrackMap` — Compose-обёртка над `osmdroid.MapView` через `AndroidView`. Параметры: список сегментов (список списков `GeoPoint`), текущее положение, режим follow, колбэк `onUserGesture`, список `pois` + `onPoiClick`. Слои: `TilesOverlay` (Mapnik), `Polyline` на сегмент, `Marker` для положения/старт/финиш, `Marker` с иконкой `ic_poi_marker` на каждый POI (diff по id, маркер положения всегда сверху). Тайлы кэшируются osmdroid в `cacheDir/osmdroid` (не в external storage — без дополнительных разрешений). `User-Agent` = applicationId (требование политики OSM tile usage).
 
 ## 8. Экспорт GPX
 
@@ -172,6 +176,37 @@ erDiagram
 | UI | Навигация, состояния Record | Compose UI test (androidTest), в MVP — минимально |
 | Ручное | Сервис при выключенном экране, kill процесса, отзыв разрешений | Эмулятор + `adb`, реальное устройство |
 
+## 11. Интересное рядом (POI + TTS, релиз 1.1)
+
+```mermaid
+flowchart LR
+  LIVE[TrackingController.live<br/>lastLat/lastLon] --> CELL[GeoCell.of<br/>сетка 0.005°]
+  CELL -->|distinctUntilChanged| REPO[PoiRepository]
+  REPO -->|cache miss, ≥15 с между запросами| OVP[(Overpass API<br/>overpass-api.de)]
+  OVP --> PARSE[OverpassParser → PoiFactory]
+  PARSE --> REPO
+  REPO --> RVM[RecordViewModel.pois]
+  REPO --> DVM[TrackDetailViewModel.pois<br/>around:400 вдоль полилинии]
+  RVM & DVM --> MAP[TrackMap: Marker на POI]
+  MAP -->|tap| CARD[PoiCardViewModel]
+  CARD --> REPO2[PoiRepository.summary]
+  REPO2 --> WIKI[(Wikipedia REST<br/>page/summary)]
+  CARD --> TTS[TtsSpeaker]
+  LIVE --> ANN[PoiAnnouncer<br/>appScope, ≤150 м, 1 раз/трек]
+  ANN --> REPO
+  ANN --> TTS
+```
+
+**Источник данных.** Overpass QL: `nwr["wikipedia"]["name"][!"boundary"][!"admin_level"](around:R, …); out center 200;` — только объекты со статьёй (гарантирует, что есть что прочитать) и именем; административные границы исключены. На экране записи запрос строится вокруг **центра ячейки сетки** (`GeoCell`, 0.005° ≈ 550 м), R = 1500 м; в деталях — вокруг упрощённой полилинии трека (≤ 80 вершин, 4 знака после запятой), R = 400 м.
+
+**Описание.** Wikipedia REST `GET https://{lang}.wikipedia.org/api/rest_v1/page/summary/{title}` → поле `extract` (лид-секция, plain text), `lang`, `content_urls.mobile.page`. Язык и заголовок берутся из тега `wikipedia:<язык устройства>`, иначе `wikipedia`; `lang` валидируется регулярным выражением `^[a-z]{2,3}(-[a-z]{2,10})?$` до подстановки в hostname.
+
+**Кэш и вежливость к публичным серверам** (`PoiRepository`): LRU 32 ячейки / 8 треков, TTL 30 мин; описания — LRU 64 на время жизни процесса; запросы к Overpass сериализованы `Mutex`, интервал ≥ 15 с, после любой ошибки (429/504/офлайн) — пауза 60 с. `mapLatest` во ViewModel отменяет запрос при смене ячейки.
+
+**TTS.** `TtsSpeaker` (process-wide, в `AppContainer`): `TextToSpeech` + `UtteranceProgressListener` → `StateFlow<speakingId>`; аудиофокус `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK` c `USAGE_ASSISTANCE_NAVIGATION_GUIDANCE`. Ручное чтение — `QUEUE_FLUSH`, авто-объявления — `QUEUE_ADD`. Требуется `<queries><intent action=TTS_SERVICE>` (package visibility, Android 11+).
+
+**Авто-озвучка.** `PoiAnnouncer` живёт в `appScope`, а не во ViewModel: подписан на `settingsFlow` × `trackingController.live`, активен только при `poiEnabled && poiAutoSpeak && serviceRunning`. Использует кэш ячейки (при промахе — одиночный запрос), `PoiProximity.nextToAnnounce` (≤ 150 м, ближайший, не объявленный), множество объявленных сбрасывается при старте новой записи. Работает при выключенном экране, пока FGS держит процесс; в Doze (устройство неподвижно) сеть может быть отложена — в этом случае объект будет объявлен при следующем фиксе.
+
 ## 10. ADR
 
 **ADR-01. osmdroid вместо Google Maps SDK.** Контекст: MVP без бэкенда и биллинга. Решение: osmdroid. Последствия: нет спутникового слоя и Google-стиля; зато нет ключей, квот и Cloud-проекта. Обёртка `TrackMap` изолирует замену.
@@ -185,3 +220,11 @@ erDiagram
 **ADR-05. Хранение точек в СИ, конвертация в UI.** Упрощает алгоритмы и тесты; единицы — чисто презентационное решение.
 
 **ADR-06. Без шифрования БД в MVP.** Данные в приватном каталоге приложения, защищены песочницей ОС; `allowBackup=false` исключает утечку через облачный бэкап. SQLCipher добавляет 5+ МБ и усложняет Room; отложено (см. `07_security.md`).
+
+**ADR-07. Overpass + Wikipedia REST вместо единого Wikipedia GeoSearch.** Контекст: нужны объекты «вокруг трека», а не вокруг точки. Overpass поддерживает `around` вдоль полилинии и даёт категорию (теги OSM) и локализованные имена; Wikipedia REST `page/summary` отдаёт готовый plain-text лид без парсинга wikitext. Последствия: два публичных сервера с лимитами — обязательны кэш, интервалы и backoff; при недоступности функция тихо деградирует.
+
+**ADR-08. HttpURLConnection + org.json вместо OkHttp/Retrofit/Moshi.** Два GET/POST-эндпоинта не оправдывают +1,5 МБ и новые ProGuard-правила (NFR-03). Для JVM-тестов парсеров подключён реальный `org.json:json` (стаб Android SDK бросает «not mocked»).
+
+**ADR-09. Привязка запроса к сетке 0.005°.** Точное положение пользователя не покидает устройство: Overpass получает центр ячейки ≈ 550 м; радиус 1500 м гарантирует покрытие ≥ 1,2 км вокруг реального положения. Побочный эффект — один запрос на ячейку (кэш), что также снижает нагрузку на сервер.
+
+**ADR-10. PoiAnnouncer в application scope, а не в ViewModel/сервисе.** ViewModel умирает с back stack; встраивание в `TrackingService` смешало бы запись с сетью/TTS. Отдельный объект, подписанный на те же потоки, что и UI, при выключенном экране живёт благодаря FGS. Пересмотреть, если появится требование гарантированной озвучки в Doze (тогда — внутрь сервиса с wakelock на время запроса).

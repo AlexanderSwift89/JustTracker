@@ -20,7 +20,8 @@
 | 9 | Тестирование | Тестировщик | `08_test_plan.md`, прогон кейсов, баг-фиксы | 12 |
 | 10 | Безопасность и релиз-подготовка | Безопасность, Техлид | Проверка чек-листа, R8, подпись, AAB | 4 |
 | 11 | Документация и публикация | Тех. писатель, PO | `09_release_google_play.md`, `10_user_guide.md`, README, листинг | 8 |
-| | **Итого** | | | **108** |
+| | **Итого 1.0** | | | **108** |
+| 12 | 1.1 «Интересное рядом» (ступень 1 + А, минимум) | Все роли | POI-маркеры (Overpass + Wikipedia), карточка + TTS, авто-озвучка opt-in; обновление PRD/UX/архитектуры/безопасности/тестов/гайда | 16 |
 
 Критический путь: 3 → 4 → 5 → 6 → 7 → 9 → 10 → 11. Этапы 1–2 могут идти параллельно с 3; этап 8 параллелен с 7 после готовности 4–5.
 
@@ -45,6 +46,14 @@ T-15  SettingsScreen: единицы (метрические/имперские)
 T-16  Локализация en/ru, иконка, splash
 T-17  release: R8/proguard-rules, signingConfig из локального properties, `assembleRelease`/`bundleRelease`
 T-18  Unit-тесты domain (T-04..T-07), Room in-memory (T-02)
+
+--- 1.1 (ступень 1 + А) ---
+T-19  domain/poi: Poi, WikipediaRef (валидация lang/title), GeoCell, OverpassQl, PoiFactory, PoiProximity + unit-тесты
+T-20  data/poi: Http (HttpURLConnection, https-only, лимиты), OverpassParser, WikiSummaryParser (+ org.json в testImplementation), PoiRepository (кэш, 15 с, backoff 60 с)
+T-21  data/tts: TtsSpeaker (init, язык, аудиофокус, speakingId), <queries> TTS_SERVICE
+T-22  UI: TrackMap.pois + onPoiClick (ic_poi_marker), PoiCard + PoiCardViewModel, интеграция в Record/Detail, настройки (2 switch), строки en/ru
+T-23  service/PoiAnnouncer (appScope, opt-in), запуск из Application
+T-24  Документация 1.1: PRD US-16/17, UX §2.7, архитектура §11 + ADR-07..10, безопасность (угрозы, privacy policy, Data safety), сис. анализ UC-06/07 §3.7, тест-план TC-31..42, гайд, release notes
 ```
 
 ## 4. Definition of Done
@@ -91,7 +100,7 @@ T-18  Unit-тесты domain (T-04..T-07), Room in-memory (T-02)
 1. Unit-тесты зелёные.
 2. `lintDebug` без Error.
 3. Smoke: старт записи → 30 с симулированного движения → стоп → трек в истории → открыть детали → экспорт GPX.
-4. Ревью по чек-листу безопасности для изменений в манифесте/сервисе/экспорте.
+4. Ревью по чек-листу безопасности для изменений в манифесте/сервисе/экспорте **и для любого нового сетевого хоста** (с 1.1).
 
 ## 8. Риски и митигация
 

@@ -4,9 +4,12 @@ import android.content.Context
 import io.treklog.app.data.db.TrekLogDatabase
 import io.treklog.app.data.location.FusedLocationSource
 import io.treklog.app.data.location.LocationSource
+import io.treklog.app.data.poi.PoiRepository
+import io.treklog.app.data.tts.TtsSpeaker
 import io.treklog.app.data.repo.SettingsRepository
 import io.treklog.app.data.repo.TrackRepository
 import io.treklog.app.domain.model.AppSettings
+import io.treklog.app.service.PoiAnnouncer
 import io.treklog.app.service.TrackingController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +28,9 @@ class AppContainer(context: Context) {
     val settingsRepository: SettingsRepository by lazy { SettingsRepository(appContext) }
     val locationSource: LocationSource by lazy { FusedLocationSource(appContext) }
     val trackingController: TrackingController by lazy { TrackingController(appContext) }
+    val poiRepository: PoiRepository by lazy { PoiRepository() }
+    val tts: TtsSpeaker by lazy { TtsSpeaker(appContext) }
+    val poiAnnouncer: PoiAnnouncer by lazy { PoiAnnouncer(this) }
 
     /** Hot copy of settings for non-suspending callers (notification formatting). */
     val settingsFlow: StateFlow<AppSettings> by lazy {

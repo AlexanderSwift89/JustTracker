@@ -2,17 +2,19 @@
 
 MVP-приложение: запись GPS-трека по команде пользователя, карта (OpenStreetMap), история, статистика, автоопределение типа движения, экспорт GPX. Без бэкенда, без аккаунтов — все данные на устройстве.
 
+С версии 1.1 — «Интересное рядом»: метки достопримечательностей (Overpass API + Wikipedia) вокруг пользователя и вдоль трека, карточка с описанием и кнопкой «Прочитать вслух» (системный TTS), опциональная авто-озвучка при приближении (выключена по умолчанию). На серверы уходит только примерный район (~500 м), функция отключается в настройках.
+
 ## Структура репозитория
 
 ```
 docs/                       документация команды (промпты ролей, план, PRD, архитектура, безопасность, тесты, релиз)
 android/                    Gradle-проект приложения
   app/src/main/java/io/treklog/app/
-    domain/                 чистые модели и алгоритмы (гео, статистика, классификатор, GPX)
-    data/                   Room, DataStore, Fused Location Provider
-    service/                TrackingService (foreground, type=location), TrackingController
-    ui/                     Compose: record / history / detail / stats / settings / onboarding
-  app/src/test/             unit-тесты домена (36)
+    domain/                 чистые модели и алгоритмы (гео, статистика, классификатор, GPX, poi)
+    data/                   Room, DataStore, Fused Location Provider, poi (Overpass/Wikipedia, HttpURLConnection), tts
+    service/                TrackingService (foreground, type=location), TrackingController, PoiAnnouncer
+    ui/                     Compose: record / history / detail / stats / settings / onboarding / poi (карточка объекта)
+  app/src/test/             unit-тесты домена и парсеров (65)
   app/schemas/              экспорт схемы Room (для миграций)
 CHANGELOG.md
 ```

@@ -120,6 +120,25 @@
     <string name="settings_privacy_url" translatable="false">https://treklog.app/privacy</string>
     <string name="settings_version">Version</string>
     <string name="settings_map_attribution">Map data © OpenStreetMap contributors</string>
+    <string name="settings_poi_section">Places nearby</string>
+    <string name="settings_poi_enabled">Show places nearby</string>
+    <string name="settings_poi_enabled_desc">Pins for places with a Wikipedia article around you and along your tracks. Sends the approximate area (not your exact position) to OpenStreetMap Overpass servers.</string>
+    <string name="settings_poi_auto_speak">Read aloud when approaching</string>
+    <string name="settings_poi_auto_speak_desc">While recording, announces a place once you are within 150 m of it. Uses the device text-to-speech engine.</string>
+    <string name="settings_poi_attribution">Places: © OpenStreetMap contributors (Overpass API). Descriptions: Wikipedia, CC BY-SA 4.0.</string>
+
+    <!-- Places (POI) card -->
+    <string name="poi_read_aloud">Read aloud</string>
+    <string name="poi_stop_reading">Stop</string>
+    <string name="poi_open_wikipedia">Wikipedia</string>
+    <string name="poi_summary_unavailable">No description available — check your connection or open the article.</string>
+    <string name="poi_attribution">Text from Wikipedia, CC BY-SA 4.0</string>
+    <string name="poi_kind_museum">Museum</string>
+    <string name="poi_kind_attraction">Attraction</string>
+    <string name="poi_kind_historic">Historic site</string>
+    <string name="poi_kind_worship">Place of worship</string>
+    <string name="poi_kind_nature">Nature</string>
+    <string name="poi_kind_place">Place</string>
 
     <!-- Activity types -->
     <string name="activity_walk">Walking</string>

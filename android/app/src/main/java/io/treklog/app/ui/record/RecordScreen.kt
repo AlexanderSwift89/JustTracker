@@ -70,6 +70,9 @@ import io.treklog.app.ui.common.ActivityBadge
 import io.treklog.app.ui.common.Permissions
 import io.treklog.app.ui.common.TrackMap
 import io.treklog.app.ui.common.appViewModel
+import io.treklog.app.domain.poi.PoiProximity
+import io.treklog.app.ui.poi.PoiCard
+import io.treklog.app.ui.poi.PoiCardViewModel
 import io.treklog.app.util.TimeFormat
 import io.treklog.app.util.UnitFormatter
 
@@ -77,8 +80,10 @@ import io.treklog.app.util.UnitFormatter
 fun RecordScreen(
     onTrackFinished: (Long) -> Unit,
     viewModel: RecordViewModel = appViewModel { RecordViewModel(it) },
+    poiCardViewModel: PoiCardViewModel = appViewModel(key = "poi-record") { PoiCardViewModel(it) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val poiCard by poiCardViewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val activity = context as? Activity
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -118,6 +123,13 @@ fun RecordScreen(
     }
 
     LaunchedEffect(Unit) { if (hasPermission) viewModel.seedLastKnownLocation() }
+
+    // Keep the distance in the open place card in sync with the live position.
+    LaunchedEffect(state.position, poiCard?.poi?.id) {
+        val card = poiCard ?: return@LaunchedEffect
+        val pos = state.position
+        poiCardViewModel.updateDistance(pos?.let { PoiProximity.distanceTo(card.poi, it.latitude, it.longitude) })
+    }
 
     // React exactly once per finish event: open the detail screen or explain why nothing was saved.
     LaunchedEffect(state.live.finishSerial) {
@@ -186,6 +198,11 @@ fun RecordScreen(
                 position = state.position,
                 follow = follow,
                 onUserGesture = { follow = false },
+                pois = state.pois,
+                onPoiClick = { poi ->
+                    val pos = state.position
+                    poiCardViewModel.open(poi, pos?.let { PoiProximity.distanceTo(poi, it.latitude, it.longitude) })
+                },
             )
 
             AnimatedVisibility(
@@ -242,6 +259,15 @@ fun RecordScreen(
                 }
             }
         }
+    }
+
+    poiCard?.let { card ->
+        PoiCard(
+            state = card,
+            formatter = formatter,
+            onDismiss = poiCardViewModel::close,
+            onToggleSpeak = poiCardViewModel::toggleSpeak,
+        )
     }
 
     if (showStopDialog) {

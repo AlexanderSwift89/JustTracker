@@ -13,6 +13,8 @@ class TrekLogApplication : Application() {
         super.onCreate()
         container = AppContainer(this)
         configureOsmdroid()
+        // Idle until the user enables auto-announcements and a recording is running.
+        container.poiAnnouncer.start()
     }
 
     /**
