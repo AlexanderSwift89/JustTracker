@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TrekLog</string>
+
+    <!-- Navigation -->
+    <string name="nav_record">Record</string>
+    <string name="nav_history">History</string>
+    <string name="nav_stats">Stats</string>
+    <string name="nav_settings">Settings</string>
+    <string name="action_back">Back</string>
+    <string name="action_more">More</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_save">Save</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_rename">Rename</string>
+    <string name="action_change_type">Change activity type</string>
+    <string name="action_export_gpx">Export GPX</string>
+    <string name="action_open_settings">Open settings</string>
+    <string name="action_allow">Allow</string>
+    <string name="action_continue">Continue</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_title">Record your routes</string>
+    <string name="onboarding_subtitle">Your tracks stay on your phone. No account, no cloud, no ads.</string>
+    <string name="onboarding_location_title">Location</string>
+    <string name="onboarding_location_body">Needed to draw your route on the map while you record.</string>
+    <string name="onboarding_notifications_title">Notifications</string>
+    <string name="onboarding_notifications_body">Shows the recording status when the screen is off.</string>
+
+    <!-- Record screen -->
+    <string name="record_ready">Ready to record</string>
+    <string name="record_start">Start</string>
+    <string name="record_pause">Pause</string>
+    <string name="record_resume">Resume</string>
+    <string name="record_stop">Stop</string>
+    <string name="record_paused">Paused</string>
+    <string name="record_gps_ok">GPS</string>
+    <string name="record_gps_searching">Searching GPS…</string>
+    <string name="record_center_map">Center map on me</string>
+    <string name="record_stop_dialog_title">Finish recording?</string>
+    <string name="record_stop_dialog_body">The track will be saved to History.</string>
+    <string name="record_stop_dialog_confirm">Finish</string>
+    <string name="record_too_few_points">Too little data — track was not saved</string>
+    <string name="record_permission_title">Location access needed</string>
+    <string name="record_permission_body">TrekLog uses your precise location only while you record a track.</string>
+    <string name="record_permission_denied_forever">Location permission is disabled. Enable it in app settings to record tracks.</string>
+    <string name="record_gps_off_banner">Location is turned off</string>
+    <string name="record_gps_off_action">Turn on</string>
+    <string name="record_recovered_title">Unfinished recording</string>
+    <string name="record_recovered_body">A recording was interrupted. Continue it or finish and save?</string>
+    <string name="record_recovered_continue">Continue</string>
+    <string name="record_recovered_finish">Finish</string>
+    <string name="record_label_distance">Distance</string>
+    <string name="record_label_moving_time">Moving time</string>
+    <string name="record_label_avg_speed">Avg</string>
+    <string name="record_speed_unavailable">—</string>
+
+    <!-- Notification -->
+    <string name="notification_channel_name">Track recording</string>
+    <string name="notification_channel_description">Shown while a track is being recorded</string>
+    <string name="notification_title_recording">Recording track</string>
+    <string name="notification_title_paused">Recording paused</string>
+    <string name="notification_text_format">%1$s · %2$s · %3$s</string>
+
+    <!-- History -->
+    <string name="history_title">History</string>
+    <string name="history_empty_title">No tracks yet</string>
+    <string name="history_empty_body">Tap Start on the Record tab to record your first route.</string>
+    <string name="history_delete_dialog_title">Delete track?</string>
+    <string name="history_delete_dialog_body">This cannot be undone.</string>
+
+    <!-- Track detail -->
+    <string name="detail_title">Track</string>
+    <string name="detail_distance">Distance</string>
+    <string name="detail_moving_time">Moving time</string>
+    <string name="detail_total_time">Total time</string>
+    <string name="detail_avg_speed">Avg speed</string>
+    <string name="detail_max_speed">Max speed</string>
+    <string name="detail_elevation_gain">Elevation gain</string>
+    <string name="detail_elevation_loss">Elevation loss</string>
+    <string name="detail_pace">Pace</string>
+    <string name="detail_points">Points</string>
+    <string name="detail_started">Started</string>
+    <string name="detail_rename_title">Rename track</string>
+    <string name="detail_rename_hint">Track name</string>
+    <string name="detail_type_sheet_title">Activity type</string>
+    <string name="detail_type_auto_hint">Detected automatically. Choose to override.</string>
+    <string name="detail_export_chooser">Share GPX</string>
+    <string name="detail_export_failed">Could not export track</string>
+    <string name="detail_not_found">Track not found</string>
+
+    <!-- Stats -->
+    <string name="stats_title">Statistics</string>
+    <string name="stats_total_tracks">Tracks</string>
+    <string name="stats_total_distance">Distance</string>
+    <string name="stats_total_time">Moving time</string>
+    <string name="stats_this_week">This week</string>
+    <string name="stats_this_month">This month</string>
+    <string name="stats_by_type">By activity</string>
+    <string name="stats_longest">Longest track</string>
+    <string name="stats_fastest">Fastest avg speed</string>
+    <plurals name="stats_tracks_count">
+        <item quantity="one">%d track</item>
+        <item quantity="other">%d tracks</item>
+    </plurals>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_units">Units</string>
+    <string name="settings_units_metric">Metric (km, m)</string>
+    <string name="settings_units_imperial">Imperial (mi, ft)</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_accuracy">GPS accuracy threshold</string>
+    <string name="settings_accuracy_desc">Points with worse accuracy than %1$d m are ignored</string>
+    <string name="settings_keep_screen_on">Keep screen on while recording</string>
+    <string name="settings_privacy">Privacy policy</string>
+    <string name="settings_privacy_url" translatable="false">https://treklog.app/privacy</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_map_attribution">Map data © OpenStreetMap contributors</string>
+
+    <!-- Activity types -->
+    <string name="activity_walk">Walking</string>
+    <string name="activity_run">Running</string>
+    <string name="activity_bike">Cycling</string>
+    <string name="activity_car">Driving</string>
+    <string name="activity_other">Other</string>
+    <string name="activity_unknown">Track</string>
+
+    <!-- Units -->
+    <string name="unit_km">km</string>
+    <string name="unit_m">m</string>
+    <string name="unit_mi">mi</string>
+    <string name="unit_ft">ft</string>
+    <string name="unit_kmh">km/h</string>
+    <string name="unit_mph">mph</string>
+    <string name="unit_pace_km">/km</string>
+    <string name="unit_pace_mi">/mi</string>
+
+    <!-- Accessibility -->
+    <string name="cd_activity_icon">Activity type: %1$s</string>
+    <string name="cd_map">Map</string>
+</resources>

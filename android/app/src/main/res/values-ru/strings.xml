@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TrekLog</string>
+
+    <string name="nav_record">Запись</string>
+    <string name="nav_history">История</string>
+    <string name="nav_stats">Статистика</string>
+    <string name="nav_settings">Настройки</string>
+    <string name="action_back">Назад</string>
+    <string name="action_more">Ещё</string>
+    <string name="action_cancel">Отмена</string>
+    <string name="action_save">Сохранить</string>
+    <string name="action_delete">Удалить</string>
+    <string name="action_rename">Переименовать</string>
+    <string name="action_change_type">Изменить тип движения</string>
+    <string name="action_export_gpx">Экспорт GPX</string>
+    <string name="action_open_settings">Открыть настройки</string>
+    <string name="action_allow">Разрешить</string>
+    <string name="action_continue">Продолжить</string>
+
+    <string name="onboarding_title">Записывайте маршруты</string>
+    <string name="onboarding_subtitle">Треки остаются на вашем телефоне. Без аккаунта, без облака, без рекламы.</string>
+    <string name="onboarding_location_title">Геолокация</string>
+    <string name="onboarding_location_body">Нужна, чтобы рисовать ваш маршрут на карте во время записи.</string>
+    <string name="onboarding_notifications_title">Уведомления</string>
+    <string name="onboarding_notifications_body">Показывают статус записи при выключенном экране.</string>
+
+    <string name="record_ready">Готов к записи</string>
+    <string name="record_start">Старт</string>
+    <string name="record_pause">Пауза</string>
+    <string name="record_resume">Продолжить</string>
+    <string name="record_stop">Стоп</string>
+    <string name="record_paused">Пауза</string>
+    <string name="record_gps_ok">GPS</string>
+    <string name="record_gps_searching">Поиск GPS…</string>
+    <string name="record_center_map">Центрировать карту</string>
+    <string name="record_stop_dialog_title">Завершить запись?</string>
+    <string name="record_stop_dialog_body">Трек будет сохранён в историю.</string>
+    <string name="record_stop_dialog_confirm">Завершить</string>
+    <string name="record_too_few_points">Слишком мало данных — трек не сохранён</string>
+    <string name="record_permission_title">Нужен доступ к геолокации</string>
+    <string name="record_permission_body">TrekLog использует точное местоположение только во время записи трека.</string>
+    <string name="record_permission_denied_forever">Доступ к геолокации отключён. Включите его в настройках приложения, чтобы записывать треки.</string>
+    <string name="record_gps_off_banner">Геолокация выключена</string>
+    <string name="record_gps_off_action">Включить</string>
+    <string name="record_recovered_title">Незавершённая запись</string>
+    <string name="record_recovered_body">Запись была прервана. Продолжить или завершить и сохранить?</string>
+    <string name="record_recovered_continue">Продолжить</string>
+    <string name="record_recovered_finish">Завершить</string>
+    <string name="record_label_distance">Дистанция</string>
+    <string name="record_label_moving_time">Время движения</string>
+    <string name="record_label_avg_speed">Средняя</string>
+    <string name="record_speed_unavailable">—</string>
+
+    <string name="notification_channel_name">Запись трека</string>
+    <string name="notification_channel_description">Показывается во время записи трека</string>
+    <string name="notification_title_recording">Идёт запись трека</string>
+    <string name="notification_title_paused">Запись на паузе</string>
+    <string name="notification_text_format">%1$s · %2$s · %3$s</string>
+
+    <string name="history_title">История</string>
+    <string name="history_empty_title">Пока нет треков</string>
+    <string name="history_empty_body">Нажмите «Старт» на вкладке «Запись», чтобы записать первый маршрут.</string>
+    <string name="history_delete_dialog_title">Удалить трек?</string>
+    <string name="history_delete_dialog_body">Это действие нельзя отменить.</string>
+
+    <string name="detail_title">Трек</string>
+    <string name="detail_distance">Дистанция</string>
+    <string name="detail_moving_time">Время движения</string>
+    <string name="detail_total_time">Общее время</string>
+    <string name="detail_avg_speed">Средняя скорость</string>
+    <string name="detail_max_speed">Макс. скорость</string>
+    <string name="detail_elevation_gain">Набор высоты</string>
+    <string name="detail_elevation_loss">Сброс высоты</string>
+    <string name="detail_pace">Темп</string>
+    <string name="detail_points">Точек</string>
+    <string name="detail_started">Начало</string>
+    <string name="detail_rename_title">Переименовать трек</string>
+    <string name="detail_rename_hint">Название трека</string>
+    <string name="detail_type_sheet_title">Тип движения</string>
+    <string name="detail_type_auto_hint">Определён автоматически. Выберите, чтобы изменить.</string>
+    <string name="detail_export_chooser">Поделиться GPX</string>
+    <string name="detail_export_failed">Не удалось экспортировать трек</string>
+    <string name="detail_not_found">Трек не найден</string>
+
+    <string name="stats_title">Статистика</string>
+    <string name="stats_total_tracks">Треков</string>
+    <string name="stats_total_distance">Дистанция</string>
+    <string name="stats_total_time">Время движения</string>
+    <string name="stats_this_week">Эта неделя</string>
+    <string name="stats_this_month">Этот месяц</string>
+    <string name="stats_by_type">По типам движения</string>
+    <string name="stats_longest">Самый длинный трек</string>
+    <string name="stats_fastest">Лучшая средняя скорость</string>
+    <plurals name="stats_tracks_count">
+        <item quantity="one">%d трек</item>
+        <item quantity="few">%d трека</item>
+        <item quantity="many">%d треков</item>
+        <item quantity="other">%d трека</item>
+    </plurals>
+
+    <string name="settings_title">Настройки</string>
+    <string name="settings_units">Единицы измерения</string>
+    <string name="settings_units_metric">Метрические (км, м)</string>
+    <string name="settings_units_imperial">Имперские (мили, футы)</string>
+    <string name="settings_theme">Тема</string>
+    <string name="settings_theme_system">Системная</string>
+    <string name="settings_theme_light">Светлая</string>
+    <string name="settings_theme_dark">Тёмная</string>
+    <string name="settings_accuracy">Порог точности GPS</string>
+    <string name="settings_accuracy_desc">Точки с точностью хуже %1$d м игнорируются</string>
+    <string name="settings_keep_screen_on">Не гасить экран при записи</string>
+    <string name="settings_privacy">Политика конфиденциальности</string>
+    <string name="settings_version">Версия</string>
+    <string name="settings_map_attribution">Данные карты © участники OpenStreetMap</string>
+
+    <string name="activity_walk">Пешком</string>
+    <string name="activity_run">Бег</string>
+    <string name="activity_bike">Велосипед</string>
+    <string name="activity_car">Автомобиль</string>
+    <string name="activity_other">Другое</string>
+    <string name="activity_unknown">Трек</string>
+
+    <string name="unit_km">км</string>
+    <string name="unit_m">м</string>
+    <string name="unit_mi">мили</string>
+    <string name="unit_ft">фут</string>
+    <string name="unit_kmh">км/ч</string>
+    <string name="unit_mph">миль/ч</string>
+    <string name="unit_pace_km">/км</string>
+    <string name="unit_pace_mi">/миля</string>
+
+    <string name="cd_activity_icon">Тип движения: %1$s</string>
+    <string name="cd_map">Карта</string>
+</resources>

@@ -1,0 +1,46 @@
+package io.treklog.app.data.repo
+
+import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import io.treklog.app.domain.model.AppSettings
+import io.treklog.app.domain.model.ThemeMode
+import io.treklog.app.domain.model.UnitSystem
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+
+private val Context.settingsStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+
+class SettingsRepository(private val context: Context) {
+    private object Keys {
+        val UNITS = stringPreferencesKey("units")
+        val THEME = stringPreferencesKey("theme")
+        val MAX_ACCURACY = intPreferencesKey("max_accuracy_m")
+        val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
+        val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
+    }
+
+    val settings: Flow<AppSettings> = context.settingsStore.data.map { p ->
+        AppSettings(
+            units = p[Keys.UNITS]?.let { runCatching { UnitSystem.valueOf(it) }.getOrNull() } ?: UnitSystem.METRIC,
+            theme = p[Keys.THEME]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
+            maxAccuracyM = p[Keys.MAX_ACCURACY] ?: 50,
+            keepScreenOn = p[Keys.KEEP_SCREEN_ON] ?: false,
+            onboardingDone = p[Keys.ONBOARDING_DONE] ?: false,
+        )
+    }
+
+    suspend fun current(): AppSettings = settings.first()
+
+    suspend fun setUnits(units: UnitSystem) = context.settingsStore.edit { it[Keys.UNITS] = units.name }
+    suspend fun setTheme(theme: ThemeMode) = context.settingsStore.edit { it[Keys.THEME] = theme.name }
+    suspend fun setMaxAccuracy(meters: Int) = context.settingsStore.edit { it[Keys.MAX_ACCURACY] = meters.coerceIn(10, 100) }
+    suspend fun setKeepScreenOn(on: Boolean) = context.settingsStore.edit { it[Keys.KEEP_SCREEN_ON] = on }
+    suspend fun setOnboardingDone() = context.settingsStore.edit { it[Keys.ONBOARDING_DONE] = true }
+}
