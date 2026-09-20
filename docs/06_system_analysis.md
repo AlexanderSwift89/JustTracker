@@ -1,4 +1,4 @@
-# TrekLog — системная спецификация (системный аналитик)
+# JustTracker — системная спецификация (системный аналитик)
 
 ## 1. Сценарии использования
 
@@ -50,6 +50,20 @@
 **Поток.** На каждом обновлении `live` (≈ 1 Гц, conflated): ячейка → кэш объектов (промах → одиночный запрос); `nextToAnnounce` — ближайший необъявленный объект ≤ 150 м; добавить в «объявленные»; получить summary; произнести «<Название>. <spokenIntro ≤ 320 символов до границы предложения>» в режиме QUEUE_ADD. Множество объявленных очищается при переходе `serviceRunning: false → true`.
 **Исключения.** Ошибки сети — объект остаётся необъявленным до следующей проверки (не добавляется в множество, если список объектов не получен); ошибка TTS — логируется, аудиофокус освобождается.
 
+### UC-08. Выбор языка (JustTracker, US-18)
+**Основной поток.** 1. Первый запуск: `AppSettings.language == null` → шаг «Выберите язык», предвыбор `AppLanguage.forDevice()` (ru → RU, иначе EN). 2. «Продолжить» → `SettingsRepository.setLanguage(tag)` (DataStore, ключ `language`) → `AppLocale.apply`: `Locale.setDefault` + `AppCompatDelegate.setApplicationLocales`. 3. AppCompat пересоздаёт activity (API < 33 — только если локаль отличается; 33+ — всегда через системный LocaleManager); онбординг продолжается со шага разрешений. 4. Настройки → «Язык» → тот же путь без онбординга.
+**Инварианты.** DataStore — источник истины: при каждом запуске `MainActivity` вызывает `AppLocale.sync` (если AppCompat «забыл» выбор — после restore/переустановки — он восстанавливается); `AppContainer` держит `Locale.getDefault()` равным выбору; сервис получает строки через `AppLocale.localized`. Вариант «системный» отсутствует.
+**Альтернативы.** A1: язык устройства не поддерживается → предвыбор EN. A2: пользователь сменил язык приложения в системных настройках (Android 13+) → AppCompat сообщает новую локаль, но DataStore не меняется → при следующем `sync` побеждает выбор в приложении (документированное поведение; при желании обратной синхронизации — читать `getApplicationLocales` в `MainActivity` и писать в DataStore).
+
+### UC-09. Загрузка региона офлайн-карты (US-19)
+**Предусловия.** Есть внешнее хранилище (`getExternalFilesDir`), каталог загружен из `assets/maps/regions.json`.
+**Основной поток.** 1. Настройки → Офлайн-карты → «Скачать» у региона → диалог (имя, размер, условие сети). 2. Подтверждение → `OfflineRegionStore.download(id)`: проверка `RegionTransitions` (absent → QUEUED / ERROR → QUEUED), проверка места (`free ≥ size + 200 МБ`), `RegionDownloader.enqueue` (DownloadManager, `<id>.map.part`, `NETWORK_WIFI` при `mapsWifiOnly`), строка в `offline_regions` со `downloadId`. 3. Поллинг статуса раз в 1 с → прогресс в UI; `STATUS_RUNNING` → DOWNLOADING; `PAUSED_WAITING_FOR_NETWORK`/`QUEUED_FOR_WIFI` → «Ожидание Wi-Fi/сети». 4. `ACTION_DOWNLOAD_COMPLETE` (receiver) или поллинг → `onDownloadFinished`: `STATUS_SUCCESSFUL` → VERIFYING → `MapFileInspector` читает заголовок → переименование в `<id>.map`, bbox/размер из заголовка → READY. 5. `readyCoverage` обновляется → `TrackMap` пересобирает `HybridTileProvider`.
+**Альтернативные потоки.** A1 нет сети при постановке → DownloadManager ждёт, статус «Ожидание сети». A2 мало места → `RegionError.NO_SPACE`, строка не создаётся, Snackbar. A3 обрыв/HTTP-ошибка → `STATUS_FAILED` → ERROR(NETWORK) с кнопкой «Повторить» (`retry` → QUEUED, заново). A4 повреждённый/неполный файл → ERROR(CORRUPT), файл удалён. A5 отмена → `dm.remove` (частичный файл удалён), строка удалена. A6 процесс убит → загрузка продолжается системой; при старте `reconcile()` сверяет строки с DownloadManager и файлами (потерянные → ERROR(LOST)). A7 удаление READY → файл и строка удалены, карта области снова онлайн. A8 нет внешнего хранилища → загрузки недоступны, только импорт.
+
+### UC-10. Импорт файла карты (US-20)
+**Поток.** 1. «Импортировать файл .map» → системный `OpenDocument` (`*/*`, у `.map` нет MIME). 2. Файл копируется в `<maps>/import-<uuid>.map.part`; `MapFileInspector.inspect` → при успехе переименование в `.map`, строка READY со `source = IMPORT`, имя — из `DISPLAY_NAME` без расширения. 3. Регион используется как в UC-09.
+**Альтернативы.** A1 не карта Mapsforge / ошибка чтения → файл удалён, Snackbar «Файл не является картой». A2 `.map` скопирован в папку вручную → `reconcile()` при старте создаёт строку IMPORT (`adoptFile`). A3 удаление импортированного — как у каталожного.
+
 ## 2. Модель данных
 
 Единицы хранения — СИ. Все времена — epoch millis UTC.
@@ -93,8 +107,29 @@
 |------|-----|--------------|
 | units | METRIC / IMPERIAL | METRIC |
 | theme | SYSTEM / LIGHT / DARK | SYSTEM |
-| maxAccuracyM | Int | 50 |
-| keepScreenOn | Boolean | false |
+| max_accuracy_m | Int (10..100) | 50 |
+| keep_screen_on | Boolean | false |
+| onboarding_done | Boolean | false |
+| poi_enabled | Boolean | true |
+| poi_auto_speak | Boolean | false |
+| language | "en" / "ru" (AppLanguage.tag), отсутствует до выбора | — (null) |
+| maps_wifi_only | Boolean | true |
+
+### OfflineRegion (Room, таблица `offline_regions`, JustTracker)
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | String PK | id из каталога или `import-<uuid>` / `import-<имя файла>` |
+| nameEn, nameRu | String | имена; для импорта — имя файла в обоих |
+| fileName | String | относительно папки карт: `<id>.map` или `<id>.map.part` во время загрузки |
+| sizeBytes | Long | из каталога, после проверки — реальный размер файла |
+| minLat, minLon, maxLat, maxLon | Double | bbox: из каталога (приблизительно), после проверки — из заголовка файла |
+| source | CATALOG / IMPORT | |
+| status | QUEUED / DOWNLOADING / VERIFYING / READY / ERROR | см. §12 архитектуры |
+| downloadId | Long? | id в DownloadManager, пока идёт загрузка |
+| errorReason | NO_SPACE / NETWORK / CORRUPT / LOST / UNKNOWN? | |
+| updatedAt | Long | epoch millis |
+
+Папка карт: `getExternalFilesDir("maps")` (fallback `filesDir/maps`); исключена из backup. Файлы `.map` — формат Mapsforge (V5), только для чтения.
 
 ## 3. Алгоритмы
 
@@ -152,7 +187,10 @@ d = 2R · atan2(√a, √(1−a))
 Правила разрешения конфликтов: проверяются сверху вниз, первое совпавшее правило побеждает; CAR проверяется до BIKE по условию `v90 ≥ 16`. Если `activityManual = true`, классификация не применяется.
 
 ### 3.6. Автоименование
-`"<ActivityName> · <dd MMM yyyy, HH:mm>"` в локали пользователя; при UNKNOWN — «Трек».
+`"<ActivityName> · <d MMM, HH:mm>"` в **языке приложения** (`AppLocale.current(settings)`, не в системной локали); при UNKNOWN — «Трек».
+
+### 3.8. Выбор источника тайла (MapSourceResolver, JustTracker)
+Для тайла (z, x, y): если `z < 8` или нет READY-регионов → ONLINE; иначе bbox тайла (`LatLonBox.ofTile`, Web Mercator) пересекается с bbox каждого READY-региона (границы включительно) → OFFLINE(список файлов пересечённых регионов) или ONLINE. Регионы, пересекающие антимеридиан, в каталоге разбиты на два (Дальний Восток 1/2). Проверка выполняется на каждый запрос тайла в потоке рендера (O(регионов), без аллокаций).
 
 ### 3.7. Интересное рядом: сетка, запросы, категории, близость (1.1)
 
@@ -182,13 +220,16 @@ d = 2R · atan2(√a, √(1−a))
 |----|------------|----------|
 | NFR-01 | Расход батареи при записи | ≤ 8 %/час на устройстве среднего класса (эталон: Pixel 6a) |
 | NFR-02 | Холодный старт | ≤ 2 с до интерактивного экрана |
-| NFR-03 | Размер AAB | ≤ 15 МБ |
+| NFR-03 | Размер AAB | ≤ 15 МБ (release APK 1.0.0 — ≈ 3 МБ с mapsforge) |
 | NFR-04 | Минимальная версия | Android 8.0 (API 26) |
 | NFR-05 | Целевая версия | API 36 |
-| NFR-06 | Локализация | en (default), ru |
-| NFR-07 | Офлайн | все функции кроме загрузки тайлов карты и «Интересного рядом» работают без сети; ранее просмотренные тайлы берутся из кэша osmdroid; отсутствие сети не показывает ошибок в POI-функции |
+| NFR-06 | Локализация | en (default), ru; язык выбирается явно в приложении (US-18), оба языка в каждой установке (`bundle.language.enableSplit=false`) |
+| NFR-07 | Офлайн | все функции кроме онлайн-тайлов и «Интересного рядом» работают без сети; ранее просмотренные тайлы берутся из кэша osmdroid; отсутствие сети не показывает ошибок в POI-функции |
+| NFR-13 | Офлайн-карта региона | внутри скачанного региона карта (зум 8–20) отрисовывается без сети целиком; за границей — кэш/пусто без ошибок; первый тайл региона ≤ 1 с на устройстве среднего класса; переключение источника по тайлу без мерцания |
+| NFR-14 | Без Google-сервисов | нет зависимостей `com.google.android.gms:*`; все функции работают на образе AOSP без Google APIs; первый GPS-фикс ≤ 30 с под открытым небом |
+| NFR-15 | Загрузки регионов | по умолчанию только Wi-Fi; отказ при `свободно < размер + 200 МБ`; докачка после обрыва (DownloadManager); завершение обрабатывается и при убитом процессе |
 | NFR-11 | Сетевой трафик POI (1.1) | ≤ 1 запрос Overpass на ячейку 0.005° за 30 мин (ответ обычно 5–60 КБ); ≤ 1 запрос Wikipedia на открытую статью за процесс |
-| NFR-12 | Хосты (1.1) | только `tile.openstreetmap.org`, `overpass-api.de`, `*.wikipedia.org`, HTTPS |
+| NFR-12 | Хосты | только `tile.openstreetmap.org`, `download.mapsforge.org` (регионы, по явной команде), `overpass-api.de`, `*.wikipedia.org`; HTTPS |
 | NFR-08 | Объём данных | до 100 000 точек на трек, до 1 000 треков без деградации списка (пагинация не требуется в MVP; список читает только агрегаты) |
 | NFR-09 | Задержка отображения новой точки | ≤ 3 с |
 | NFR-10 | Доступность | TalkBack-описания на всех интерактивных элементах, touch-target ≥ 48 dp |
@@ -197,7 +238,7 @@ d = 2R · atan2(√a, √(1−a))
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="TrekLog" xmlns="http://www.topografix.com/GPX/1/1">
+<gpx version="1.1" creator="JustTracker" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata><name>…</name><time>2026-09-19T10:00:00Z</time></metadata>
   <trk>
     <name>…</name>

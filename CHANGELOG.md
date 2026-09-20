@@ -1,5 +1,53 @@
 # Changelog
 
+## JustTracker [1.0.0] - 2026-09-21 (fork of TrekLog 1.2.0 for RuStore)
+
+JustTracker is a new product line (`com.justtracker.app`, versionCode 1) branched from TrekLog 1.2.0: "just a tracker" —
+simple and self-contained. Everything below the TrekLog 1.2.0 entry is inherited history.
+
+### Added
+- **Offline map regions** (US-19/US-20): Settings → Offline maps — catalogue of Mapsforge region files
+  (Russian federal districts, Crimea, Kaliningrad, neighbouring countries, a small test region) from
+  download.mapsforge.org, downloads via the system DownloadManager (Wi-Fi only by default, free-space
+  check, resume, completion handled even when the app is dead), header verification, import of a user
+  `.map` file. Tiles inside a ready region (zoom ≥ 8) are rendered from the file; everything else stays
+  online/cached (`HybridTileProvider`, per-tile routing). ADR-13.
+- **Explicit language choice** (US-18): first onboarding step and a Settings item — English / Русский,
+  no "system" option; AppCompat per-app locales (persists on Android 8–12 too); auto-names, the
+  recording notification, Wikipedia language and TTS fallback follow the app language. ADR-15.
+- Splash screen (core-splashscreen), predictive back, adaptive navigation (`NavigationSuiteScaffold`:
+  bar / rail), explicit M3 Typography (tabular figures) and Shapes, pinned top-bar scroll behaviour,
+  themed (monochrome) launcher icon, new brand icon.
+- RuStore readiness: `store/rustore/` (RU/EN listing, 512 px icon + generator, 1080×1920 screenshots,
+  category & 436-FZ age rating, permissions / data-safety declaration, moderator notes), signed
+  `release-signed` CI job, GitHub Pages site with the bilingual privacy policy, version overrides via
+  `-PversionCode/-PversionName`.
+- 26 new unit tests (107 total): provider policy, language tags, tile bounds, map source resolver,
+  region state machine, DownloadManager reason mapping, catalogue parser + bundled catalogue validity.
+
+### Changed
+- **No Google Play Services**: `PlatformLocationSource` on `android.location.LocationManager`
+  (AOSP fused provider on Android 12+, GPS/network fallback) replaces FusedLocationProvider;
+  `play-services-location` and `kotlinx-coroutines-play-services` removed. ADR-14.
+- `MainActivity` is an `AppCompatActivity`; theme parent `Theme.AppCompat.DayNight.NoActionBar`.
+- Map inversion in dark mode follows the app theme, not only the system one.
+- Record screen overlays apply safe-drawing insets themselves; the bottom panel uses the theme's
+  extra-large shape (top corners only).
+- Switch rows in Settings are single toggleable targets (TalkBack reads one control).
+- Tab click pops back to a destination already on the stack (fixes the Record tab after an activity
+  recreation).
+- Package, brand strings, GPX creator, log tag, POI User-Agent, privacy URL renamed to JustTracker.
+
+### Data
+- Room schema version 1 gains the `offline_regions` table (fresh package — no migration).
+- New DataStore keys: `language`, `maps_wifi_only`.
+- Region files live in `getExternalFilesDir("maps")`, excluded from backup.
+
+### Security / privacy
+- Network hosts whitelist extended with `download.mapsforge.org` (only https, only on explicit user
+  action); catalogue parser rejects anything else. `DownloadCompleteReceiver` is exported (system
+  broadcast) but only looks up the id in DownloadManager. R8 keeps `org.mapsforge.**`.
+
 ## [1.2.0] - 2026-09-20 (Recording time + speed along the track)
 
 ### Changed

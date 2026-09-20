@@ -1,49 +1,58 @@
-# TrekLog — GPS-трекер маршрутов для Android
+# JustTracker — просто трекер (GPS-маршруты для Android, RuStore)
 
-[![Android CI](https://github.com/AlexanderSwift89/treklog-android/actions/workflows/android.yml/badge.svg)](https://github.com/AlexanderSwift89/treklog-android/actions/workflows/android.yml)
+[![Android CI](https://github.com/AlexanderSwift89/JustTracker/actions/workflows/android.yml/badge.svg)](https://github.com/AlexanderSwift89/JustTracker/actions/workflows/android.yml)
 
-MVP-приложение: запись GPS-трека по команде пользователя, карта (OpenStreetMap), история, статистика, автоопределение типа движения, экспорт GPX. Без бэкенда, без аккаунтов — все данные на устройстве.
+Простой и автономный GPS-трекер: запись маршрута одной кнопкой, карта (OpenStreetMap), история, статистика, автоопределение типа движения, экспорт GPX. Без бэкенда, без аккаунтов, **без сервисов Google**, с **офлайн-картами регионов** и **явным выбором языка** (русский / английский). Публикуется в **RuStore**.
 
-С версии 1.1 — «Интересное рядом»: метки достопримечательностей (Overpass API + Wikipedia) вокруг пользователя и вдоль трека, карточка с описанием и кнопкой «Прочитать вслух» (системный TTS), опциональная авто-озвучка при приближении (выключена по умолчанию). На серверы уходит только примерный район (~500 м), функция отключается в настройках.
+JustTracker — ответвление [TrekLog 1.2.0](https://github.com/AlexanderSwift89/treklog-android) (история коммитов сохранена). Что изменилось относительно TrekLog:
 
-С версии 1.2 — основное время — **время записи** (от «Старт» до «Стоп»), время движения второстепенно; линия трека на карте записи и в деталях окрашена по скорости участков, тап по линии показывает скорость на участке; в деталях — слайдер по треку (время от старта · % дистанции, скорость, время суток, высота в точке); макс. скорость и время движения сохраняются в истории.
+- **Офлайн-карты** — Настройки → Офлайн-карты: каталог регионов (федеральные округа РФ, Крым, Калининград, соседние страны) в формате Mapsforge с download.mapsforge.org, загрузка через системный DownloadManager (Wi-Fi only по умолчанию), импорт своего `.map`; тайлы внутри скачанного региона рендерятся из файла, остальное — онлайн/кэш (ADR-13).
+- **Язык** выбирается явно при первом запуске и в настройках (AppCompat per-app locales, работает с Android 8), варианта «системный» нет (ADR-15).
+- **Без Google Play Services**: геолокация через платформенный `LocationManager` (ADR-14) — приложение работает на Huawei/Honor и AOSP-прошивках.
+- **Material Design 3**: явные Typography/Shapes, splash screen, predictive back, адаптивная навигация (`NavigationSuiteScaffold`), edge-to-edge, themed icon.
+- **RuStore**: подпись собственным ключом, декларации разрешений и данных, возраст 0+ (436-ФЗ), политика конфиденциальности на GitHub Pages, материалы карточки в `store/rustore/`.
+
+Сохранено из TrekLog: «Интересное рядом» (метки Википедии + озвучка, отключается), время записи как основное время, окраска линии по скорости, ползунок по треку.
 
 ## Структура репозитория
 
 ```
-docs/                       документация команды (промпты ролей, план, PRD, архитектура, безопасность, тесты, релиз)
+docs/                       документация команды (промпты ролей, план, PRD, UX, архитектура, безопасность, тесты, релиз RuStore, гайд)
+store/rustore/              материалы карточки RuStore: листинг ru/en, иконка 512, скриншоты 9:16, декларации, комментарий модератору
+site/                       GitHub Pages: лендинг и политика конфиденциальности (RU/EN)
 android/                    Gradle-проект приложения
-  app/src/main/java/io/treklog/app/
-    domain/                 чистые модели и алгоритмы (гео, статистика, SpeedProfile, классификатор, GPX, poi)
-    data/                   Room, DataStore, Fused Location Provider, poi (Overpass/Wikipedia, HttpURLConnection), tts
+  app/src/main/java/com/justtracker/app/
+    domain/                 чистые модели и алгоритмы (гео, статистика, SpeedProfile, классификатор, GPX, poi, maps — выбор источника тайла, state machine регионов)
+    data/                   Room, DataStore, LocationManager, poi (Overpass/Wikipedia), tts, maps (каталог, DownloadManager, OfflineRegionStore, HybridTileProvider)
     service/                TrackingService (foreground, type=location), TrackingController, PoiAnnouncer
-    ui/                     Compose: record / history / detail / stats / settings / onboarding / poi (карточка объекта)
-  app/src/test/             unit-тесты домена и парсеров (81)
-  app/schemas/              экспорт схемы Room (для миграций)
+    ui/                     Compose: onboarding (язык → разрешения) / record / history / detail / stats / settings / maps (офлайн-карты) / poi
+    util/                   AppLocale, UnitFormatter, TimeFormat, AppLog
+  app/src/main/assets/maps/regions.json   каталог регионов
+  app/src/test/             unit-тесты (107)
+  app/schemas/              экспорт схемы Room
 CHANGELOG.md
 ```
 
-Порядок чтения документации: `docs/00_team_prompts.md` → `01_work_plan.md` → `03_prd.md` → `05_architecture.md` → остальное.
+Порядок чтения документации: `docs/00_team_prompts.md` → `01_work_plan.md` → `03_prd.md` → `05_architecture.md` → `09_release_rustore.md` → остальное.
 
 ## Требования
 
 - JDK 17+ (используется JBR из Android Studio: `D:\Android_studio\jbr`)
 - Android SDK с platform 37 и build-tools 36+ (`android/local.properties` → `sdk.dir`)
 - Gradle 9.6 (wrapper скачает сам), AGP 9.4, Kotlin 2.3 (встроенный в AGP)
+- Python 3 + Pillow — только для генерации иконки магазина (`store/rustore/make_icon.py`) и подгонки скриншотов
 
 ## Скачать APK (без сборки)
 
-- **Релизы:** [github.com/AlexanderSwift89/treklog-android/releases](https://github.com/AlexanderSwift89/treklog-android/releases) — файл `TrekLog-<версия>-debug.apk`. Скопируйте на телефон и откройте (разрешите установку из этого источника) или `adb install -r TrekLog-1.2.0-debug.apk`.
-- **Последний коммит в `main`:** вкладка [Actions](https://github.com/AlexanderSwift89/treklog-android/actions) → нужный запуск → раздел Artifacts (нужен вход в GitHub; хранится 30 дней).
-
-APK подписан debug-ключом и предназначен для установки вручную; сборка для Google Play подписывается локально (см. ниже).
+- **Релизы:** [github.com/AlexanderSwift89/JustTracker/releases](https://github.com/AlexanderSwift89/JustTracker/releases) — `JustTracker-<версия>-debug.apk` для установки вручную (`adb install -r`). Магазинная сборка — в RuStore.
+- **Последний коммит в `main`:** вкладка Actions → нужный запуск → Artifacts (нужен вход в GitHub; хранится 30 дней).
 
 ### CI
 
-`.github/workflows/android.yml`: на каждый push/PR в `main` — unit-тесты, lint, `assembleDebug`, APK и отчёты как артефакты. На тег `v*` дополнительно создаётся GitHub Release с APK:
+`.github/workflows/android.yml`: на каждый push/PR в `main` — unit-тесты, lint, `assembleDebug`, APK и отчёты как артефакты. На тег `v*` дополнительно — GitHub Release с debug-APK и job `release-signed` (подписанные AAB + APK + `mapping.txt`, если заданы секреты `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`). `.github/workflows/pages.yml` публикует `site/` на GitHub Pages.
 
 ```bash
-git tag v1.2.0 && git push origin v1.2.0
+git tag v1.0.0 && git push origin v1.0.0
 ```
 
 ## Сборка
@@ -53,29 +62,32 @@ cd android
 .\gradlew.bat :app:assembleDebug        # debug APK → app/build/outputs/apk/debug/
 .\gradlew.bat :app:testDebugUnitTest    # unit-тесты
 .\gradlew.bat :app:lintDebug            # lint (abortOnError)
-.\gradlew.bat :app:bundleRelease        # AAB для Play → app/build/outputs/bundle/release/
+.\gradlew.bat :app:bundleRelease        # AAB для RuStore → app/build/outputs/bundle/release/
+.\gradlew.bat :app:assembleRelease      # release APK (~3 МБ)
 ```
 
-Release подписывается ключом из `android/keystore.properties` (см. `docs/09_release_google_play.md`); без файла — debug-ключом для локальной проверки.
+Release подписывается ключом из `android/keystore.properties` (см. `docs/09_release_rustore.md`); без файла — debug-ключом для локальной проверки. Версию можно задать снаружи: `-PversionCode=2 -PversionName=1.0.1`.
 
 ## Запуск на эмуляторе и симуляция GPS
 
 ```bash
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-adb shell pm grant io.treklog.app.debug android.permission.ACCESS_FINE_LOCATION
+adb shell pm grant com.justtracker.app.debug android.permission.ACCESS_FINE_LOCATION
 adb emu geo fix 37.6173 55.7558 150      # lon lat alt
 ```
 
-Скрипт подачи движущихся точек — в `docs/08_test_plan.md` §2 (важно: десятичный разделитель — точка).
+Скрипт подачи движущихся точек — в `docs/08_test_plan.md` §2 (десятичный разделитель — точка). Проверка офлайн-карт: скачать регион «Мальта» (6,7 МБ), `adb shell cmd connectivity airplane-mode enable`, `adb emu geo fix 14.515 35.899`, начать запись — карта Валлетты рисуется без сети. Проверка без Google-сервисов — образ `system-images;android-34;default;x86_64`.
 
 ## Ключевые решения
 
-- osmdroid вместо Google Maps SDK — без ключей и биллинга (ADR-01).
+- osmdroid вместо Google Maps SDK — без ключей и биллинга (ADR-01); офлайн — файлы регионов Mapsforge, а не массовая загрузка тайлов OSM (ADR-13).
+- Платформенный LocationManager вместо Fused Location Provider — нет зависимости от GMS (ADR-14).
+- Per-app locale через AppCompat с DataStore как источником истины (ADR-15).
 - Foreground service типа `location`, без `ACCESS_BACKGROUND_LOCATION` (ADR-02).
 - База данных — единственный источник истины между сервисом и UI (ADR-04).
 - Все величины хранятся в СИ, единицы применяются только в UI (ADR-05).
-- Время записи — производная от `startedAt`/`finishedAt`, без новой колонки и миграции (ADR-11); окраска линии — `PolychromaticPaintList` osmdroid, одна полилиния на сегмент (ADR-12).
+- Время записи — производная от `startedAt`/`finishedAt` (ADR-11); окраска линии — `PolychromaticPaintList`, одна полилиния на сегмент (ADR-12).
 
 ## Лицензии
 
-Карты: © OpenStreetMap contributors (ODbL). osmdroid — Apache 2.0.
+Карты: © OpenStreetMap contributors (ODbL). Офлайн-карты: файлы Mapsforge (download.mapsforge.org), библиотека Mapsforge — LGPL 3. osmdroid — Apache 2.0. Описания мест — Wikipedia, CC BY-SA 4.0.
