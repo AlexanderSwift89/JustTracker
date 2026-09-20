@@ -16,6 +16,12 @@ object TimeFormat {
         return if (h > 0) String.format(Locale.US, "%d:%02d:%02d", h, m, s) else String.format(Locale.US, "%02d:%02d", m, s)
     }
 
+    /** Always "h:mm:ss" (e.g. "0:12:03") so a glance never confuses mm:ss with h:mm — used by the live HUD. */
+    fun durationClock(ms: Long): String {
+        val totalSec = (ms / 1000).coerceAtLeast(0)
+        return String.format(Locale.US, "%d:%02d:%02d", totalSec / 3600, (totalSec % 3600) / 60, totalSec % 60)
+    }
+
     private val dateTime: DateTimeFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
     private val dateShort: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM, HH:mm")
     private val timeOfDay: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")

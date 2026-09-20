@@ -48,11 +48,14 @@
     <string name="record_recovered_body">Запись была прервана. Продолжить или завершить и сохранить?</string>
     <string name="record_recovered_continue">Продолжить</string>
     <string name="record_recovered_finish">Завершить</string>
+    <string name="record_label_speed">Скорость</string>
     <string name="record_label_distance">Дистанция</string>
     <string name="record_label_recording_time">Время записи</string>
-    <string name="record_label_avg_speed">Средняя</string>
-    <string name="record_label_max_speed">Макс.</string>
-    <string name="record_moving_time_inline">В движении %1$s</string>
+    <string name="record_label_avg_speed">Средняя скорость</string>
+    <string name="record_label_max_speed">Макс. скорость</string>
+    <string name="record_label_moving_time">Время в движении</string>
+    <string name="record_expand_stats">Показать больше показателей</string>
+    <string name="record_collapse_stats">Скрыть дополнительные показатели</string>
     <string name="map_speed_legend_cd">Цвет линии: скорость от 0 до %1$s</string>
     <string name="map_tap_speed_title">Скорость на участке</string>
     <string name="map_tap_speed_detail">%1$s от старта · %2$s с начала записи</string>
@@ -159,6 +162,7 @@
     <string name="unit_ft">фут</string>
     <string name="unit_kmh">км/ч</string>
     <string name="unit_mph">миль/ч</string>
+    <string name="unit_hms">ч:мм:сс</string>
     <string name="unit_pace_km">/км</string>
     <string name="unit_pace_mi">/миля</string>
 

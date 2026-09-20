@@ -51,11 +51,14 @@
     <string name="record_recovered_body">A recording was interrupted. Continue it or finish and save?</string>
     <string name="record_recovered_continue">Continue</string>
     <string name="record_recovered_finish">Finish</string>
+    <string name="record_label_speed">Speed</string>
     <string name="record_label_distance">Distance</string>
     <string name="record_label_recording_time">Recording time</string>
-    <string name="record_label_avg_speed">Avg</string>
-    <string name="record_label_max_speed">Max</string>
-    <string name="record_moving_time_inline">Moving time %1$s</string>
+    <string name="record_label_avg_speed">Avg speed</string>
+    <string name="record_label_max_speed">Max speed</string>
+    <string name="record_label_moving_time">Moving time</string>
+    <string name="record_expand_stats">Show more stats</string>
+    <string name="record_collapse_stats">Hide extra stats</string>
     <string name="record_speed_unavailable">—</string>
     <string name="map_speed_legend_cd">Line colour: speed from 0 to %1$s</string>
     <string name="map_tap_speed_title">Speed on this section</string>
@@ -169,6 +172,7 @@
     <string name="unit_ft">ft</string>
     <string name="unit_kmh">km/h</string>
     <string name="unit_mph">mph</string>
+    <string name="unit_hms">h:mm:ss</string>
     <string name="unit_pace_km">/km</string>
     <string name="unit_pace_mi">/mi</string>
 

@@ -9,21 +9,27 @@ import java.util.Locale
 class UnitFormatter(private val context: Context, val units: UnitSystem) {
     private val locale: Locale get() = context.resources.configuration.locales[0] ?: Locale.getDefault()
 
-    fun distance(meters: Double): String = when (units) {
+    fun distance(meters: Double): String = distanceParts(meters).let { (value, unit) -> "$value $unit" }
+
+    /** Distance as (value, unit) so the UI can style the unit separately (live HUD). */
+    fun distanceParts(meters: Double): Pair<String, String> = when (units) {
         UnitSystem.METRIC -> if (meters < 1000) {
-            "${meters.toInt()} ${context.getString(R.string.unit_m)}"
+            meters.toInt().toString() to context.getString(R.string.unit_m)
         } else {
-            "${fmt(meters / 1000, 2)} ${context.getString(R.string.unit_km)}"
+            fmt(meters / 1000, 2) to context.getString(R.string.unit_km)
         }
         UnitSystem.IMPERIAL -> {
             val miles = meters / METERS_PER_MILE
             if (miles < 0.1) {
-                "${(meters * FEET_PER_METER).toInt()} ${context.getString(R.string.unit_ft)}"
+                (meters * FEET_PER_METER).toInt().toString() to context.getString(R.string.unit_ft)
             } else {
-                "${fmt(miles, 2)} ${context.getString(R.string.unit_mi)}"
+                fmt(miles, 2) to context.getString(R.string.unit_mi)
             }
         }
     }
+
+    /** Unit hint shown next to `h:mm:ss` durations ("h:mm:ss" / "ч:мм:сс"). */
+    fun durationUnit(): String = context.getString(R.string.unit_hms)
 
     /** Speed value without unit, one decimal — for the big live number. */
     fun speedValue(mps: Double): String = fmt(speedInUnits(mps), 1)

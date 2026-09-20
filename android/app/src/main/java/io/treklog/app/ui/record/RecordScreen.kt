@@ -8,11 +8,13 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,6 +26,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.GpsNotFixed
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -61,6 +65,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -96,6 +101,7 @@ fun RecordScreen(
     var locationEnabled by remember { mutableStateOf(Permissions.isLocationEnabled(context)) }
     var deniedForever by remember { mutableStateOf(false) }
     var follow by rememberSaveable { mutableStateOf(true) }
+    var statsExpanded by rememberSaveable { mutableStateOf(false) }
     var showStopDialog by remember { mutableStateOf(false) }
     var showGpsOffDialog by remember { mutableStateOf(false) }
     var pendingStart by remember { mutableStateOf(false) }
@@ -188,7 +194,9 @@ fun RecordScreen(
         }
     }
 
-    Scaffold(snackbarHost = { SnackbarHost(snackbar) }) { padding ->
+    // The outer app Scaffold already applies the navigation-bar inset; applying it again here would
+    // leave an empty band between the bottom panel and the NavigationBar.
+    Scaffold(snackbarHost = { SnackbarHost(snackbar) }, contentWindowInsets = WindowInsets(0)) { padding ->
         Box(
             Modifier
                 .fillMaxSize()
@@ -243,11 +251,12 @@ fun RecordScreen(
                 )
             }
 
+            // Bottom panel behaves like an M3 standard bottom sheet: edge to edge, only the top
+            // corners rounded, no outer margins — so it covers as little map as possible.
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(16.dp),
+                    .fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 state.tapped?.let { tap ->
@@ -255,18 +264,18 @@ fun RecordScreen(
                         info = tap,
                         formatter = formatter,
                         onDismiss = viewModel::dismissTap,
-                        modifier = Modifier.padding(bottom = 12.dp),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                     )
                 }
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f),
+                    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer,
                     tonalElevation = 3.dp,
                     shadowElevation = 6.dp,
                 ) {
                     Column(
-                        Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                        Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         when {
@@ -279,6 +288,8 @@ fun RecordScreen(
                             else -> RecordingPanel(
                                 state = state,
                                 formatter = formatter,
+                                expanded = statsExpanded,
+                                onToggleExpanded = { statsExpanded = !statsExpanded },
                                 onPause = viewModel::pause,
                                 onResume = viewModel::resume,
                                 onStop = { showStopDialog = true },
@@ -398,10 +409,17 @@ private fun IdlePanel(onStart: () -> Unit) {
     Text(stringResource(R.string.record_start), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 6.dp))
 }
 
+/**
+ * Compact live HUD (~110 dp): speed on top, distance + recording time below, pause/stop stacked on
+ * the right. Every number carries its unit and a text label, so nothing needs to be guessed from
+ * position alone. Tapping the panel reveals the secondary row (avg / max / moving time).
+ */
 @Composable
 private fun RecordingPanel(
     state: RecordUiState,
     formatter: UnitFormatter,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onStop: () -> Unit,
@@ -410,128 +428,176 @@ private fun RecordingPanel(
     val paused = state.status == RecordStatus.PAUSED
     val speedText = if (state.gpsSearching || paused) stringResource(R.string.record_speed_unavailable) else formatter.speedValue(state.live.currentSpeedMps.toDouble())
     val contentAlpha = if (paused) 0.6f else 1f
-    val distanceText = formatter.distance(track.distanceM)
-    val recordingText = TimeFormat.duration(state.recordingTimeMs)
-    val movingText = TimeFormat.duration(track.movingTimeMs)
-    val avgText = formatter.speed(track.avgSpeedMps)
-    val maxText = formatter.speed(track.maxSpeedMps)
+    val (distanceValue, distanceUnit) = formatter.distanceParts(track.distanceM)
+    val recordingText = TimeFormat.durationClock(state.recordingTimeMs)
+    val movingText = TimeFormat.durationClock(track.movingTimeMs)
+    val durationUnit = formatter.durationUnit()
+    val speedLabel = stringResource(R.string.record_label_speed)
+    val distanceLabel = stringResource(R.string.record_label_distance)
     val recordingLabel = stringResource(R.string.record_label_recording_time)
-    val summary = "$speedText ${formatter.speedUnit()}, $recordingLabel $recordingText, $distanceText"
+    val summary = "$speedLabel $speedText ${formatter.speedUnit()}, $distanceLabel $distanceValue $distanceUnit, $recordingLabel $recordingText"
+    val toggleLabel = stringResource(if (expanded) R.string.record_collapse_stats else R.string.record_expand_stats)
 
     Column(
         Modifier
             .fillMaxWidth()
-            .semantics { contentDescription = summary },
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .clickable(onClickLabel = toggleLabel, onClick = onToggleExpanded),
     ) {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                speedText,
-                style = MaterialTheme.typography.displayLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
-                maxLines = 1,
-            )
-            Spacer(Modifier.width(8.dp))
-            Column(Modifier.padding(bottom = 10.dp)) {
-                Text(formatter.speedUnit(), style = MaterialTheme.typography.titleMedium)
-                GpsIndicator(searching = state.gpsSearching, paused = paused)
-            }
-        }
-        // Primary time: recording time (Start → Stop, pauses included). Moving time is secondary below.
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                recordingText,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
-                maxLines = 1,
-            )
-            Text(
-                recordingLabel,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 8.dp, bottom = 5.dp),
-            )
-        }
+        // Drag-handle-like affordance for the expandable secondary row.
+        Icon(
+            if (expanded) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowUp,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .size(18.dp),
+        )
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+                .semantics { contentDescription = summary },
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Metric(stringResource(R.string.record_label_distance), distanceText)
-            Metric(stringResource(R.string.record_label_avg_speed), avgText)
-            Metric(stringResource(R.string.record_label_max_speed), maxText)
-        }
-        Text(
-            stringResource(R.string.record_moving_time_inline, movingText),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 6.dp),
-        )
-        if (paused) {
-            Text(
-                stringResource(R.string.record_paused),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        AnimatedContent(targetState = paused, label = "buttons") { isPaused ->
-            Row(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (isPaused) {
-                    FilledIconButton(onClick = onResume, modifier = Modifier.size(64.dp)) {
-                        Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.record_resume), modifier = Modifier.size(32.dp))
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        speedText,
+                        style = MaterialTheme.typography.headlineLarge.tabular(),
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
+                        maxLines = 1,
+                    )
+                    UnitText(formatter.speedUnit(), style = MaterialTheme.typography.titleSmall, bottomPadding = 5.dp)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    MetricLabel(speedLabel)
+                    Spacer(Modifier.width(8.dp))
+                    if (paused) {
+                        Text(
+                            stringResource(R.string.record_paused),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    } else {
+                        GpsIndicator(searching = state.gpsSearching)
                     }
-                } else {
-                    FilledTonalIconButton(onClick = onPause, modifier = Modifier.size(64.dp)) {
-                        Icon(Icons.Filled.Pause, contentDescription = stringResource(R.string.record_pause), modifier = Modifier.size(32.dp))
+                    if (track.activityType != io.treklog.app.domain.model.ActivityType.UNKNOWN) {
+                        Spacer(Modifier.width(8.dp))
+                        ActivityBadge(track.activityType, size = 20)
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                Row(Modifier.fillMaxWidth()) {
+                    MetricCell(distanceValue, distanceUnit, distanceLabel, contentAlpha, Modifier.weight(1f))
+                    // Recording time = Start → Stop including pauses; moving time lives in the expanded row.
+                    MetricCell(recordingText, durationUnit, recordingLabel, contentAlpha, Modifier.weight(1f))
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AnimatedContent(targetState = paused, label = "pauseResume") { isPaused ->
+                    if (isPaused) {
+                        FilledIconButton(onClick = onResume, modifier = Modifier.size(48.dp)) {
+                            Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.record_resume))
+                        }
+                    } else {
+                        FilledTonalIconButton(onClick = onPause, modifier = Modifier.size(48.dp)) {
+                            Icon(Icons.Filled.Pause, contentDescription = stringResource(R.string.record_pause))
+                        }
                     }
                 }
                 FilledIconButton(
                     onClick = onStop,
-                    modifier = Modifier.size(64.dp),
+                    modifier = Modifier.size(48.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.error,
                         contentColor = MaterialTheme.colorScheme.onError,
                     ),
                 ) {
-                    Icon(Icons.Filled.Stop, contentDescription = stringResource(R.string.record_stop), modifier = Modifier.size(32.dp))
+                    Icon(Icons.Filled.Stop, contentDescription = stringResource(R.string.record_stop))
                 }
             }
         }
-        if (track.activityType != io.treklog.app.domain.model.ActivityType.UNKNOWN) {
-            Spacer(Modifier.height(8.dp))
-            ActivityBadge(track.activityType, size = 28)
+        AnimatedVisibility(visible = expanded) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp),
+            ) {
+                MetricCell(formatter.speedValue(track.avgSpeedMps), formatter.speedUnit(), stringResource(R.string.record_label_avg_speed), contentAlpha, Modifier.weight(1f), compact = true)
+                MetricCell(formatter.speedValue(track.maxSpeedMps), formatter.speedUnit(), stringResource(R.string.record_label_max_speed), contentAlpha, Modifier.weight(1f), compact = true)
+                MetricCell(movingText, durationUnit, stringResource(R.string.record_label_moving_time), contentAlpha, Modifier.weight(1.3f), compact = true)
+            }
         }
     }
 }
 
 @Composable
-private fun GpsIndicator(searching: Boolean, paused: Boolean) {
-    val color = if (searching || paused) MaterialTheme.colorScheme.outline else Color(0xFF2E7D32)
+private fun GpsIndicator(searching: Boolean) {
+    val color = if (searching) MaterialTheme.colorScheme.outline else Color(0xFF2E7D32)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
             if (searching) Icons.Filled.GpsNotFixed else Icons.Filled.GpsFixed,
             contentDescription = null,
             tint = color,
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(14.dp),
         )
         Text(
-            stringResource(if (searching && !paused) R.string.record_gps_searching else R.string.record_gps_ok),
+            stringResource(if (searching) R.string.record_gps_searching else R.string.record_gps_ok),
             style = MaterialTheme.typography.labelMedium,
             color = color,
+            maxLines = 1,
             modifier = Modifier.padding(start = 4.dp),
         )
     }
 }
 
+/** Value + unit on one line, text label underneath: "1,25 km / Distance". */
 @Composable
-private fun Metric(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, maxLines = 1)
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun MetricCell(
+    value: String,
+    unit: String,
+    label: String,
+    contentAlpha: Float,
+    modifier: Modifier = Modifier,
+    compact: Boolean = false,
+) {
+    Column(modifier) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                value,
+                style = (if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge).tabular(),
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
+                maxLines = 1,
+            )
+            UnitText(unit, style = MaterialTheme.typography.labelMedium, bottomPadding = if (compact) 2.dp else 3.dp)
+        }
+        MetricLabel(label)
     }
 }
+
+@Composable
+private fun UnitText(unit: String, style: androidx.compose.ui.text.TextStyle, bottomPadding: androidx.compose.ui.unit.Dp) {
+    Text(
+        unit,
+        style = style,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        modifier = Modifier.padding(start = 4.dp, bottom = bottomPadding),
+    )
+}
+
+@Composable
+private fun MetricLabel(label: String) {
+    Text(
+        label,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
+}
+
+/** Tabular figures so live numbers don't jitter horizontally as digits change. */
+private fun androidx.compose.ui.text.TextStyle.tabular() = copy(fontFeatureSettings = "tnum")
