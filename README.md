@@ -6,17 +6,19 @@ MVP-приложение: запись GPS-трека по команде пол
 
 С версии 1.1 — «Интересное рядом»: метки достопримечательностей (Overpass API + Wikipedia) вокруг пользователя и вдоль трека, карточка с описанием и кнопкой «Прочитать вслух» (системный TTS), опциональная авто-озвучка при приближении (выключена по умолчанию). На серверы уходит только примерный район (~500 м), функция отключается в настройках.
 
+С версии 1.2 — основное время — **время записи** (от «Старт» до «Стоп»), время движения второстепенно; линия трека на карте записи и в деталях окрашена по скорости участков, тап по линии показывает скорость на участке; в деталях — слайдер по треку (время от старта · % дистанции, скорость, время суток, высота в точке); макс. скорость и время движения сохраняются в истории.
+
 ## Структура репозитория
 
 ```
 docs/                       документация команды (промпты ролей, план, PRD, архитектура, безопасность, тесты, релиз)
 android/                    Gradle-проект приложения
   app/src/main/java/io/treklog/app/
-    domain/                 чистые модели и алгоритмы (гео, статистика, классификатор, GPX, poi)
+    domain/                 чистые модели и алгоритмы (гео, статистика, SpeedProfile, классификатор, GPX, poi)
     data/                   Room, DataStore, Fused Location Provider, poi (Overpass/Wikipedia, HttpURLConnection), tts
     service/                TrackingService (foreground, type=location), TrackingController, PoiAnnouncer
     ui/                     Compose: record / history / detail / stats / settings / onboarding / poi (карточка объекта)
-  app/src/test/             unit-тесты домена и парсеров (65)
+  app/src/test/             unit-тесты домена и парсеров (81)
   app/schemas/              экспорт схемы Room (для миграций)
 CHANGELOG.md
 ```
@@ -31,7 +33,7 @@ CHANGELOG.md
 
 ## Скачать APK (без сборки)
 
-- **Релизы:** [github.com/AlexanderSwift89/treklog-android/releases](https://github.com/AlexanderSwift89/treklog-android/releases) — файл `TrekLog-<версия>-debug.apk`. Скопируйте на телефон и откройте (разрешите установку из этого источника) или `adb install -r TrekLog-1.1.0-debug.apk`.
+- **Релизы:** [github.com/AlexanderSwift89/treklog-android/releases](https://github.com/AlexanderSwift89/treklog-android/releases) — файл `TrekLog-<версия>-debug.apk`. Скопируйте на телефон и откройте (разрешите установку из этого источника) или `adb install -r TrekLog-1.2.0-debug.apk`.
 - **Последний коммит в `main`:** вкладка [Actions](https://github.com/AlexanderSwift89/treklog-android/actions) → нужный запуск → раздел Artifacts (нужен вход в GitHub; хранится 30 дней).
 
 APK подписан debug-ключом и предназначен для установки вручную; сборка для Google Play подписывается локально (см. ниже).
@@ -41,7 +43,7 @@ APK подписан debug-ключом и предназначен для ус�
 `.github/workflows/android.yml`: на каждый push/PR в `main` — unit-тесты, lint, `assembleDebug`, APK и отчёты как артефакты. На тег `v*` дополнительно создаётся GitHub Release с APK:
 
 ```bash
-git tag v1.1.0 && git push origin v1.1.0
+git tag v1.2.0 && git push origin v1.2.0
 ```
 
 ## Сборка
@@ -72,6 +74,7 @@ adb emu geo fix 37.6173 55.7558 150      # lon lat alt
 - Foreground service типа `location`, без `ACCESS_BACKGROUND_LOCATION` (ADR-02).
 - База данных — единственный источник истины между сервисом и UI (ADR-04).
 - Все величины хранятся в СИ, единицы применяются только в UI (ADR-05).
+- Время записи — производная от `startedAt`/`finishedAt`, без новой колонки и миграции (ADR-11); окраска линии — `PolychromaticPaintList` osmdroid, одна полилиния на сегмент (ADR-12).
 
 ## Лицензии
 

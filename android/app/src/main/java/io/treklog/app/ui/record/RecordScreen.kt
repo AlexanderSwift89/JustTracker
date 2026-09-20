@@ -68,7 +68,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.treklog.app.R
 import io.treklog.app.ui.common.ActivityBadge
 import io.treklog.app.ui.common.Permissions
+import io.treklog.app.ui.common.SpeedLegend
 import io.treklog.app.ui.common.TrackMap
+import io.treklog.app.ui.common.TrackTapCard
 import io.treklog.app.ui.common.appViewModel
 import io.treklog.app.domain.poi.PoiProximity
 import io.treklog.app.ui.poi.PoiCard
@@ -195,9 +197,12 @@ fun RecordScreen(
             TrackMap(
                 segments = state.segments,
                 modifier = Modifier.fillMaxSize(),
+                maxSpeedMps = state.track?.maxSpeedMps ?: 0.0,
                 position = state.position,
+                highlight = state.tapped?.point,
                 follow = follow,
                 onUserGesture = { follow = false },
+                onTrackTap = viewModel::onTrackTap,
                 pois = state.pois,
                 onPoiClick = { poi ->
                     val pos = state.position
@@ -227,34 +232,58 @@ fun RecordScreen(
                 }
             }
 
-            Surface(
+            // Speed colour legend for the line (US-15); only once there is a line with a max speed.
+            if (state.status != RecordStatus.IDLE && state.segments.isNotEmpty()) {
+                SpeedLegend(
+                    maxSpeedMps = state.track?.maxSpeedMps ?: 0.0,
+                    formatter = formatter,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(16.dp),
+                )
+            }
+
+            Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .padding(16.dp),
-                shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f),
-                tonalElevation = 3.dp,
-                shadowElevation = 6.dp,
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Column(
-                    Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                state.tapped?.let { tap ->
+                    TrackTapCard(
+                        info = tap,
+                        formatter = formatter,
+                        onDismiss = viewModel::dismissTap,
+                        modifier = Modifier.padding(bottom = 12.dp),
+                    )
+                }
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f),
+                    tonalElevation = 3.dp,
+                    shadowElevation = 6.dp,
                 ) {
-                    when {
-                        !hasPermission -> PermissionPanel(
-                            deniedForever = deniedForever,
-                            onAllow = { locationLauncher.launch(Permissions.LOCATION) },
-                            onOpenSettings = { Permissions.openAppSettings(context) },
-                        )
-                        state.status == RecordStatus.IDLE -> IdlePanel(onStart = ::onStartClick)
-                        else -> RecordingPanel(
-                            state = state,
-                            formatter = formatter,
-                            onPause = viewModel::pause,
-                            onResume = viewModel::resume,
-                            onStop = { showStopDialog = true },
-                        )
+                    Column(
+                        Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        when {
+                            !hasPermission -> PermissionPanel(
+                                deniedForever = deniedForever,
+                                onAllow = { locationLauncher.launch(Permissions.LOCATION) },
+                                onOpenSettings = { Permissions.openAppSettings(context) },
+                            )
+                            state.status == RecordStatus.IDLE -> IdlePanel(onStart = ::onStartClick)
+                            else -> RecordingPanel(
+                                state = state,
+                                formatter = formatter,
+                                onPause = viewModel::pause,
+                                onResume = viewModel::resume,
+                                onStop = { showStopDialog = true },
+                            )
+                        }
                     }
                 }
             }
@@ -382,9 +411,12 @@ private fun RecordingPanel(
     val speedText = if (state.gpsSearching || paused) stringResource(R.string.record_speed_unavailable) else formatter.speedValue(state.live.currentSpeedMps.toDouble())
     val contentAlpha = if (paused) 0.6f else 1f
     val distanceText = formatter.distance(track.distanceM)
+    val recordingText = TimeFormat.duration(state.recordingTimeMs)
     val movingText = TimeFormat.duration(track.movingTimeMs)
     val avgText = formatter.speed(track.avgSpeedMps)
-    val summary = "$speedText ${formatter.speedUnit()}, $distanceText, $movingText"
+    val maxText = formatter.speed(track.maxSpeedMps)
+    val recordingLabel = stringResource(R.string.record_label_recording_time)
+    val summary = "$speedText ${formatter.speedUnit()}, $recordingLabel $recordingText, $distanceText"
 
     Column(
         Modifier
@@ -406,16 +438,38 @@ private fun RecordingPanel(
                 GpsIndicator(searching = state.gpsSearching, paused = paused)
             }
         }
+        // Primary time: recording time (Start → Stop, pauses included). Moving time is secondary below.
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                recordingText,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
+                maxLines = 1,
+            )
+            Text(
+                recordingLabel,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 8.dp, bottom = 5.dp),
+            )
+        }
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(top = 4.dp),
+                .padding(top = 8.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             Metric(stringResource(R.string.record_label_distance), distanceText)
-            Metric(stringResource(R.string.record_label_moving_time), movingText)
             Metric(stringResource(R.string.record_label_avg_speed), avgText)
+            Metric(stringResource(R.string.record_label_max_speed), maxText)
         }
+        Text(
+            stringResource(R.string.record_moving_time_inline, movingText),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp),
+        )
         if (paused) {
             Text(
                 stringResource(R.string.record_paused),

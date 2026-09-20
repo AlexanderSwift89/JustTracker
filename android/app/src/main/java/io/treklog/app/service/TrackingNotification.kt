@@ -9,7 +9,6 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import io.treklog.app.R
 import io.treklog.app.ui.MainActivity
-import io.treklog.app.util.TimeFormat
 import io.treklog.app.util.UnitFormatter
 
 /** Builds the persistent foreground notification for [TrackingService]. */
@@ -30,10 +29,14 @@ class TrackingNotification(private val context: Context) {
         }
     }
 
+    /**
+     * @param startedAt track start; shown as a live chronometer (recording time, pauses included)
+     *   so the time keeps ticking between location updates.
+     */
     fun build(
         paused: Boolean,
+        startedAt: Long,
         distanceM: Double,
-        movingTimeMs: Long,
         speedMps: Double,
         formatter: UnitFormatter,
     ): Notification {
@@ -46,13 +49,15 @@ class TrackingNotification(private val context: Context) {
         val text = context.getString(
             R.string.notification_text_format,
             formatter.distance(distanceM),
-            TimeFormat.duration(movingTimeMs),
             formatter.speed(speedMps),
         )
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(if (paused) R.string.notification_title_paused else R.string.notification_title_recording))
             .setContentText(text)
+            .setWhen(startedAt)
+            .setShowWhen(true)
+            .setUsesChronometer(true)
             .setContentIntent(openIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

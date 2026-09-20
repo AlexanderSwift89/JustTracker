@@ -17,6 +17,7 @@
     <string name="action_open_settings">Открыть настройки</string>
     <string name="action_allow">Разрешить</string>
     <string name="action_continue">Продолжить</string>
+    <string name="action_close">Закрыть</string>
 
     <string name="onboarding_title">Записывайте маршруты</string>
     <string name="onboarding_subtitle">Треки остаются на вашем телефоне. Без аккаунта, без облака, без рекламы.</string>
@@ -48,26 +49,33 @@
     <string name="record_recovered_continue">Продолжить</string>
     <string name="record_recovered_finish">Завершить</string>
     <string name="record_label_distance">Дистанция</string>
-    <string name="record_label_moving_time">Время движения</string>
+    <string name="record_label_recording_time">Время записи</string>
     <string name="record_label_avg_speed">Средняя</string>
+    <string name="record_label_max_speed">Макс.</string>
+    <string name="record_moving_time_inline">В движении %1$s</string>
+    <string name="map_speed_legend_cd">Цвет линии: скорость от 0 до %1$s</string>
+    <string name="map_tap_speed_title">Скорость на участке</string>
+    <string name="map_tap_speed_detail">%1$s от старта · %2$s с начала записи</string>
     <string name="record_speed_unavailable">—</string>
 
     <string name="notification_channel_name">Запись трека</string>
     <string name="notification_channel_description">Показывается во время записи трека</string>
     <string name="notification_title_recording">Идёт запись трека</string>
     <string name="notification_title_paused">Запись на паузе</string>
-    <string name="notification_text_format">%1$s · %2$s · %3$s</string>
+    <string name="notification_text_format">%1$s · %2$s</string>
 
     <string name="history_title">История</string>
     <string name="history_empty_title">Пока нет треков</string>
     <string name="history_empty_body">Нажмите «Старт» на вкладке «Запись», чтобы записать первый маршрут.</string>
     <string name="history_delete_dialog_title">Удалить трек?</string>
     <string name="history_delete_dialog_body">Это действие нельзя отменить.</string>
+    <string name="history_secondary_format">В движении %1$s · макс. %2$s</string>
 
     <string name="detail_title">Трек</string>
     <string name="detail_distance">Дистанция</string>
+    <string name="detail_recording_time">Время записи</string>
     <string name="detail_moving_time">Время движения</string>
-    <string name="detail_total_time">Общее время</string>
+    <string name="detail_paused_time">Паузы</string>
     <string name="detail_avg_speed">Средняя скорость</string>
     <string name="detail_max_speed">Макс. скорость</string>
     <string name="detail_elevation_gain">Набор высоты</string>
@@ -82,6 +90,12 @@
     <string name="detail_export_chooser">Поделиться GPX</string>
     <string name="detail_export_failed">Не удалось экспортировать трек</string>
     <string name="detail_not_found">Трек не найден</string>
+    <string name="detail_cursor_prev">Предыдущая точка</string>
+    <string name="detail_cursor_next">Следующая точка</string>
+    <string name="detail_cursor_caption">%1$s от старта · %2$d %%</string>
+    <string name="detail_cursor_speed">Скорость</string>
+    <string name="detail_cursor_time">Время</string>
+    <string name="detail_cursor_altitude">Высота</string>
 
     <string name="stats_title">Статистика</string>
     <string name="stats_total_tracks">Треков</string>

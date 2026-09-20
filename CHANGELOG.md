@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.2.0] - 2026-09-20 (Recording time + speed along the track)
+
+### Changed
+- **Recording time is the primary time**: a stopwatch from Start to Stop (pauses included) on the Record panel, in History cards and in Track detail. Moving time stays as a secondary value (small line on the panel, second line on cards, its own tile in detail). It ticks once a second even without GPS fixes.
+- Notification shows the recording time as a live chronometer; text is now "distance · speed".
+- Record panel shows max speed next to distance and average.
+- Track detail: "Total time" tile replaced by "Recording time"; a "Paused" tile appears only when the track had pauses.
+- History card: second line "Moving … · max …".
+
+### Added
+- Track line coloured by speed (blue → green → yellow → orange → red relative to the track's max) on the live Record map and in Track detail, with a "0 … max" legend (US-15).
+- Record screen: tap on the track line shows a card with the speed on that section, distance from start and time since the recording started; the tapped point is ringed on the map.
+- Track detail: scrubber under the map — a slider over the track distance captioned "elapsed · %", ◀ ▶ buttons to step one point, and the values at the cursor (speed, distance from start, time of day, altitude); the cursor ring moves along the line and a tap on the line moves the slider.
+- `SpeedProfile` (domain) and `TrackPath` (UI) — per-point smoothed speed / cumulative distance / timestamp / altitude shared by both maps, plus cursor addressing; 16 new unit tests (81 total).
+
+### Data
+- No schema change: recording time is derived from `startedAt`/`finishedAt`; per-section speed is the `speedMps` already stored with every point, so tracks recorded in 1.0/1.1 get both features.
+
 ## [1.1.0] - 2026-09-20 (Places nearby — stage 1 + A, minimal)
 
 ### Added

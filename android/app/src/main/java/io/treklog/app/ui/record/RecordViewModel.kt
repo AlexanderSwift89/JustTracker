@@ -4,15 +4,19 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.treklog.app.di.AppContainer
 import io.treklog.app.domain.model.Track
-import io.treklog.app.domain.model.TrackPoint
 import io.treklog.app.domain.model.TrackStatus
 import io.treklog.app.domain.model.UnitSystem
 import io.treklog.app.data.poi.PoiResult
 import io.treklog.app.domain.poi.GeoCell
 import io.treklog.app.domain.poi.Poi
 import io.treklog.app.service.LiveTrackingState
+import io.treklog.app.ui.common.PathSegment
+import io.treklog.app.ui.common.TrackPath
+import io.treklog.app.ui.common.TrackTapInfo
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +26,10 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
 
@@ -30,14 +37,21 @@ enum class RecordStatus { IDLE, RECORDING, PAUSED }
 
 data class RecordUiState(
     val track: Track? = null,
-    val segments: List<List<GeoPoint>> = emptyList(),
+    /** Track line with per-vertex speed (docs/06_system_analysis.md §3.6). */
+    val segments: List<PathSegment> = emptyList(),
     val live: LiveTrackingState = LiveTrackingState(),
     val units: UnitSystem = UnitSystem.METRIC,
     val keepScreenOn: Boolean = false,
     val nowMs: Long = System.currentTimeMillis(),
     /** Places with a Wikipedia article around the current grid cell (empty when disabled/offline). */
     val pois: List<Poi> = emptyList(),
+    /** Section of the line the user tapped, if any. */
+    val tapped: TrackTapInfo? = null,
 ) {
+    /** Primary time: from Start until now, pauses included (US-06). */
+    val recordingTimeMs: Long
+        get() = track?.recordingTimeMs(nowMs) ?: 0L
+
     val status: RecordStatus
         get() = when (track?.status) {
             TrackStatus.RECORDING -> RecordStatus.RECORDING
@@ -74,9 +88,13 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
 
     private val activeTrack = container.trackRepository.observeActiveTrack()
 
+    // Speed smoothing + distances are O(n) per emission (1 Hz): keep them off the main thread.
     private val segments = activeTrack
         .flatMapLatest { track -> if (track == null) flowOf(emptyList()) else container.trackRepository.observePoints(track.id) }
-        .flatMapLatest { points -> flowOf(toSegments(points)) }
+        .map { points -> TrackPath.build(points) }
+        .flowOn(Dispatchers.Default)
+
+    private val tapped = MutableStateFlow<TrackTapInfo?>(null)
 
     /**
      * One Overpass lookup per ~500 m grid cell the user is in (cached in the repository); the
@@ -96,27 +114,40 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
         .scan(emptyList<Poi>()) { prev, next -> next ?: prev }
 
     val state: StateFlow<RecordUiState> = combine(
-        combine(activeTrack, segments, pois) { t, s, p -> Triple(t, s, p) },
+        combine(activeTrack, segments, pois, tapped) { t, s, p, tap -> Sources(t, s, p, tap) },
         controller.live,
         container.settingsRepository.settings,
         ticker,
-    ) { (track, segs, poiList), live, settings, now ->
+    ) { src, live, settings, now ->
         RecordUiState(
-            track = track,
-            segments = segs,
+            track = src.track,
+            segments = src.segments,
             live = live,
             units = settings.units,
             keepScreenOn = settings.keepScreenOn,
             nowMs = now,
-            pois = poiList,
+            pois = src.pois,
+            // A tap belongs to the track it was made on; drop it once that track is finished.
+            tapped = if (src.track == null) null else src.tapped,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RecordUiState())
+
+    private class Sources(val track: Track?, val segments: List<PathSegment>, val pois: List<Poi>, val tapped: TrackTapInfo?)
 
     fun start() = controller.start()
     fun pause() = controller.pause()
     fun resume() = controller.resume()
     fun stop() = controller.stop()
     fun recover() = controller.recover()
+
+    /** Tap on the track line: resolve the vertex to its speed / distance / elapsed time. */
+    fun onTrackTap(segment: Int, index: Int) {
+        val s = state.value
+        val startedAt = s.track?.startedAt ?: return
+        tapped.value = TrackPath.tapInfo(s.segments, segment, index, startedAt)
+    }
+
+    fun dismissTap() = tapped.update { null }
 
     /** Seeds the position marker from the last known location so the map opens near the user. */
     fun seedLastKnownLocation() {
@@ -127,7 +158,4 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
             }
         }
     }
-
-    private fun toSegments(points: List<TrackPoint>): List<List<GeoPoint>> =
-        points.groupBy { it.segment }.toSortedMap().values.map { seg -> seg.map { GeoPoint(it.lat, it.lon) } }
 }

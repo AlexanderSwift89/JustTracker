@@ -288,8 +288,8 @@ class TrackingService : Service() {
         val s = session
         val n = notification.build(
             paused = paused,
+            startedAt = s?.track?.startedAt ?: System.currentTimeMillis(),
             distanceM = s?.stats?.distanceM ?: 0.0,
-            movingTimeMs = s?.stats?.movingTimeMs ?: 0L,
             speedMps = s?.stats?.currentSpeedMps?.toDouble() ?: 0.0,
             formatter = formatter(),
         )
@@ -314,8 +314,8 @@ class TrackingService : Service() {
         if (!hasNotificationPermission()) return
         val n = notification.build(
             paused = s.track.status == TrackStatus.PAUSED,
+            startedAt = s.track.startedAt,
             distanceM = s.stats.distanceM,
-            movingTimeMs = s.stats.movingTimeMs,
             speedMps = s.stats.currentSpeedMps.toDouble(),
             formatter = formatter(),
         )

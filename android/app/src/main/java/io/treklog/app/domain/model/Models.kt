@@ -39,7 +39,16 @@ data class Track(
     val elevationGainM: Double = 0.0,
     val elevationLossM: Double = 0.0,
     val pointCount: Int = 0,
-)
+) {
+    /**
+     * Recording time: wall-clock from Start to Stop (or to [nowMs] while the track is active),
+     * pauses included — the primary time shown to the user. Derived, not stored, so older rows
+     * are correct too. [movingTimeMs] stays the secondary "time in motion"; [totalTimeMs] is the
+     * recording time without pauses.
+     */
+    fun recordingTimeMs(nowMs: Long = System.currentTimeMillis()): Long =
+        ((finishedAt ?: nowMs) - startedAt).coerceAtLeast(0)
+}
 
 /** Result of a full statistics pass over a track's points. */
 data class TrackStats(

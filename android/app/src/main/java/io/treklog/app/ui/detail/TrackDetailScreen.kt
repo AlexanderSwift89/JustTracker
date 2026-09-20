@@ -3,6 +3,7 @@ package io.treklog.app.ui.detail
 import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,6 +16,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -24,6 +27,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -38,12 +42,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.treklog.app.R
 import io.treklog.app.domain.model.ActivityType
 import io.treklog.app.ui.common.ActivityBadge
+import io.treklog.app.ui.common.SpeedLegend
 import io.treklog.app.ui.common.StatTile
+import io.treklog.app.ui.common.TrackCursor
 import io.treklog.app.ui.common.TrackMap
 import io.treklog.app.ui.common.appViewModel
 import io.treklog.app.ui.history.DeleteDialog
@@ -55,6 +62,59 @@ import io.treklog.app.util.TimeFormat
 import io.treklog.app.util.UnitFormatter
 import io.treklog.app.util.labelRes
 import kotlinx.coroutines.launch
+
+/**
+ * Scrubber under the detail map (docs/04_ux_design.md §2.9): slider over the track distance with
+ * "elapsed · %" caption, arrows to step one point, and the values at the cursor.
+ */
+@Composable
+private fun TrackCursorPanel(
+    cursor: TrackCursor,
+    formatter: UnitFormatter,
+    onFraction: (Float) -> Unit,
+    onStep: (Int) -> Unit,
+) {
+    Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { onStep(-1) }) {
+                Icon(Icons.Filled.ChevronLeft, contentDescription = stringResource(R.string.detail_cursor_prev))
+            }
+            Slider(
+                value = cursor.fraction,
+                onValueChange = onFraction,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = { onStep(1) }) {
+                Icon(Icons.Filled.ChevronRight, contentDescription = stringResource(R.string.detail_cursor_next))
+            }
+        }
+        Text(
+            stringResource(R.string.detail_cursor_caption, TimeFormat.duration(cursor.elapsedMs), (cursor.fraction * 100).toInt()),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+        )
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            CursorValue(stringResource(R.string.detail_cursor_speed), formatter.speed(cursor.speedMps.toDouble()))
+            CursorValue(stringResource(R.string.detail_distance), formatter.distance(cursor.distanceFromStartM))
+            CursorValue(stringResource(R.string.detail_cursor_time), TimeFormat.timeOfDay(cursor.timestamp))
+            CursorValue(stringResource(R.string.detail_cursor_altitude), cursor.altitudeM?.let { formatter.elevation(it) } ?: "—")
+        }
+    }
+}
+
+@Composable
+private fun CursorValue(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -137,17 +197,39 @@ fun TrackDetailScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            TrackMap(
-                segments = state.segments,
-                modifier = Modifier
+            Box(
+                Modifier
                     .fillMaxWidth()
                     .weight(0.45f),
-                lineColor = ActivityColors.of(track.activityType),
-                fitToTrack = true,
-                showStartFinish = true,
-                pois = state.pois,
-                onPoiClick = { poi -> poiCardViewModel.open(poi, distanceM = null) },
-            )
+            ) {
+                TrackMap(
+                    segments = state.segments,
+                    modifier = Modifier.fillMaxSize(),
+                    lineColor = ActivityColors.of(track.activityType),
+                    maxSpeedMps = track.maxSpeedMps,
+                    highlight = state.cursor?.point,
+                    fitToTrack = true,
+                    showStartFinish = true,
+                    onTrackTap = viewModel::onTrackTap,
+                    pois = state.pois,
+                    onPoiClick = { poi -> poiCardViewModel.open(poi, distanceM = null) },
+                )
+                SpeedLegend(
+                    maxSpeedMps = track.maxSpeedMps,
+                    formatter = formatter,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(12.dp),
+                )
+            }
+            state.cursor?.let { cursor ->
+                TrackCursorPanel(
+                    cursor = cursor,
+                    formatter = formatter,
+                    onFraction = viewModel::scrubToFraction,
+                    onStep = viewModel::stepCursor,
+                )
+            }
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -168,8 +250,10 @@ fun TrackDetailScreen(
             } else {
                 null
             }
+            // Recording time (Start → Stop) is the primary time; moving time is secondary (US-08).
             val tiles = buildList {
                 add(stringResource(R.string.detail_distance) to formatter.distance(track.distanceM))
+                add(stringResource(R.string.detail_recording_time) to TimeFormat.duration(track.recordingTimeMs()))
                 add(stringResource(R.string.detail_moving_time) to TimeFormat.duration(track.movingTimeMs))
                 add(stringResource(R.string.detail_avg_speed) to formatter.speed(track.avgSpeedMps))
                 add(stringResource(R.string.detail_max_speed) to formatter.speed(track.maxSpeedMps))
@@ -177,7 +261,7 @@ fun TrackDetailScreen(
                 add(stringResource(R.string.detail_elevation_loss) to formatter.elevation(-track.elevationLossM, signed = true))
                 if (pace != null) add(stringResource(R.string.detail_pace) to pace)
                 add(stringResource(R.string.detail_points) to track.pointCount.toString())
-                add(stringResource(R.string.detail_total_time) to TimeFormat.duration(track.totalTimeMs))
+                if (track.pausedTimeMs > 0) add(stringResource(R.string.detail_paused_time) to TimeFormat.duration(track.pausedTimeMs))
                 add(stringResource(R.string.detail_started) to TimeFormat.dateTime(track.startedAt))
             }
             LazyVerticalGrid(

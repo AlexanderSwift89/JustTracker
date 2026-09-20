@@ -108,7 +108,7 @@ stateDiagram-v2
 - `startForegroundService()` вызывается только из UI (foreground-контекст), внутри `onStartCommand` — `startForeground(id, notification, FOREGROUND_SERVICE_TYPE_LOCATION)` в первые 5 с.
 - `START_STICKY`; при перезапуске с `null`-intent сервис проверяет БД и восстанавливает запись.
 - FLP: `LocationRequest.Builder(PRIORITY_HIGH_ACCURACY, 1000).setMinUpdateIntervalMillis(500).setMinUpdateDistanceMeters(0)`; колбэк на `Looper` сервиса; запись в БД через `serviceScope` (`SupervisorJob + Dispatchers.IO`).
-- Уведомление (канал `tracking`, IMPORTANCE_LOW): текст «3.4 km · 00:18 · 12 km/h», действия Пауза/Продолжить и Стоп (PendingIntent на сервис), тап — открыть MainActivity.
+- Уведомление (канал `tracking`, IMPORTANCE_LOW): текст «3.4 km · 12 km/h», время записи — системный хронометр (`setUsesChronometer(true)`, `setWhen(startedAt)`), который тикает без обновлений уведомления; действия Пауза/Продолжить и Стоп (PendingIntent на сервис), тап — открыть MainActivity.
 - Инкрементальная статистика (`IncrementalStats`, in-memory) обновляется на каждой принятой точке и записывается в строку `Track` в одной транзакции со вставкой точки (`insertPointAndUpdateTrack`) — при 1 Гц это дёшево, а после смерти процесса сервис восстанавливает счётчики из строки трека без пересчёта всех точек. Полный пересчёт — только при завершении.
 - Doze: FGS с типом location освобождён от ограничений на локацию; `WakeLock` не нужен (FLP держит GPS). Опционально пользователь может отключить оптимизацию батареи — в MVP не запрашиваем.
 
@@ -150,18 +150,21 @@ erDiagram
 ```
 Индексы: `track_points(trackId, timestamp)`, `tracks(status)`, `tracks(startedAt)`. Версия схемы 1, `exportSchema = true` (каталог `schemas/` для будущих миграций).
 
+**Время записи** (1.2) — производная величина `Track.recordingTimeMs(now) = (finishedAt ?: now) − startedAt`, не хранится: старые строки корректны без миграции. `totalTimeMs` (время записи без пауз) и `pausedTimeMs` сохраняются как есть. **Скорость по участкам** — `track_points.speedMps` каждой точки (`effectiveSpeed` на момент записи), сглаживается при отображении (`SpeedProfile`).
+
 ## 6. Алгоритмы (реализация в domain)
 
 - `Geo.distanceMeters(lat1, lon1, lat2, lon2)` — haversine.
 - `LocationFilter.accept(prev, next, maxAccuracy)` — §3.1 спецификации; чистая функция, возвращает `FilterResult(accepted, reason)`.
 - `TrackStatsCalculator.calculate(points, pausedTimeMs, finishedAt)` — полный пересчёт при завершении и в деталях; `IncrementalStats` — для сервиса.
+- `SpeedProfile.of(points)` — попточечно: сглаженная скорость (та же `smoothedSpeeds`, что и для макс. скорости), накопленная дистанция, timestamp и высота; основа для окраски линии, карточки «Скорость на участке» и курсора по треку в деталях.
 - `ElevationCalculator.gainLoss(altitudes)` — скользящее среднее + гистерезис 3 м.
 - `ActivityClassifier.classify(speeds)` — перцентили → тип.
 - `GpxWriter.write(track, points, out: Appendable)` — GPX 1.1.
 
 ## 7. Карта
 
-`TrackMap` — Compose-обёртка над `osmdroid.MapView` через `AndroidView`. Параметры: список сегментов (список списков `GeoPoint`), текущее положение, режим follow, колбэк `onUserGesture`, список `pois` + `onPoiClick`. Слои: `TilesOverlay` (Mapnik), `Polyline` на сегмент, `Marker` для положения/старт/финиш, `Marker` с иконкой `ic_poi_marker` на каждый POI (diff по id, маркер положения всегда сверху). Тайлы кэшируются osmdroid в `cacheDir/osmdroid` (не в external storage — без дополнительных разрешений). `User-Agent` = applicationId (требование политики OSM tile usage).
+`TrackMap` — Compose-обёртка над `osmdroid.MapView` через `AndroidView`. Параметры: список сегментов `PathSegment` (вершины + параллельные массивы скорости/дистанции/времени, собираются `TrackPath.build` на `Dispatchers.Default`), `maxSpeedMps` (верх шкалы цвета), текущее положение, `highlight` (тапнутая вершина), режим follow, колбэки `onUserGesture` и `onTrackTap(segment, index)`, список `pois` + `onPoiClick`. Слои: `TilesOverlay` (Mapnik), `Polyline` на сегмент с `PolychromaticPaintList` (цвет вершины из `SpeedColorScale`; массив скоростей и максимум подменяются на месте, поэтому рост live-трека и максимума не требуют пересоздания оверлея), `Marker` для положения/старт/финиш/выделения, `Marker` с иконкой `ic_poi_marker` на каждый POI (diff по id, маркер положения всегда сверху). Тап по линии → ближайшая вершина (equirectangular) → ViewModel разрешает её в `TrackTapInfo` (экран записи: карточка с авто-скрытием) или переносит курсор `TrackCursor` (детали: слайдер по дистанции, `TrackPath.indexForFraction` / `cursorAt` — глобальный индекс вершины по всем сегментам; скорость, расстояние, время с начала записи, время суток, высота). Тайлы кэшируются osmdroid в `cacheDir/osmdroid` (не в external storage — без дополнительных разрешений). `User-Agent` = applicationId (требование политики OSM tile usage).
 
 ## 8. Экспорт GPX
 
@@ -171,7 +174,7 @@ erDiagram
 
 | Уровень | Что | Инструмент |
 |---------|-----|------------|
-| Unit (JVM) | Geo, LocationFilter, ElevationCalculator, TrackStatsCalculator, ActivityClassifier, GpxWriter, UnitFormatter | JUnit4 |
+| Unit (JVM) | Geo, LocationFilter, ElevationCalculator, TrackStatsCalculator, SpeedProfile/TrackPath, SpeedColorScale, Track.recordingTimeMs, ActivityClassifier, GpxWriter, UnitFormatter | JUnit4 |
 | Integration | TrackDao + TrackRepository | Room in-memory (androidTest) |
 | UI | Навигация, состояния Record | Compose UI test (androidTest), в MVP — минимально |
 | Ручное | Сервис при выключенном экране, kill процесса, отзыв разрешений | Эмулятор + `adb`, реальное устройство |
@@ -226,5 +229,9 @@ flowchart LR
 **ADR-08. HttpURLConnection + org.json вместо OkHttp/Retrofit/Moshi.** Два GET/POST-эндпоинта не оправдывают +1,5 МБ и новые ProGuard-правила (NFR-03). Для JVM-тестов парсеров подключён реальный `org.json:json` (стаб Android SDK бросает «not mocked»).
 
 **ADR-09. Привязка запроса к сетке 0.005°.** Точное положение пользователя не покидает устройство: Overpass получает центр ячейки ≈ 550 м; радиус 1500 м гарантирует покрытие ≥ 1,2 км вокруг реального положения. Побочный эффект — один запрос на ячейку (кэш), что также снижает нагрузку на сервер.
+
+**ADR-11. Время записи — производная, а не новая колонка.** Контекст: основным временем становится интервал «Старт → Стоп» с паузами. Хранить его отдельно — дублировать `startedAt`/`finishedAt` и требовать миграцию с обратным заполнением. Решение: `Track.recordingTimeMs(now)` вычисляется из существующих полей; `totalTimeMs` (без пауз) остаётся в схеме для совместимости и возможного отображения. Последствия: нет миграции, старая история корректна; live-значение тикает по тикеру UI, а не по точкам GPS.
+
+**ADR-12. Окраска линии через `PolychromaticPaintList`, а не набор полилиний.** Контекст: нужна скорость по участкам на live-карте до 100 000 точек. Отдельная `Polyline` на участок — тысячи оверлеев и пересоздание при каждом обновлении. Решение: одна `Polyline` на сегмент с `ColorMapping` по индексу вершины; сглаженные скорости считаются в `SpeedProfile` на `Dispatchers.Default` (O(n) на эмиссию, 1 Гц). Градиент между вершинами выключен (`useGradient=false`) — избегаем аллокации `LinearGradient` на каждый отрезок в каждом кадре.
 
 **ADR-10. PoiAnnouncer в application scope, а не в ViewModel/сервисе.** ViewModel умирает с back stack; встраивание в `TrackingService` смешало бы запись с сетью/TTS. Отдельный объект, подписанный на те же потоки, что и UI, при выключенном экране живёт благодаря FGS. Пересмотреть, если появится требование гарантированной озвучки в Doze (тогда — внутрь сервиса с wakelock на время запроса).

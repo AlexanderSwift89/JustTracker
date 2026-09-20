@@ -30,7 +30,7 @@ cd android && .\gradlew.bat :app:bundleRelease
 
 GitHub Actions (`.github/workflows/android.yml`) на каждый push в `main` прогоняет unit-тесты и lint и собирает `TrekLog-<versionName>-debug.apk` (артефакт, 30 дней). Тег `vX.Y.Z` создаёт GitHub Release с этим APK — удобно раздавать тестировщикам без Play Console. Release-AAB для Play в CI **не** собирается: ключ подписи хранится только локально (`keystore.properties`, в `.gitignore`), см. §1.1.
 
-Порядок выпуска: обновить `versionCode`/`versionName` → `CHANGELOG.md` → commit → `git tag v1.1.0 && git push origin main v1.1.0` → дождаться зелёного CI → локально `bundleRelease` → Play Console.
+Порядок выпуска: обновить `versionCode`/`versionName` → `CHANGELOG.md` → commit → `git tag v1.2.0 && git push origin main v1.2.0` → дождаться зелёного CI → локально `bundleRelease` → Play Console.
 
 ## 2. Google Play Console — пошагово
 
@@ -142,6 +142,10 @@ gps трекер, запись маршрута, gpx, трек, пробег, в
 > Contact: privacy@treklog.app
 
 ## 7. Release notes
+
+### 1.2.0
+- RU: «Основное время теперь — время записи (от „Старт“ до „Стоп“), время движения показывается отдельно. Линия трека окрашена по скорости: видно, где вы ехали быстрее; нажмите на линию, чтобы увидеть скорость на участке. В карточке трека — ползунок для просмотра маршрута по точкам. Максимальная скорость — на экране записи и в истории.»
+- EN: "Recording time (Start to Stop) is now the main time; moving time is shown separately. The track line is coloured by speed so you can see where you were faster; tap the line to see the speed on that section. Track detail gets a scrubber to step through the route. Max speed is shown while recording and in History."
 
 ### 1.1.0
 - RU: «Интересное рядом: метки достопримечательностей из OpenStreetMap и Википедии вокруг вас и вдоль трека, карточка с описанием и кнопкой „Прочитать вслух“. Новая настройка: озвучивать объекты при приближении (выключено по умолчанию).»

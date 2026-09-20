@@ -18,8 +18,12 @@ object TimeFormat {
 
     private val dateTime: DateTimeFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
     private val dateShort: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM, HH:mm")
+    private val timeOfDay: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
 
     fun dateTime(epochMs: Long): String = dateTime.format(Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()))
 
     fun dateShort(epochMs: Long): String = dateShort.format(Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()))
+
+    /** "HH:mm:ss" wall-clock time in the device zone (track cursor). */
+    fun timeOfDay(epochMs: Long): String = timeOfDay.format(Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()))
 }

@@ -9,32 +9,40 @@ import io.treklog.app.di.AppContainer
 import io.treklog.app.domain.gpx.GpxWriter
 import io.treklog.app.domain.model.ActivityType
 import io.treklog.app.domain.model.Track
-import io.treklog.app.domain.model.TrackPoint
 import io.treklog.app.domain.model.UnitSystem
 import io.treklog.app.data.poi.PoiResult
 import io.treklog.app.domain.poi.Poi
+import io.treklog.app.ui.common.PathSegment
+import io.treklog.app.ui.common.TrackCursor
+import io.treklog.app.ui.common.TrackPath
 import io.treklog.app.util.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.osmdroid.util.GeoPoint
 import java.io.File
 
 data class TrackDetailUiState(
     val track: Track? = null,
-    val segments: List<List<GeoPoint>> = emptyList(),
+    /** Track line with per-vertex speed, distance and time (docs/06_system_analysis.md §3.6). */
+    val segments: List<PathSegment> = emptyList(),
     val units: UnitSystem = UnitSystem.METRIC,
     val loaded: Boolean = false,
     /** Places with a Wikipedia article within 400 m of the track; empty when disabled/offline. */
     val pois: List<Poi> = emptyList(),
+    /** Scrubber position on the track (slider / tap / arrows); start of the track by default. */
+    val cursor: TrackCursor? = null,
 )
 
 class TrackDetailViewModel(private val container: AppContainer, private val trackId: Long) : ViewModel() {
@@ -53,14 +61,40 @@ class TrackDetailViewModel(private val container: AppContainer, private val trac
             }
         }
 
+    private val segments: Flow<List<PathSegment>> = repo.observePoints(trackId)
+        .map { TrackPath.build(it) }
+        .flowOn(Dispatchers.Default)
+
+    /** Global vertex index the user scrubbed to; 0 (track start) until touched. */
+    private val cursorIndex = MutableStateFlow(0)
+
     val state: StateFlow<TrackDetailUiState> = combine(
         repo.observeTrack(trackId),
-        repo.observePoints(trackId),
+        segments,
         container.settingsRepository.settings,
         pois,
-    ) { track, points, settings, poiList ->
-        TrackDetailUiState(track, toSegments(points), settings.units, loaded = true, pois = poiList)
+        cursorIndex,
+    ) { track, segs, settings, poiList, idx ->
+        val cursor = track?.let { TrackPath.cursorAt(segs, idx, it.startedAt) }
+        TrackDetailUiState(track, segs, settings.units, loaded = true, pois = poiList, cursor = cursor)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrackDetailUiState())
+
+    /** Tap on the track line moves the scrubber to that vertex. */
+    fun onTrackTap(segment: Int, index: Int) {
+        cursorIndex.value = TrackPath.globalIndex(state.value.segments, segment, index)
+    }
+
+    /** Slider: 0..1 share of the total distance. */
+    fun scrubToFraction(fraction: Float) {
+        cursorIndex.value = TrackPath.indexForFraction(state.value.segments, fraction)
+    }
+
+    /** Arrow buttons: move one vertex back or forward. */
+    fun stepCursor(delta: Int) {
+        val count = TrackPath.pointCount(state.value.segments)
+        if (count == 0) return
+        cursorIndex.update { (it + delta).coerceIn(0, count - 1) }
+    }
 
     fun rename(name: String) = viewModelScope.launch { repo.rename(trackId, name) }
     fun setActivityType(type: ActivityType) = viewModelScope.launch { repo.setActivityType(trackId, type) }
@@ -94,7 +128,4 @@ class TrackDetailViewModel(private val container: AppContainer, private val trac
             null
         }
     }
-
-    private fun toSegments(points: List<TrackPoint>): List<List<GeoPoint>> =
-        points.groupBy { it.segment }.toSortedMap().values.map { seg -> seg.map { GeoPoint(it.lat, it.lon) } }
 }

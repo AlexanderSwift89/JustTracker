@@ -149,6 +149,7 @@ private fun TrackCard(track: Track, formatter: UnitFormatter, onClick: () -> Uni
                     )
                 }
             }
+            // Primary row: distance · recording time · average; secondary: moving time and max speed.
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -156,9 +157,19 @@ private fun TrackCard(track: Track, formatter: UnitFormatter, onClick: () -> Uni
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(formatter.distance(track.distanceM), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                Text(TimeFormat.duration(track.movingTimeMs), style = MaterialTheme.typography.bodyLarge)
+                Text(TimeFormat.duration(track.recordingTimeMs()), style = MaterialTheme.typography.bodyLarge)
                 Text(formatter.speed(track.avgSpeedMps), style = MaterialTheme.typography.bodyLarge)
             }
+            Text(
+                stringResource(
+                    R.string.history_secondary_format,
+                    TimeFormat.duration(track.movingTimeMs),
+                    formatter.speed(track.maxSpeedMps),
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
         }
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
             DropdownMenuItem(text = { Text(stringResource(R.string.action_rename)) }, onClick = {
