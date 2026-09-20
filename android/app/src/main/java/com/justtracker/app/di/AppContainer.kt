@@ -11,11 +11,15 @@ import com.justtracker.app.data.repo.TrackRepository
 import com.justtracker.app.domain.model.AppSettings
 import com.justtracker.app.service.PoiAnnouncer
 import com.justtracker.app.service.TrackingController
+import com.justtracker.app.util.AppLocale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.stateIn
 
 /** Manual dependency graph (ADR-03). One instance per process, owned by [com.justtracker.app.JustTrackerApplication]. */
@@ -28,8 +32,8 @@ class AppContainer(context: Context) {
     val settingsRepository: SettingsRepository by lazy { SettingsRepository(appContext) }
     val locationSource: LocationSource by lazy { PlatformLocationSource(appContext) }
     val trackingController: TrackingController by lazy { TrackingController(appContext) }
-    val poiRepository: PoiRepository by lazy { PoiRepository() }
-    val tts: TtsSpeaker by lazy { TtsSpeaker(appContext) }
+    val poiRepository: PoiRepository by lazy { PoiRepository(preferredLang = { AppLocale.current(cachedSettings).language }) }
+    val tts: TtsSpeaker by lazy { TtsSpeaker(appContext, fallbackLocale = { AppLocale.current(cachedSettings) }) }
     val poiAnnouncer: PoiAnnouncer by lazy { PoiAnnouncer(this) }
 
     /** Hot copy of settings for non-suspending callers (notification formatting). */
@@ -37,4 +41,12 @@ class AppContainer(context: Context) {
         settingsRepository.settings.stateIn(appScope, SharingStarted.Eagerly, AppSettings())
     }
     val cachedSettings: AppSettings get() = settingsFlow.value
+
+    init {
+        // Keep the JVM default locale equal to the chosen app language for the whole process
+        // (service, formatters) — AppCompat alone only covers activities on API < 33.
+        appScope.launch {
+            settingsRepository.settings.map { it.language }.distinctUntilChanged().collect { AppLocale.applyDefault(it) }
+        }
+    }
 }

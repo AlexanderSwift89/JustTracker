@@ -8,6 +8,26 @@ enum class UnitSystem { METRIC, IMPERIAL }
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/**
+ * UI language chosen explicitly by the user (US-18). There is no "system" option: the choice is
+ * made once during onboarding (pre-selected from the device locale) and can be changed in Settings.
+ */
+enum class AppLanguage(val tag: String) {
+    EN("en"),
+    RU("ru");
+
+    companion object {
+        /** Matches a BCP-47 tag or bare language ("ru-RU", "ru") to a supported language; null when unsupported. */
+        fun fromTag(tag: String?): AppLanguage? {
+            val lang = tag?.substringBefore('-')?.substringBefore('_')?.lowercase() ?: return null
+            return entries.firstOrNull { it.tag == lang }
+        }
+
+        /** Onboarding pre-selection: the device language when supported, English otherwise. */
+        fun forDevice(): AppLanguage = fromTag(java.util.Locale.getDefault().language) ?: EN
+    }
+}
+
 /** A persisted GPS sample. All values are SI (meters, m/s, epoch millis, WGS84 degrees). */
 data class TrackPoint(
     val id: Long = 0,
@@ -80,4 +100,6 @@ data class AppSettings(
     val poiEnabled: Boolean = true,
     /** Read a place aloud automatically when the user gets within 150 m while recording. Off by default. */
     val poiAutoSpeak: Boolean = false,
+    /** Explicit UI language; null until the user picks one in onboarding. */
+    val language: AppLanguage? = null,
 )

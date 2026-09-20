@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.justtracker.app.domain.model.AppLanguage
 import com.justtracker.app.domain.model.AppSettings
 import com.justtracker.app.domain.model.ThemeMode
 import com.justtracker.app.domain.model.UnitSystem
@@ -26,6 +27,7 @@ class SettingsRepository(private val context: Context) {
         val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
         val POI_ENABLED = booleanPreferencesKey("poi_enabled")
         val POI_AUTO_SPEAK = booleanPreferencesKey("poi_auto_speak")
+        val LANGUAGE = stringPreferencesKey("language")
     }
 
     val settings: Flow<AppSettings> = context.settingsStore.data.map { p ->
@@ -37,6 +39,7 @@ class SettingsRepository(private val context: Context) {
             onboardingDone = p[Keys.ONBOARDING_DONE] ?: false,
             poiEnabled = p[Keys.POI_ENABLED] ?: true,
             poiAutoSpeak = p[Keys.POI_AUTO_SPEAK] ?: false,
+            language = AppLanguage.fromTag(p[Keys.LANGUAGE]),
         )
     }
 
@@ -49,4 +52,5 @@ class SettingsRepository(private val context: Context) {
     suspend fun setOnboardingDone() = context.settingsStore.edit { it[Keys.ONBOARDING_DONE] = true }
     suspend fun setPoiEnabled(on: Boolean) = context.settingsStore.edit { it[Keys.POI_ENABLED] = on }
     suspend fun setPoiAutoSpeak(on: Boolean) = context.settingsStore.edit { it[Keys.POI_AUTO_SPEAK] = on }
+    suspend fun setLanguage(language: AppLanguage) = context.settingsStore.edit { it[Keys.LANGUAGE] = language.tag }
 }

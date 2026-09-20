@@ -3,6 +3,7 @@ package com.justtracker.app.service
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
@@ -25,6 +26,7 @@ import com.justtracker.app.domain.model.TrackStatus
 import com.justtracker.app.domain.stats.IncrementalStats
 import com.justtracker.app.util.AppLog
 import com.justtracker.app.util.TimeFormat
+import com.justtracker.app.util.AppLocale
 import com.justtracker.app.util.UnitFormatter
 import com.justtracker.app.util.labelRes
 import kotlinx.coroutines.CoroutineScope
@@ -53,7 +55,9 @@ class TrackingService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var container: AppContainer
-    private lateinit var notification: TrackingNotification
+    /** Resources in the app language: on API < 33 a Service context still follows the device locale. */
+    private val localized: Context get() = AppLocale.localized(this, container.cachedSettings)
+    private val notification: TrackingNotification get() = TrackingNotification(localized)
     private var session: Session? = null
     private var locationJob: Job? = null
     private var lastNotificationUpdate = 0L
@@ -62,7 +66,6 @@ class TrackingService : Service() {
     override fun onCreate() {
         super.onCreate()
         container = (application as JustTrackerApplication).container
-        notification = TrackingNotification(this)
         notification.ensureChannel()
     }
 
@@ -328,10 +331,10 @@ class TrackingService : Service() {
 
     private var cachedFormatter: UnitFormatter? = null
     private fun formatter(): UnitFormatter =
-        cachedFormatter ?: UnitFormatter(this, container.cachedSettings.units).also { cachedFormatter = it }
+        cachedFormatter ?: UnitFormatter(localized, container.cachedSettings.units).also { cachedFormatter = it }
 
     private fun autoName(type: ActivityType, startedAt: Long): String =
-        getString(type.labelRes()) + " · " + TimeFormat.dateShort(startedAt)
+        localized.getString(type.labelRes()) + " · " + TimeFormat.dateShort(startedAt, AppLocale.current(container.cachedSettings))
 
     private fun hasLocationPermission() =
         ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED

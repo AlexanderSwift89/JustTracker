@@ -1,19 +1,21 @@
 package com.justtracker.app.ui
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.justtracker.app.JustTrackerApplication
 import com.justtracker.app.domain.model.AppSettings
 import com.justtracker.app.ui.common.LocalAppContainer
 import com.justtracker.app.ui.theme.JustTrackerTheme
+import com.justtracker.app.util.AppLocale
 
-class MainActivity : ComponentActivity() {
+/** AppCompatActivity (not ComponentActivity) so the per-app language works down to API 26. */
+class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -24,6 +26,8 @@ class MainActivity : ComponentActivity() {
                 container.settingsRepository.settings.collect { value = it }
             }
             val current = settings ?: return@setContent
+            // Stored choice wins over whatever AppCompat remembers (reinstall / restore); no-op when equal.
+            LaunchedEffect(current.language) { AppLocale.sync(current.language) }
             CompositionLocalProvider(LocalAppContainer provides container) {
                 JustTrackerTheme(themeMode = current.theme) {
                     JustTrackerApp(settings = current)

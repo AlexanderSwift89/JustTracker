@@ -26,9 +26,13 @@ object TimeFormat {
     private val dateShort: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM, HH:mm")
     private val timeOfDay: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
 
-    fun dateTime(epochMs: Long): String = dateTime.format(Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()))
+    /** Localized date + time; [locale] defaults to the process locale, which AppLocale keeps equal to the app language. */
+    fun dateTime(epochMs: Long, locale: Locale = Locale.getDefault()): String =
+        dateTime.withLocale(locale).format(Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()))
 
-    fun dateShort(epochMs: Long): String = dateShort.format(Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()))
+    /** "d MMM, HH:mm" with month names in [locale] (track auto-names). */
+    fun dateShort(epochMs: Long, locale: Locale = Locale.getDefault()): String =
+        dateShort.withLocale(locale).format(Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()))
 
     /** "HH:mm:ss" wall-clock time in the device zone (track cursor). */
     fun timeOfDay(epochMs: Long): String = timeOfDay.format(Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()))

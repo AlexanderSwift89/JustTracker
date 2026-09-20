@@ -25,6 +25,8 @@
     <string name="onboarding_location_body">Нужна, чтобы рисовать ваш маршрут на карте во время записи.</string>
     <string name="onboarding_notifications_title">Уведомления</string>
     <string name="onboarding_notifications_body">Показывают статус записи при выключенном экране.</string>
+    <string name="onboarding_language_title">Выберите язык</string>
+    <string name="onboarding_language_body">Позже язык можно изменить в настройках.</string>
 
     <string name="record_ready">Готов к записи</string>
     <string name="record_start">Старт</string>
@@ -117,6 +119,7 @@
     </plurals>
 
     <string name="settings_title">Настройки</string>
+    <string name="settings_language">Язык</string>
     <string name="settings_units">Единицы измерения</string>
     <string name="settings_units_metric">Метрические (км, м)</string>
     <string name="settings_units_imperial">Имперские (мили, футы)</string>

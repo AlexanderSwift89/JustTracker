@@ -16,7 +16,11 @@ import java.util.Locale
  * beyond what the engine itself has). Exposes which utterance is currently spoken so the card can
  * toggle its button, and ducks other audio (navigation, music) while speaking.
  */
-class TtsSpeaker(context: Context) {
+class TtsSpeaker(
+    context: Context,
+    /** Locale used when the engine lacks the text language — the app language, not the device one. */
+    private val fallbackLocale: () -> Locale = { Locale.getDefault() },
+) {
     private val appContext = context.applicationContext
     private val audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
@@ -88,7 +92,7 @@ class TtsSpeaker(context: Context) {
         val locale = Locale.forLanguageTag(lang)
         val result = tts.setLanguage(locale)
         if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-            tts.setLanguage(Locale.getDefault())
+            tts.setLanguage(fallbackLocale())
         }
         audioManager.requestAudioFocus(focusRequest)
         val mode = if (flush) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD

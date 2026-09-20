@@ -39,10 +39,13 @@ import androidx.lifecycle.viewModelScope
 import com.justtracker.app.BuildConfig
 import com.justtracker.app.R
 import com.justtracker.app.di.AppContainer
+import com.justtracker.app.domain.model.AppLanguage
 import com.justtracker.app.domain.model.AppSettings
 import com.justtracker.app.domain.model.ThemeMode
 import com.justtracker.app.domain.model.UnitSystem
 import com.justtracker.app.ui.common.appViewModel
+import com.justtracker.app.util.AppLocale
+import com.justtracker.app.util.labelRes
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -51,6 +54,11 @@ class SettingsViewModel(container: AppContainer) : ViewModel() {
     private val repo = container.settingsRepository
     val settings = repo.settings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppSettings())
 
+    /** Persist, then let AppCompat apply the locale (recreates the activity when it changes). */
+    fun setLanguage(language: AppLanguage) = viewModelScope.launch {
+        repo.setLanguage(language)
+        AppLocale.apply(language)
+    }
     fun setUnits(units: UnitSystem) = viewModelScope.launch { repo.setUnits(units) }
     fun setTheme(theme: ThemeMode) = viewModelScope.launch { repo.setTheme(theme) }
     fun setMaxAccuracy(m: Int) = viewModelScope.launch { repo.setMaxAccuracy(m) }
@@ -64,6 +72,7 @@ class SettingsViewModel(container: AppContainer) : ViewModel() {
 fun SettingsScreen(viewModel: SettingsViewModel = appViewModel { SettingsViewModel(it) }) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var languageDialog by remember { mutableStateOf(false) }
     var unitsDialog by remember { mutableStateOf(false) }
     var themeDialog by remember { mutableStateOf(false) }
     var accuracy by remember(settings.maxAccuracyM) { mutableFloatStateOf(settings.maxAccuracyM.toFloat()) }
@@ -76,6 +85,11 @@ fun SettingsScreen(viewModel: SettingsViewModel = appViewModel { SettingsViewMod
                 .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_language)) },
+                supportingContent = { Text(stringResource((settings.language ?: AppLanguage.forDevice()).labelRes())) },
+                modifier = Modifier.clickable { languageDialog = true },
+            )
             ListItem(
                 headlineContent = { Text(stringResource(R.string.settings_units)) },
                 supportingContent = { Text(stringResource(settings.units.labelRes())) },
@@ -159,6 +173,18 @@ fun SettingsScreen(viewModel: SettingsViewModel = appViewModel { SettingsViewMod
         }
     }
 
+    if (languageDialog) {
+        ChoiceDialog(
+            title = stringResource(R.string.settings_language),
+            options = AppLanguage.entries.map { it to stringResource(it.labelRes()) },
+            selected = settings.language ?: AppLanguage.forDevice(),
+            onSelect = {
+                languageDialog = false
+                if (it != settings.language) viewModel.setLanguage(it)
+            },
+            onDismiss = { languageDialog = false },
+        )
+    }
     if (unitsDialog) {
         ChoiceDialog(
             title = stringResource(R.string.settings_units),

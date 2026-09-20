@@ -68,6 +68,11 @@ android {
         localeFilters += listOf("en", "ru")
     }
 
+    bundle {
+        // The user switches language inside the app, so both locales must be present in every install.
+        language { enableSplit = false }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -109,6 +114,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.service)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.appcompat)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

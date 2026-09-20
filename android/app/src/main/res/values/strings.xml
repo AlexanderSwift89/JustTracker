@@ -27,6 +27,10 @@
     <string name="onboarding_location_body">Needed to draw your route on the map while you record.</string>
     <string name="onboarding_notifications_title">Notifications</string>
     <string name="onboarding_notifications_body">Shows the recording status when the screen is off.</string>
+    <string name="onboarding_language_title">Choose your language</string>
+    <string name="onboarding_language_body">You can change it later in Settings.</string>
+    <string name="language_en" translatable="false">English</string>
+    <string name="language_ru" translatable="false">Русский</string>
 
     <!-- Record screen -->
     <string name="record_ready">Ready to record</string>
@@ -123,6 +127,7 @@
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
+    <string name="settings_language">Language</string>
     <string name="settings_units">Units</string>
     <string name="settings_units_metric">Metric (km, m)</string>
     <string name="settings_units_imperial">Imperial (mi, ft)</string>
