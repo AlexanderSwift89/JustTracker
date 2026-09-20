@@ -2,7 +2,7 @@ package com.justtracker.app.di
 
 import android.content.Context
 import com.justtracker.app.data.db.JustTrackerDatabase
-import com.justtracker.app.data.location.FusedLocationSource
+import com.justtracker.app.data.location.PlatformLocationSource
 import com.justtracker.app.data.location.LocationSource
 import com.justtracker.app.data.poi.PoiRepository
 import com.justtracker.app.data.tts.TtsSpeaker
@@ -26,7 +26,7 @@ class AppContainer(context: Context) {
     val database: JustTrackerDatabase by lazy { JustTrackerDatabase.build(appContext) }
     val trackRepository: TrackRepository by lazy { TrackRepository(database.trackDao()) }
     val settingsRepository: SettingsRepository by lazy { SettingsRepository(appContext) }
-    val locationSource: LocationSource by lazy { FusedLocationSource(appContext) }
+    val locationSource: LocationSource by lazy { PlatformLocationSource(appContext) }
     val trackingController: TrackingController by lazy { TrackingController(appContext) }
     val poiRepository: PoiRepository by lazy { PoiRepository() }
     val tts: TtsSpeaker by lazy { TtsSpeaker(appContext) }
