@@ -69,6 +69,15 @@
             android:foregroundServiceType="location"
             android:stopWithTask="false" />
 
+        <!-- Offline region downloads finish through the system DownloadManager, possibly while the app is dead. -->
+        <receiver
+            android:name=".data.maps.DownloadCompleteReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
+            </intent-filter>
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

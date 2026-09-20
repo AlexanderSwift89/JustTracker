@@ -4,14 +4,15 @@ import android.annotation.SuppressLint
 import android.graphics.Paint
 import android.graphics.drawable.GradientDrawable
 import android.view.MotionEvent
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -24,8 +25,11 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.justtracker.app.R
+import com.justtracker.app.data.maps.render.HybridTileProvider
 import com.justtracker.app.domain.poi.Poi
+import com.justtracker.app.util.AppLocale
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
@@ -101,7 +105,13 @@ fun TrackMap(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val dark = isSystemInDarkTheme()
+    // Follows the *app* theme (Settings → Theme), not only the system one.
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val container = LocalAppContainer.current
+    val settings by container.settingsFlow.collectAsStateWithLifecycle()
+    val coverage by container.offlineRegionStore.readyCoverage.collectAsStateWithLifecycle()
+    val offlineFiles = coverage.map { it.file }
+    val mapLanguage = AppLocale.current(settings).language
     val density = LocalDensity.current
     val strokePx = with(density) { 6.dp.toPx() }
     val paddingPx = with(density) { 48.dp.toPx() }.toInt()
@@ -124,6 +134,15 @@ fun TrackMap(
             if (dark) overlayManager.tilesOverlay.setColorFilter(TilesOverlay.INVERT_COLORS)
         }
         MapHolder(map)
+    }
+
+    // Tile chain is rebuilt only when the set of ready regions, the label language or the theme changes.
+    DisposableEffect(offlineFiles, mapLanguage, dark) {
+        val offline = HybridTileProvider.createOfflineSource(offlineFiles, mapLanguage)
+        val provider = HybridTileProvider.create(context, offline) { container.offlineRegionStore.readyCoverage.value }
+        holder.map.tileProvider = provider // detaches the previous provider and creates a fresh TilesOverlay
+        holder.map.overlayManager.tilesOverlay.setColorFilter(if (dark) TilesOverlay.INVERT_COLORS else null)
+        onDispose { }
     }
 
     DisposableEffect(lifecycleOwner) {

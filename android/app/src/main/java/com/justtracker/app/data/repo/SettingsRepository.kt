@@ -28,6 +28,7 @@ class SettingsRepository(private val context: Context) {
         val POI_ENABLED = booleanPreferencesKey("poi_enabled")
         val POI_AUTO_SPEAK = booleanPreferencesKey("poi_auto_speak")
         val LANGUAGE = stringPreferencesKey("language")
+        val MAPS_WIFI_ONLY = booleanPreferencesKey("maps_wifi_only")
     }
 
     val settings: Flow<AppSettings> = context.settingsStore.data.map { p ->
@@ -40,6 +41,7 @@ class SettingsRepository(private val context: Context) {
             poiEnabled = p[Keys.POI_ENABLED] ?: true,
             poiAutoSpeak = p[Keys.POI_AUTO_SPEAK] ?: false,
             language = AppLanguage.fromTag(p[Keys.LANGUAGE]),
+            mapsWifiOnly = p[Keys.MAPS_WIFI_ONLY] ?: true,
         )
     }
 
@@ -53,4 +55,5 @@ class SettingsRepository(private val context: Context) {
     suspend fun setPoiEnabled(on: Boolean) = context.settingsStore.edit { it[Keys.POI_ENABLED] = on }
     suspend fun setPoiAutoSpeak(on: Boolean) = context.settingsStore.edit { it[Keys.POI_AUTO_SPEAK] = on }
     suspend fun setLanguage(language: AppLanguage) = context.settingsStore.edit { it[Keys.LANGUAGE] = language.tag }
+    suspend fun setMapsWifiOnly(on: Boolean) = context.settingsStore.edit { it[Keys.MAPS_WIFI_ONLY] = on }
 }

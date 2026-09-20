@@ -3,6 +3,9 @@ package com.justtracker.app.di
 import android.content.Context
 import com.justtracker.app.data.db.JustTrackerDatabase
 import com.justtracker.app.data.location.PlatformLocationSource
+import com.justtracker.app.data.maps.OfflineRegionStore
+import com.justtracker.app.data.maps.RegionCatalog
+import com.justtracker.app.data.maps.RegionDownloader
 import com.justtracker.app.data.location.LocationSource
 import com.justtracker.app.data.poi.PoiRepository
 import com.justtracker.app.data.tts.TtsSpeaker
@@ -35,6 +38,11 @@ class AppContainer(context: Context) {
     val poiRepository: PoiRepository by lazy { PoiRepository(preferredLang = { AppLocale.current(cachedSettings).language }) }
     val tts: TtsSpeaker by lazy { TtsSpeaker(appContext, fallbackLocale = { AppLocale.current(cachedSettings) }) }
     val poiAnnouncer: PoiAnnouncer by lazy { PoiAnnouncer(this) }
+    val regionCatalog: RegionCatalog by lazy { RegionCatalog(appContext) }
+    val regionDownloader: RegionDownloader by lazy { RegionDownloader(appContext) }
+    val offlineRegionStore: OfflineRegionStore by lazy {
+        OfflineRegionStore(appContext, database.offlineRegionDao(), regionCatalog, regionDownloader, settingsRepository, appScope)
+    }
 
     /** Hot copy of settings for non-suspending callers (notification formatting). */
     val settingsFlow: StateFlow<AppSettings> by lazy {

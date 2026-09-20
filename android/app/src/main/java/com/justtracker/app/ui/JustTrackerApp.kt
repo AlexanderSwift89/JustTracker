@@ -40,6 +40,7 @@ import com.justtracker.app.domain.model.AppSettings
 import com.justtracker.app.ui.common.LocalAppContainer
 import com.justtracker.app.ui.detail.TrackDetailScreen
 import com.justtracker.app.ui.history.HistoryScreen
+import com.justtracker.app.ui.maps.OfflineMapsScreen
 import com.justtracker.app.ui.onboarding.OnboardingScreen
 import com.justtracker.app.ui.record.RecordScreen
 import com.justtracker.app.ui.settings.SettingsScreen
@@ -52,6 +53,7 @@ object Routes {
     const val STATS = "stats"
     const val SETTINGS = "settings"
     const val DETAIL = "detail/{trackId}"
+    const val OFFLINE_MAPS = "offline_maps"
     fun detail(id: Long) = "detail/$id"
 }
 
@@ -130,7 +132,10 @@ fun JustTrackerApp(settings: AppSettings) {
                 HistoryScreen(onOpenTrack = { id -> navController.navigate(Routes.detail(id)) })
             }
             composable(Routes.STATS) { StatsScreen() }
-            composable(Routes.SETTINGS) { SettingsScreen() }
+            composable(Routes.SETTINGS) {
+                SettingsScreen(onOpenOfflineMaps = { navController.navigate(Routes.OFFLINE_MAPS) })
+            }
+            composable(Routes.OFFLINE_MAPS) { OfflineMapsScreen(onBack = { navController.popBackStack() }) }
             composable(
                 Routes.DETAIL,
                 arguments = listOf(navArgument("trackId") { type = NavType.LongType }),

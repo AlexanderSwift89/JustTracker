@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -44,6 +45,7 @@ import com.justtracker.app.BuildConfig
 import com.justtracker.app.R
 import com.justtracker.app.di.AppContainer
 import com.justtracker.app.domain.model.AppLanguage
+import com.justtracker.app.domain.maps.RegionStatus
 import com.justtracker.app.domain.model.AppSettings
 import com.justtracker.app.domain.model.ThemeMode
 import com.justtracker.app.domain.model.UnitSystem
@@ -51,12 +53,16 @@ import com.justtracker.app.ui.common.appViewModel
 import com.justtracker.app.util.AppLocale
 import com.justtracker.app.util.labelRes
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(container: AppContainer) : ViewModel() {
     private val repo = container.settingsRepository
     val settings = repo.settings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppSettings())
+    val readyRegions = container.offlineRegionStore.regions
+        .map { list -> list.filter { it.status == RegionStatus.READY } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Persist, then let AppCompat apply the locale (recreates the activity when it changes). */
     fun setLanguage(language: AppLanguage) = viewModelScope.launch {
@@ -73,8 +79,12 @@ class SettingsViewModel(container: AppContainer) : ViewModel() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel = appViewModel { SettingsViewModel(it) }) {
+fun SettingsScreen(
+    onOpenOfflineMaps: () -> Unit = {},
+    viewModel: SettingsViewModel = appViewModel { SettingsViewModel(it) },
+) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val readyRegions by viewModel.readyRegions.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var languageDialog by remember { mutableStateOf(false) }
     var unitsDialog by remember { mutableStateOf(false) }
@@ -158,6 +168,31 @@ fun SettingsScreen(viewModel: SettingsViewModel = appViewModel { SettingsViewMod
                     role = Role.Switch,
                     onValueChange = viewModel::setPoiAutoSpeak,
                 ),
+            )
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            Text(
+                stringResource(R.string.settings_maps_section),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_maps_manage)) },
+                supportingContent = {
+                    Text(
+                        if (readyRegions.isEmpty()) {
+                            stringResource(R.string.settings_maps_summary_none)
+                        } else {
+                            pluralStringResource(
+                                R.plurals.settings_maps_summary,
+                                readyRegions.size,
+                                readyRegions.size,
+                                android.text.format.Formatter.formatShortFileSize(context, readyRegions.sumOf { it.sizeBytes }),
+                            )
+                        },
+                    )
+                },
+                modifier = Modifier.clickable(onClick = onOpenOfflineMaps),
             )
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             ListItem(

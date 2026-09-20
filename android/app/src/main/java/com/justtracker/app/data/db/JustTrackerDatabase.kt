@@ -6,12 +6,13 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [TrackEntity::class, TrackPointEntity::class],
+    entities = [TrackEntity::class, TrackPointEntity::class, OfflineRegionEntity::class],
     version = 1,
     exportSchema = true,
 )
 abstract class JustTrackerDatabase : RoomDatabase() {
     abstract fun trackDao(): TrackDao
+    abstract fun offlineRegionDao(): OfflineRegionDao
 
     companion object {
         const val NAME = "justtracker.db"

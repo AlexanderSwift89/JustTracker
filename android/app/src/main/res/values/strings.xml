@@ -142,6 +142,45 @@
     <string name="settings_privacy_url" translatable="false">https://alexanderswift89.github.io/JustTracker/privacy/</string>
     <string name="settings_version">Version</string>
     <string name="settings_map_attribution">Map data © OpenStreetMap contributors</string>
+    <!-- Offline maps (US-19, US-20) -->
+    <string name="maps_title">Offline maps</string>
+    <string name="maps_intro">Download a region in advance and the map keeps working without internet. Region files are large (tens of MB to a few GB).</string>
+    <string name="maps_wifi_only">Download over Wi-Fi only</string>
+    <string name="maps_wifi_only_desc">Queued downloads wait for a Wi-Fi connection.</string>
+    <string name="maps_storage">Storage</string>
+    <string name="maps_storage_desc">Regions use %1$s · %2$s free</string>
+    <string name="maps_no_external_storage">This device has no storage for downloads; you can still import a map file.</string>
+    <string name="maps_catalog_header">Available regions</string>
+    <string name="maps_imported_header">Imported files</string>
+    <string name="maps_import">Import a .map file</string>
+    <string name="maps_download">Download</string>
+    <string name="maps_cancel_download">Cancel download</string>
+    <string name="maps_delete">Delete region</string>
+    <string name="maps_retry">Retry</string>
+    <string name="maps_download_confirm_title">Download region?</string>
+    <string name="maps_download_confirm_body">%1$s — about %2$s. %3$s</string>
+    <string name="maps_download_via_wifi">The download starts when Wi-Fi is available.</string>
+    <string name="maps_download_via_any">Mobile data may be used.</string>
+    <string name="maps_delete_confirm_title">Delete region?</string>
+    <string name="maps_delete_confirm_body">%1$s will be removed from the device. The map of this area will need internet again.</string>
+    <string name="maps_status_queued">Queued</string>
+    <string name="maps_status_downloading">Downloading… %1$d%%</string>
+    <string name="maps_status_waiting_wifi">Waiting for Wi-Fi</string>
+    <string name="maps_status_waiting_network">Waiting for network</string>
+    <string name="maps_status_verifying">Checking file…</string>
+    <string name="maps_status_ready">Ready · %1$s</string>
+    <string name="maps_status_error_network">Download failed — check the connection and retry</string>
+    <string name="maps_status_error_space">Not enough free space</string>
+    <string name="maps_status_error_corrupt">The file is not a valid map</string>
+    <string name="maps_status_error_unknown">Download failed</string>
+    <string name="maps_attribution">Offline maps: Mapsforge files © OpenStreetMap contributors (ODbL), download.mapsforge.org</string>
+    <string name="settings_maps_section">Offline maps</string>
+    <string name="settings_maps_manage">Manage regions</string>
+    <string name="settings_maps_summary_none">No regions downloaded</string>
+    <plurals name="settings_maps_summary">
+        <item quantity="one">%1$d region · %2$s</item>
+        <item quantity="other">%1$d regions · %2$s</item>
+    </plurals>
     <string name="settings_poi_section">Places nearby</string>
     <string name="settings_poi_enabled">Show places nearby</string>
     <string name="settings_poi_enabled_desc">Pins for places with a Wikipedia article around you and along your tracks. Sends the approximate area (not your exact position) to OpenStreetMap Overpass servers.</string>

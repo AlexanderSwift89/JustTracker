@@ -132,6 +132,7 @@ dependencies {
 
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.osmdroid.android)
+    implementation(libs.osmdroid.mapsforge)
     implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.junit)

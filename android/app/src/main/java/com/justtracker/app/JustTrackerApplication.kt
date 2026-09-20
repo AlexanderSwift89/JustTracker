@@ -2,6 +2,8 @@ package com.justtracker.app
 
 import android.app.Application
 import com.justtracker.app.di.AppContainer
+import kotlinx.coroutines.launch
+import org.osmdroid.mapsforge.MapsForgeTileSource
 import org.osmdroid.config.Configuration
 import java.io.File
 
@@ -13,6 +15,10 @@ class JustTrackerApplication : Application() {
         super.onCreate()
         container = AppContainer(this)
         configureOsmdroid()
+        // Mapsforge needs its Android graphics factory once per process before any region renders.
+        MapsForgeTileSource.createInstance(this)
+        // Rows vs files vs DownloadManager may have drifted while the process was dead.
+        container.appScope.launch { container.offlineRegionStore.reconcile() }
         // Idle until the user enables auto-announcements and a recording is running.
         container.poiAnnouncer.start()
     }

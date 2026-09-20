@@ -102,4 +102,6 @@ data class AppSettings(
     val poiAutoSpeak: Boolean = false,
     /** Explicit UI language; null until the user picks one in onboarding. */
     val language: AppLanguage? = null,
+    /** Offline region downloads only over Wi-Fi (they are hundreds of MB). */
+    val mapsWifiOnly: Boolean = true,
 )
