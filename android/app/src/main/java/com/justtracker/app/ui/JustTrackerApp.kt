@@ -94,10 +94,16 @@ fun JustTrackerApp(settings: AppSettings) {
                 item(
                     selected = selected,
                     onClick = {
-                        navController.navigate(tab.route) {
-                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
+                        // A tab already on the back stack (always true for the start tab, also after the
+                        // activity was recreated) is popped back to; otherwise it is navigated to with
+                        // its saved state restored.
+                        val popped = navController.popBackStack(tab.route, inclusive = false, saveState = true)
+                        if (!popped) {
+                            navController.navigate(tab.route) {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         }
                     },
                     icon = {
