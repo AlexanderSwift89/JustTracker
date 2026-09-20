@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.justtracker.app.R
 import com.justtracker.app.domain.model.ActivityType
 import com.justtracker.app.ui.theme.ActivityColors
+import com.justtracker.app.ui.theme.tabular
 import com.justtracker.app.util.labelRes
 
 fun ActivityType.icon(): ImageVector = when (this) {
@@ -70,7 +71,7 @@ fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
     ) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text(value, style = MaterialTheme.typography.headlineSmall.tabular(), maxLines = 1)
         }
     }
 }

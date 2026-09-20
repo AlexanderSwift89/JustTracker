@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -21,6 +23,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -78,7 +82,11 @@ fun SettingsScreen(viewModel: SettingsViewModel = appViewModel { SettingsViewMod
     var accuracy by remember(settings.maxAccuracyM) { mutableFloatStateOf(settings.maxAccuracyM.toFloat()) }
     val privacyUrl = stringResource(R.string.settings_privacy_url)
 
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }) }) { padding ->
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }, scrollBehavior = scrollBehavior) },
+    ) { padding ->
         Column(
             Modifier
                 .fillMaxSize()
@@ -118,21 +126,21 @@ fun SettingsScreen(viewModel: SettingsViewModel = appViewModel { SettingsViewMod
             )
             ListItem(
                 headlineContent = { Text(stringResource(R.string.settings_keep_screen_on)) },
-                trailingContent = { Switch(checked = settings.keepScreenOn, onCheckedChange = viewModel::setKeepScreenOn) },
-                modifier = Modifier.clickable { viewModel.setKeepScreenOn(!settings.keepScreenOn) },
+                trailingContent = { Switch(checked = settings.keepScreenOn, onCheckedChange = null) },
+                modifier = Modifier.toggleable(value = settings.keepScreenOn, role = Role.Switch, onValueChange = viewModel::setKeepScreenOn),
             )
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             Text(
                 stringResource(R.string.settings_poi_section),
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
             ListItem(
                 headlineContent = { Text(stringResource(R.string.settings_poi_enabled)) },
                 supportingContent = { Text(stringResource(R.string.settings_poi_enabled_desc)) },
-                trailingContent = { Switch(checked = settings.poiEnabled, onCheckedChange = viewModel::setPoiEnabled) },
-                modifier = Modifier.clickable { viewModel.setPoiEnabled(!settings.poiEnabled) },
+                trailingContent = { Switch(checked = settings.poiEnabled, onCheckedChange = null) },
+                modifier = Modifier.toggleable(value = settings.poiEnabled, role = Role.Switch, onValueChange = viewModel::setPoiEnabled),
             )
             ListItem(
                 headlineContent = { Text(stringResource(R.string.settings_poi_auto_speak)) },
@@ -141,10 +149,15 @@ fun SettingsScreen(viewModel: SettingsViewModel = appViewModel { SettingsViewMod
                     Switch(
                         checked = settings.poiEnabled && settings.poiAutoSpeak,
                         enabled = settings.poiEnabled,
-                        onCheckedChange = viewModel::setPoiAutoSpeak,
+                        onCheckedChange = null,
                     )
                 },
-                modifier = Modifier.clickable(enabled = settings.poiEnabled) { viewModel.setPoiAutoSpeak(!settings.poiAutoSpeak) },
+                modifier = Modifier.toggleable(
+                    value = settings.poiEnabled && settings.poiAutoSpeak,
+                    enabled = settings.poiEnabled,
+                    role = Role.Switch,
+                    onValueChange = viewModel::setPoiAutoSpeak,
+                ),
             )
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             ListItem(

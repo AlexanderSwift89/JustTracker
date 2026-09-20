@@ -42,7 +42,7 @@ fun SpeedLegend(maxSpeedMps: Double, formatter: UnitFormatter, modifier: Modifie
     val cd = stringResource(R.string.map_speed_legend_cd, maxText)
     Surface(
         modifier = modifier.semantics { contentDescription = cd },
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f),
         tonalElevation = 2.dp,
         shadowElevation = 2.dp,
@@ -85,7 +85,7 @@ fun TrackTapCard(
     }
     Surface(
         modifier = modifier.clickable(onClick = onDismiss),
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.94f),
         contentColor = MaterialTheme.colorScheme.inverseOnSurface,
         shadowElevation = 4.dp,

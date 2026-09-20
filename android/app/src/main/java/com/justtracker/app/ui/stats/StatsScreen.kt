@@ -17,6 +17,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -97,7 +99,11 @@ fun StatsScreen(viewModel: StatsViewModel = appViewModel { StatsViewModel(it) })
     val context = LocalContext.current
     val formatter = remember(state.units) { UnitFormatter(context, state.units) }
 
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.stats_title)) }) }) { padding ->
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.stats_title)) }, scrollBehavior = scrollBehavior) },
+    ) { padding ->
         if (state.loaded && state.total.count == 0) {
             EmptyState(
                 icon = Icons.Filled.BarChart,

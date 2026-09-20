@@ -91,5 +91,5 @@ fun JustTrackerTheme(
         dark -> DarkColors
         else -> LightColors
     }
-    MaterialTheme(colorScheme = colorScheme, content = content)
+    MaterialTheme(colorScheme = colorScheme, typography = JustTrackerTypography, shapes = JustTrackerShapes, content = content)
 }

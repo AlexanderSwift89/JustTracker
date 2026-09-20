@@ -21,7 +21,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.GpsFixed
@@ -81,6 +84,8 @@ import com.justtracker.app.domain.poi.PoiProximity
 import com.justtracker.app.ui.poi.PoiCard
 import com.justtracker.app.ui.poi.PoiCardViewModel
 import com.justtracker.app.util.TimeFormat
+import com.justtracker.app.ui.theme.tabular
+import com.justtracker.app.ui.theme.topOnly
 import com.justtracker.app.util.UnitFormatter
 
 @Composable
@@ -194,8 +199,9 @@ fun RecordScreen(
         }
     }
 
-    // The outer app Scaffold already applies the navigation-bar inset; applying it again here would
-    // leave an empty band between the bottom panel and the NavigationBar.
+    // The map is drawn edge to edge; every overlay applies the safe-drawing insets itself. The bottom
+    // inset is already consumed by the NavigationSuiteScaffold when the bar is shown, so the panel only
+    // gains extra padding in rail/landscape mode.
     Scaffold(snackbarHost = { SnackbarHost(snackbar) }, contentWindowInsets = WindowInsets(0)) { padding ->
         Box(
             Modifier
@@ -220,7 +226,9 @@ fun RecordScreen(
 
             AnimatedVisibility(
                 visible = !locationEnabled,
-                modifier = Modifier.align(Alignment.TopCenter),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)),
                 enter = fadeIn(),
                 exit = fadeOut(),
             ) {
@@ -231,6 +239,7 @@ fun RecordScreen(
                 visible = !follow,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                     .padding(16.dp),
                 enter = fadeIn(),
                 exit = fadeOut(),
@@ -247,6 +256,7 @@ fun RecordScreen(
                     formatter = formatter,
                     modifier = Modifier
                         .align(Alignment.TopStart)
+                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                         .padding(16.dp),
                 )
             }
@@ -256,7 +266,8 @@ fun RecordScreen(
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 state.tapped?.let { tap ->
@@ -269,7 +280,7 @@ fun RecordScreen(
                 }
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                    shape = MaterialTheme.shapes.extraLarge.topOnly(),
                     color = MaterialTheme.colorScheme.surfaceContainer,
                     tonalElevation = 3.dp,
                     shadowElevation = 6.dp,
@@ -361,7 +372,7 @@ private fun GpsOffBanner(onEnable: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.errorContainer,
     ) {
         Row(
@@ -599,5 +610,3 @@ private fun MetricLabel(label: String) {
     )
 }
 
-/** Tabular figures so live numbers don't jitter horizontally as digits change. */
-private fun androidx.compose.ui.text.TextStyle.tabular() = copy(fontFeatureSettings = "tnum")

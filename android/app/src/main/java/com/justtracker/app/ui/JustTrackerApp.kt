@@ -5,7 +5,6 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.History
@@ -15,10 +14,11 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -64,50 +64,55 @@ private val tabs = listOf(
     Tab(Routes.SETTINGS, R.string.nav_settings, Icons.Filled.Settings),
 )
 
+/**
+ * App shell: adaptive navigation (bottom bar on phones, rail in landscape / on tablets — M3
+ * navigation suite) around the NavHost. Full-screen destinations (onboarding, track detail) hide it.
+ */
 @Composable
 fun JustTrackerApp(settings: AppSettings) {
     val navController = rememberNavController()
     val container = LocalAppContainer.current
     val backStack by navController.currentBackStackEntryAsState()
     val currentDestination = backStack?.destination
-    val showBottomBar = tabs.any { tab -> currentDestination?.hierarchy?.any { it.route == tab.route } == true }
+    val showNavigation = tabs.any { tab -> currentDestination?.hierarchy?.any { it.route == tab.route } == true }
     val activeTrack by container.trackRepository.observeActiveTrack().collectAsStateWithLifecycle(initialValue = null)
     // Fixed once per composition: changing startDestination later would rebuild the nav graph mid-flow.
     val startDestination = remember { if (settings.onboardingDone) Routes.RECORD else Routes.ONBOARDING }
+    val layoutType = if (showNavigation) {
+        NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(currentWindowAdaptiveInfo())
+    } else {
+        NavigationSuiteType.None
+    }
 
-    Scaffold(
-        bottomBar = {
-            if (showBottomBar) {
-                NavigationBar {
-                    tabs.forEach { tab ->
-                        val selected = currentDestination?.hierarchy?.any { it.route == tab.route } == true
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                navController.navigate(tab.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = {
-                                if (tab.route == Routes.RECORD && activeTrack != null) {
-                                    BadgedBox(badge = { PulsingBadge() }) { Icon(tab.icon, contentDescription = null) }
-                                } else {
-                                    Icon(tab.icon, contentDescription = null)
-                                }
-                            },
-                            label = { Text(stringResource(tab.labelRes)) },
-                        )
-                    }
-                }
+    NavigationSuiteScaffold(
+        layoutType = layoutType,
+        navigationSuiteItems = {
+            tabs.forEach { tab ->
+                val selected = currentDestination?.hierarchy?.any { it.route == tab.route } == true
+                item(
+                    selected = selected,
+                    onClick = {
+                        navController.navigate(tab.route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    icon = {
+                        if (tab.route == Routes.RECORD && activeTrack != null) {
+                            BadgedBox(badge = { PulsingBadge() }) { Icon(tab.icon, contentDescription = null) }
+                        } else {
+                            Icon(tab.icon, contentDescription = null)
+                        }
+                    },
+                    label = { Text(stringResource(tab.labelRes)) },
+                )
             }
         },
-    ) { padding ->
+    ) {
         NavHost(
             navController = navController,
             startDestination = startDestination,
-            modifier = Modifier.padding(padding),
         ) {
             composable(Routes.ONBOARDING) {
                 OnboardingScreen(
