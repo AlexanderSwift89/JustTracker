@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">TrekLog</string>
+    <string name="app_name">JustTracker</string>
 
     <!-- Navigation -->
     <string name="nav_record">Record</string>
@@ -43,7 +43,7 @@
     <string name="record_stop_dialog_confirm">Finish</string>
     <string name="record_too_few_points">Too little data — track was not saved</string>
     <string name="record_permission_title">Location access needed</string>
-    <string name="record_permission_body">TrekLog uses your precise location only while you record a track.</string>
+    <string name="record_permission_body">JustTracker uses your precise location only while you record a track.</string>
     <string name="record_permission_denied_forever">Location permission is disabled. Enable it in app settings to record tracks.</string>
     <string name="record_gps_off_banner">Location is turned off</string>
     <string name="record_gps_off_action">Turn on</string>
@@ -134,7 +134,7 @@
     <string name="settings_accuracy_desc">Points with worse accuracy than %1$d m are ignored</string>
     <string name="settings_keep_screen_on">Keep screen on while recording</string>
     <string name="settings_privacy">Privacy policy</string>
-    <string name="settings_privacy_url" translatable="false">https://treklog.app/privacy</string>
+    <string name="settings_privacy_url" translatable="false">https://alexanderswift89.github.io/JustTracker/privacy/</string>
     <string name="settings_version">Version</string>
     <string name="settings_map_attribution">Map data © OpenStreetMap contributors</string>
     <string name="settings_poi_section">Places nearby</string>

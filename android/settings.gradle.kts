@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "TrekLog"
+rootProject.name = "JustTracker"
 include(":app")

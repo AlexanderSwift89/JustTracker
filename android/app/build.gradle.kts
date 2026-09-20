@@ -15,15 +15,15 @@ val keystoreProps = Properties().apply {
 }
 
 android {
-    namespace = "io.treklog.app"
+    namespace = "com.justtracker.app"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "io.treklog.app"
+        applicationId = "com.justtracker.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.2.0"
+        versionCode = 1
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

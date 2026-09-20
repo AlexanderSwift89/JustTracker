@@ -1,6 +1,6 @@
-# Builds TrekLog on every push / PR: unit tests + lint + debug APK (workflow artifact).
+# Builds JustTracker on every push / PR: unit tests + lint + debug APK (workflow artifact).
 # On a version tag (v1.1.0) it additionally publishes the debug APK as a GitHub Release asset.
-# Release builds for Google Play are signed locally (android/keystore.properties) — see docs/09_release_google_play.md.
+# Release builds for RuStore are signed locally (android/keystore.properties) — see docs/09_release_rustore.md.
 name: Android CI
 
 on:
@@ -57,7 +57,7 @@ jobs:
         id: apk
         run: |
           VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
-          NAME="TrekLog-${VERSION}-debug.apk"
+          NAME="JustTracker-${VERSION}-debug.apk"
           cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/${NAME}"
           echo "name=${NAME}" >> "$GITHUB_OUTPUT"
           echo "path=android/app/build/outputs/apk/debug/${NAME}" >> "$GITHUB_OUTPUT"
@@ -106,4 +106,4 @@ jobs:
           generate_release_notes: true
           body: |
             Debug-signed APK for sideloading (`adb install -r` or open the file on the phone).
-            Not a Play Store build — the Play release is signed locally with the upload key.
+            Not a store build — the RuStore release is signed locally with the release key.

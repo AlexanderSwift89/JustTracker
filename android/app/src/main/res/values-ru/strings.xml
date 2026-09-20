@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">TrekLog</string>
+    <string name="app_name">JustTracker</string>
 
     <string name="nav_record">Запись</string>
     <string name="nav_history">История</string>
@@ -40,7 +40,7 @@
     <string name="record_stop_dialog_confirm">Завершить</string>
     <string name="record_too_few_points">Слишком мало данных — трек не сохранён</string>
     <string name="record_permission_title">Нужен доступ к геолокации</string>
-    <string name="record_permission_body">TrekLog использует точное местоположение только во время записи трека.</string>
+    <string name="record_permission_body">JustTracker использует точное местоположение только во время записи трека.</string>
     <string name="record_permission_denied_forever">Доступ к геолокации отключён. Включите его в настройках приложения, чтобы записывать треки.</string>
     <string name="record_gps_off_banner">Геолокация выключена</string>
     <string name="record_gps_off_action">Включить</string>
