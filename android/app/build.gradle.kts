@@ -9,6 +9,7 @@ plugins {
 
 // Release signing is read from keystore.properties (git-ignored). Without it the release
 // build falls back to the debug key so `bundleRelease` still works for local verification.
+// RuStore does not re-sign uploads: the same release key must be used for every version.
 val keystorePropsFile = rootProject.file("keystore.properties")
 val keystoreProps = Properties().apply {
     if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
@@ -22,8 +23,9 @@ android {
         applicationId = "com.justtracker.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        // Overridable from the command line for CI builds: -PversionCode=12 -PversionName=1.2.0
+        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 1
+        versionName = (project.findProperty("versionName") as String?) ?: "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -1,6 +1,9 @@
 # Builds JustTracker on every push / PR: unit tests + lint + debug APK (workflow artifact).
-# On a version tag (v1.1.0) it additionally publishes the debug APK as a GitHub Release asset.
-# Release builds for RuStore are signed locally (android/keystore.properties) — see docs/09_release_rustore.md.
+# On a version tag (v1.0.0) it additionally publishes the debug APK as a GitHub Release asset and,
+# when the signing secrets are configured, builds the signed release AAB + APK for RuStore as a
+# workflow artifact (never attached to the public release — RuStore is the distribution channel).
+# Secrets: KEYSTORE_BASE64 (base64 of the .jks), KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD.
+# See docs/09_release_rustore.md.
 name: Android CI
 
 on:
@@ -56,7 +59,7 @@ jobs:
       - name: Rename APK with version
         id: apk
         run: |
-          VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          VERSION=$(grep -oP 'versionName = .*?"\K[^"]+' app/build.gradle.kts | head -1)
           NAME="JustTracker-${VERSION}-debug.apk"
           cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/${NAME}"
           echo "name=${NAME}" >> "$GITHUB_OUTPUT"
@@ -106,4 +109,70 @@ jobs:
           generate_release_notes: true
           body: |
             Debug-signed APK for sideloading (`adb install -r` or open the file on the phone).
-            Not a store build — the RuStore release is signed locally with the release key.
+            Not a store build — the RuStore release is signed locally or by the `release-signed` job.
+
+  release-signed:
+    name: Signed AAB + APK for RuStore
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    # `secrets` cannot be used in a job-level `if`; the env indirection makes the job a no-op without them.
+    env:
+      HAS_KEYSTORE: ${{ secrets.KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.HAS_KEYSTORE == 'true'
+
+      - name: Set up JDK
+        if: env.HAS_KEYSTORE == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Android SDK
+        if: env.HAS_KEYSTORE == 'true'
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools"
+
+      - name: Set up Gradle
+        if: env.HAS_KEYSTORE == 'true'
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Restore keystore
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > release.jks
+          printf 'storeFile=release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
+
+      - name: Build signed release
+        if: env.HAS_KEYSTORE == 'true'
+        run: ./gradlew :app:bundleRelease :app:assembleRelease --no-daemon --console=plain
+
+      - name: Upload signed artifacts
+        if: env.HAS_KEYSTORE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: JustTracker-release-signed
+          path: |
+            android/app/build/outputs/bundle/release/*.aab
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Remove keystore
+        if: always() && env.HAS_KEYSTORE == 'true'
+        run: rm -f release.jks keystore.properties
