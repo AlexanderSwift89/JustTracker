@@ -54,6 +54,8 @@ simple and self-contained. Everything below the TrekLog 1.2.0 entry is inherited
   `docs/07_security.md` §7. Settings gains "Open-source licences" (→ `site/licenses/`, LGPL notice for
   Mapsforge); proprietary `LICENSE` with an LGPL §4 compatibility clause; age rating set to 12+ because of
   uncontrolled Wikipedia content in Places nearby.
+- `pages.yml`: `configure-pages` with `enablement: true` (first deploy failed — Pages was never enabled),
+  `checkout@v5`.
 
 ## [1.2.0] - 2026-09-20 (Recording time + speed along the track)
 

@@ -49,7 +49,7 @@ CHANGELOG.md
 
 ### CI
 
-`.github/workflows/android.yml`: на каждый push/PR в `main` — unit-тесты, lint, `assembleDebug`, APK и отчёты как артефакты. На тег `v*` дополнительно — GitHub Release с debug-APK и job `release-signed` (подписанные AAB + APK + `mapping.txt`, если заданы секреты `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`). `.github/workflows/pages.yml` публикует `site/` на GitHub Pages.
+`.github/workflows/android.yml`: на каждый push/PR в `main` — unit-тесты, lint, `assembleDebug`, APK и отчёты как артефакты. На тег `v*` дополнительно — GitHub Release с debug-APK и job `release-signed` (подписанные AAB + APK + `mapping.txt`, если заданы секреты `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`). `.github/workflows/pages.yml` публикует `site/` на GitHub Pages (Pages включается самим workflow через `configure-pages` + `enablement: true`).
 
 ```bash
 git tag v1.0.0 && git push origin v1.0.0

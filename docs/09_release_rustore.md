@@ -36,7 +36,7 @@ RuStore принимает и AAB, и APK (на версию — 1 AAB + до 8 
 - каждый push/PR в `main` — unit-тесты, lint, `JustTracker-<versionName>-debug.apk` (артефакт 30 дней);
 - тег `vX.Y.Z` — GitHub Release с debug-APK (для тестировщиков) и job **`release-signed`**: если в секретах репозитория заданы `KEYSTORE_BASE64` (base64 файла `.jks`), `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`, собираются подписанные AAB + APK + `mapping.txt` как артефакт `JustTracker-release-signed` (90 дней). Без секретов job — no-op.
 
-`.github/workflows/pages.yml` публикует `site/` (лендинг + политика конфиденциальности RU/EN) на GitHub Pages: один раз включить в репозитории Settings → Pages → Source: *GitHub Actions*. URL политики: https://alexanderswift89.github.io/JustTracker/privacy/.
+`.github/workflows/pages.yml` публикует `site/` (лендинг, политика конфиденциальности, лицензии — RU/EN) на GitHub Pages при push в `main`, затрагивающем `site/`. Шаг `actions/configure-pages` с `enablement: true` сам включает Pages с источником *GitHub Actions* при первом запуске (без этого первый деплой падал: «Get Pages site failed … Not Found»); если в организации это запрещено — включить вручную: Settings → Pages → Source: *GitHub Actions*. URL политики: https://alexanderswift89.github.io/JustTracker/privacy/, лицензий: https://alexanderswift89.github.io/JustTracker/licenses/.
 
 Порядок выпуска: `versionCode`/`versionName` → `CHANGELOG.md` → `store/rustore/listing_*.md` («Что нового») → commit → `git tag v1.0.0 && git push origin main v1.0.0` → зелёный CI → скачать `JustTracker-release-signed` (или собрать локально) → RuStore Console.
 

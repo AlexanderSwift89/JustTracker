@@ -1,6 +1,7 @@
-# Publishes the `site/` folder (privacy policy, landing page) to GitHub Pages:
+# Publishes the `site/` folder (landing page, privacy policy, licences) to GitHub Pages:
 # https://alexanderswift89.github.io/JustTracker/ — the URL the app and the RuStore listing link to.
-# One-time setup: repository Settings → Pages → Source: "GitHub Actions".
+# `enablement: true` switches Pages on with source "GitHub Actions" on the first run (run #2 failed with
+# "Get Pages site failed … Not Found" because Pages had never been enabled); no manual setup needed.
 name: Pages
 
 on:
@@ -25,8 +26,10 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
