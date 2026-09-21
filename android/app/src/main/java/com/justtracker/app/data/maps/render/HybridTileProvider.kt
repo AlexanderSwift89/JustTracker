@@ -2,6 +2,7 @@ package com.justtracker.app.data.maps.render
 
 import android.content.Context
 import android.graphics.drawable.Drawable
+import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.domain.maps.MapSource
 import com.justtracker.app.domain.maps.MapSourceResolver
 import com.justtracker.app.domain.maps.RegionCoverage
@@ -9,31 +10,25 @@ import com.justtracker.app.util.AppLog
 import org.mapsforge.map.rendertheme.XmlRenderTheme
 import org.osmdroid.config.Configuration
 import org.osmdroid.mapsforge.MapsForgeTileSource
-import org.osmdroid.tileprovider.IRegisterReceiver
-import org.osmdroid.tileprovider.MapTileProviderArray
-import org.osmdroid.tileprovider.modules.MapTileApproximater
-import org.osmdroid.tileprovider.modules.MapTileDownloader
-import org.osmdroid.tileprovider.modules.MapTileFilesystemProvider
+import org.osmdroid.tileprovider.MapTileProviderBasic
 import org.osmdroid.tileprovider.modules.MapTileModuleProviderBase
-import org.osmdroid.tileprovider.modules.NetworkAvailabliltyCheck
-import org.osmdroid.tileprovider.modules.SqlTileWriter
 import org.osmdroid.tileprovider.tilesource.ITileSource
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.tileprovider.util.SimpleRegisterReceiver
 import org.osmdroid.util.MapTileIndex
 import java.io.File
 
 /**
- * Tile chain (ADR-13): offline Mapsforge renderer for tiles inside a downloaded region → on-disk
- * cache of online tiles → approximation from cached lower zooms → OSM download.
+ * Tile provider for both map modes (ADR-13, ADR-16). It *is* osmdroid's default
+ * [MapTileProviderBasic] (on-disk cache → archives → approximation → OSM download, with the
+ * default cache-protection and pre-cache set-up — a bare `MapTileProviderArray` thrashes its LRU and
+ * re-downloads the same tiles forever), extended per mode:
  *
- * Routing is per tile, so a viewport straddling a region border still shows everything, and the
- * online source is only asked for what the regions don't cover (OSM tile policy: on-demand only).
+ * - [MapMode.ONLINE]: the default chain as is; downloaded regions are not consulted.
+ * - [MapMode.OFFLINE]: an [OfflineRegionModule] is put in front of the chain (tiles inside READY
+ *   regions, zoom ≥ 8, rendered from the Mapsforge files) and the data connection is switched off,
+ *   so uncovered tiles come only from the cache / approximation — never from the network.
  */
-class HybridTileProvider private constructor(
-    receiver: IRegisterReceiver,
-    modules: Array<MapTileModuleProviderBase>,
-) : MapTileProviderArray(ONLINE_SOURCE, receiver, modules) {
+class HybridTileProvider private constructor(context: Context) : MapTileProviderBasic(context, ONLINE_SOURCE) {
 
     companion object {
         /** Online raster source; also the name under which cached tiles are stored. */
@@ -42,19 +37,19 @@ class HybridTileProvider private constructor(
         /** Cache name for rendered offline tiles — kept distinct from MAPNIK on purpose. */
         const val OFFLINE_SOURCE_NAME = "JustTrackerOffline"
 
-        fun create(context: Context, offline: MapsForgeTileSource?, coverage: () -> List<RegionCoverage>): HybridTileProvider {
-            val receiver = SimpleRegisterReceiver(context.applicationContext)
-            val cache = SqlTileWriter()
-            val filesystem = MapTileFilesystemProvider(receiver, ONLINE_SOURCE)
-            val approximater = MapTileApproximater().apply { addProvider(filesystem) }
-            val downloader = MapTileDownloader(ONLINE_SOURCE, cache, NetworkAvailabliltyCheck(context.applicationContext))
-            val modules = buildList {
-                if (offline != null) add(OfflineRegionModule(offline, coverage))
-                add(filesystem)
-                add(approximater)
-                add(downloader)
-            }.toTypedArray()
-            return HybridTileProvider(receiver, modules)
+        fun create(
+            context: Context,
+            mode: MapMode,
+            offline: MapsForgeTileSource?,
+            coverage: () -> List<RegionCoverage>,
+        ): HybridTileProvider {
+            val app = context.applicationContext
+            val provider = HybridTileProvider(app)
+            if (mode == MapMode.OFFLINE) {
+                if (offline != null) provider.mTileProviderList.add(0, OfflineRegionModule(offline, coverage))
+                provider.setUseDataConnection(false)
+            }
+            return provider
         }
 
         /** One Mapsforge source over all READY region files; null when there is nothing to render. */

@@ -45,7 +45,10 @@ import com.justtracker.app.BuildConfig
 import com.justtracker.app.R
 import com.justtracker.app.di.AppContainer
 import com.justtracker.app.domain.model.AppLanguage
+import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.domain.maps.RegionStatus
+import com.justtracker.app.ui.maps.MapModeDialog
+import com.justtracker.app.ui.maps.labelRes
 import com.justtracker.app.domain.model.AppSettings
 import com.justtracker.app.domain.model.ThemeMode
 import com.justtracker.app.domain.model.UnitSystem
@@ -59,6 +62,7 @@ import kotlinx.coroutines.launch
 
 class SettingsViewModel(container: AppContainer) : ViewModel() {
     private val repo = container.settingsRepository
+    private val mapModeController = container.mapModeController
     val settings = repo.settings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppSettings())
     val readyRegions = container.offlineRegionStore.regions
         .map { list -> list.filter { it.status == RegionStatus.READY } }
@@ -70,6 +74,7 @@ class SettingsViewModel(container: AppContainer) : ViewModel() {
         AppLocale.apply(language)
     }
     fun setUnits(units: UnitSystem) = viewModelScope.launch { repo.setUnits(units) }
+    fun setMapMode(mode: MapMode) = viewModelScope.launch { mapModeController.setMode(mode) }
     fun setTheme(theme: ThemeMode) = viewModelScope.launch { repo.setTheme(theme) }
     fun setMaxAccuracy(m: Int) = viewModelScope.launch { repo.setMaxAccuracy(m) }
     fun setKeepScreenOn(on: Boolean) = viewModelScope.launch { repo.setKeepScreenOn(on) }
@@ -87,6 +92,7 @@ fun SettingsScreen(
     val readyRegions by viewModel.readyRegions.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var languageDialog by remember { mutableStateOf(false) }
+    var mapModeDialog by remember { mutableStateOf(false) }
     var unitsDialog by remember { mutableStateOf(false) }
     var themeDialog by remember { mutableStateOf(false) }
     var accuracy by remember(settings.maxAccuracyM) { mutableFloatStateOf(settings.maxAccuracyM.toFloat()) }
@@ -178,6 +184,16 @@ fun SettingsScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
             ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_map_mode)) },
+                supportingContent = {
+                    Text(
+                        stringResource(settings.mapMode.labelRes()) +
+                            if (settings.mapMode == MapMode.OFFLINE && readyRegions.isEmpty()) " · " + stringResource(R.string.settings_map_mode_no_regions) else "",
+                    )
+                },
+                modifier = Modifier.clickable { mapModeDialog = true },
+            )
+            ListItem(
                 headlineContent = { Text(stringResource(R.string.settings_maps_manage)) },
                 supportingContent = {
                     Text(
@@ -230,6 +246,17 @@ fun SettingsScreen(
         }
     }
 
+    if (mapModeDialog) {
+        MapModeDialog(
+            current = settings.mapMode,
+            readyRegions = readyRegions.size,
+            onConfirm = {
+                mapModeDialog = false
+                if (it != settings.mapMode) viewModel.setMapMode(it)
+            },
+            onDismiss = { mapModeDialog = false },
+        )
+    }
     if (languageDialog) {
         ChoiceDialog(
             title = stringResource(R.string.settings_language),

@@ -3,7 +3,9 @@ package com.justtracker.app.di
 import android.content.Context
 import com.justtracker.app.data.db.JustTrackerDatabase
 import com.justtracker.app.data.location.PlatformLocationSource
+import com.justtracker.app.data.maps.MapModeController
 import com.justtracker.app.data.maps.OfflineRegionStore
+import com.justtracker.app.data.network.ConnectivityObserver
 import com.justtracker.app.data.maps.RegionCatalog
 import com.justtracker.app.data.maps.RegionDownloader
 import com.justtracker.app.data.location.LocationSource
@@ -43,6 +45,8 @@ class AppContainer(context: Context) {
     val offlineRegionStore: OfflineRegionStore by lazy {
         OfflineRegionStore(appContext, database.offlineRegionDao(), regionCatalog, regionDownloader, settingsRepository, appScope)
     }
+    val connectivity: ConnectivityObserver by lazy { ConnectivityObserver(appContext) }
+    val mapModeController: MapModeController by lazy { MapModeController(settingsRepository, connectivity, offlineRegionStore, appScope) }
 
     /** Hot copy of settings for non-suspending callers (notification formatting). */
     val settingsFlow: StateFlow<AppSettings> by lazy {

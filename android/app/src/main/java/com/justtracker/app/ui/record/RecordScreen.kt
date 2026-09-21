@@ -76,7 +76,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.justtracker.app.R
 import com.justtracker.app.ui.common.ActivityBadge
 import com.justtracker.app.ui.common.Permissions
+import com.justtracker.app.ui.common.LocalAppContainer
+import com.justtracker.app.ui.common.MapModeBadge
 import com.justtracker.app.ui.common.SpeedLegend
+import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.ui.common.TrackMap
 import com.justtracker.app.ui.common.TrackTapCard
 import com.justtracker.app.ui.common.appViewModel
@@ -95,6 +98,7 @@ fun RecordScreen(
     poiCardViewModel: PoiCardViewModel = appViewModel(key = "poi-record") { PoiCardViewModel(it) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val appSettings by LocalAppContainer.current.settingsFlow.collectAsStateWithLifecycle()
     val poiCard by poiCardViewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val activity = context as? Activity
@@ -249,16 +253,18 @@ fun RecordScreen(
                 }
             }
 
-            // Speed colour legend for the line (US-15); only once there is a line with a max speed.
-            if (state.status != RecordStatus.IDLE && state.segments.isNotEmpty()) {
-                SpeedLegend(
-                    maxSpeedMps = state.track?.maxSpeedMps ?: 0.0,
-                    formatter = formatter,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-                        .padding(16.dp),
-                )
+            // Top-start overlays: speed legend (US-15, once there is a line) and the offline-map cue (US-22).
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (state.status != RecordStatus.IDLE && state.segments.isNotEmpty()) {
+                    SpeedLegend(maxSpeedMps = state.track?.maxSpeedMps ?: 0.0, formatter = formatter)
+                }
+                if (appSettings.mapMode == MapMode.OFFLINE) MapModeBadge()
             }
 
             // Bottom panel behaves like an M3 standard bottom sheet: edge to edge, only the top

@@ -104,4 +104,6 @@ data class AppSettings(
     val language: AppLanguage? = null,
     /** Offline region downloads only over Wi-Fi (they are hundreds of MB). */
     val mapsWifiOnly: Boolean = true,
+    /** Explicit map source (US-22); switched only by the user. */
+    val mapMode: com.justtracker.app.domain.maps.MapMode = com.justtracker.app.domain.maps.MapMode.ONLINE,
 )

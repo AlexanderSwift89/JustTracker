@@ -50,7 +50,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.justtracker.app.R
 import com.justtracker.app.domain.model.ActivityType
 import com.justtracker.app.ui.common.ActivityBadge
+import com.justtracker.app.ui.common.LocalAppContainer
+import com.justtracker.app.ui.common.MapModeBadge
 import com.justtracker.app.ui.common.SpeedLegend
+import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.ui.common.StatTile
 import com.justtracker.app.ui.common.TrackCursor
 import com.justtracker.app.ui.common.TrackMap
@@ -127,6 +130,7 @@ fun TrackDetailScreen(
     poiCardViewModel: PoiCardViewModel = appViewModel(key = "poi-detail-$trackId") { PoiCardViewModel(it) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val appSettings by LocalAppContainer.current.settingsFlow.collectAsStateWithLifecycle()
     val poiCard by poiCardViewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -219,13 +223,15 @@ fun TrackDetailScreen(
                     pois = state.pois,
                     onPoiClick = { poi -> poiCardViewModel.open(poi, distanceM = null) },
                 )
-                SpeedLegend(
-                    maxSpeedMps = track.maxSpeedMps,
-                    formatter = formatter,
+                Column(
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .padding(12.dp),
-                )
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    SpeedLegend(maxSpeedMps = track.maxSpeedMps, formatter = formatter)
+                    if (appSettings.mapMode == MapMode.OFFLINE) MapModeBadge()
+                }
             }
             state.cursor?.let { cursor ->
                 TrackCursorPanel(

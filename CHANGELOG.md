@@ -10,8 +10,12 @@ simple and self-contained. Everything below the TrekLog 1.2.0 entry is inherited
   (Russian federal districts, Crimea, Kaliningrad, neighbouring countries, a small test region) from
   download.mapsforge.org, downloads via the system DownloadManager (Wi-Fi only by default, free-space
   check, resume, completion handled even when the app is dead), header verification, import of a user
-  `.map` file. Tiles inside a ready region (zoom ≥ 8) are rendered from the file; everything else stays
-  online/cached (`HybridTileProvider`, per-tile routing). ADR-13.
+  `.map` file. ADR-13.
+- **Explicit map mode** (US-22, ADR-16): Settings → Map mode — Online (OSM tiles from the internet +
+  cache) or Offline (downloaded regions only, `setUseDataConnection(false)`); a confirmation prompt
+  when the internet is lost (and a region is ready) or comes back — the mode never switches by itself;
+  "Offline map" badge next to the speed legend. `ConnectivityObserver`, `MapModeController`,
+  pure `MapModeAdvisor` (+5 unit tests, 112 total).
 - **Explicit language choice** (US-18): first onboarding step and a Settings item — English / Русский,
   no "system" option; AppCompat per-app locales (persists on Android 8–12 too); auto-names, the
   recording notification, Wikipedia language and TTS fallback follow the app language. ADR-15.
@@ -36,6 +40,9 @@ simple and self-contained. Everything below the TrekLog 1.2.0 entry is inherited
 - Switch rows in Settings are single toggleable targets (TalkBack reads one control).
 - Tab click pops back to a destination already on the stack (fixes the Record tab after an activity
   recreation).
+- Online map was blank at start-up: `HybridTileProvider` now extends `MapTileProviderBasic` (default
+  LRU protection / pre-cache); a bare `MapTileProviderArray` evicted tiles before they were drawn and
+  re-downloaded them in a loop (D-09).
 - Package, brand strings, GPX creator, log tag, POI User-Agent, privacy URL renamed to JustTracker.
 
 ### Data

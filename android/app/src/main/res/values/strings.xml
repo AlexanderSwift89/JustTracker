@@ -176,6 +176,26 @@
     <string name="maps_status_error_corrupt">The file is not a valid map</string>
     <string name="maps_status_error_unknown">Download failed</string>
     <string name="maps_attribution">Offline maps: Mapsforge files © OpenStreetMap contributors (ODbL), download.mapsforge.org</string>
+    <!-- Map mode (US-22): explicit online / offline switch -->
+    <string name="settings_map_mode">Map mode</string>
+    <string name="settings_map_mode_no_regions">no regions downloaded</string>
+    <string name="map_mode_online">Online</string>
+    <string name="map_mode_online_desc">Map tiles are loaded from the internet (OpenStreetMap) and cached.</string>
+    <string name="map_mode_offline">Offline</string>
+    <string name="map_mode_offline_desc">Only downloaded regions are shown; the map never uses the network.</string>
+    <string name="map_mode_regions_none">No regions downloaded — the offline map will be empty. Download one in Offline maps.</string>
+    <plurals name="map_mode_regions_ready">
+        <item quantity="one">%1$d downloaded region is ready.</item>
+        <item quantity="other">%1$d downloaded regions are ready.</item>
+    </plurals>
+    <string name="map_mode_badge_offline">Offline map</string>
+    <string name="map_mode_prompt_lost_title">No internet connection</string>
+    <string name="map_mode_prompt_lost_body">The map cannot load new tiles. Switch to the offline map built from your downloaded regions?</string>
+    <string name="map_mode_prompt_restored_title">Internet is back</string>
+    <string name="map_mode_prompt_restored_body">Switch the map back to online tiles from OpenStreetMap?</string>
+    <string name="map_mode_prompt_switch">Switch to %1$s</string>
+    <string name="map_mode_prompt_keep">Keep current</string>
+    <string name="action_apply">Apply</string>
     <string name="settings_maps_section">Offline maps</string>
     <string name="settings_maps_manage">Manage regions</string>
     <string name="settings_maps_summary_none">No regions downloaded</string>

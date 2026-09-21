@@ -35,9 +35,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import kotlinx.coroutines.launch
 import com.justtracker.app.R
 import com.justtracker.app.domain.model.AppSettings
 import com.justtracker.app.ui.common.LocalAppContainer
+import com.justtracker.app.ui.maps.MapModePromptDialog
 import com.justtracker.app.ui.detail.TrackDetailScreen
 import com.justtracker.app.ui.history.HistoryScreen
 import com.justtracker.app.ui.maps.OfflineMapsScreen
@@ -80,6 +82,17 @@ fun JustTrackerApp(settings: AppSettings) {
     val activeTrack by container.trackRepository.observeActiveTrack().collectAsStateWithLifecycle(initialValue = null)
     // Fixed once per composition: changing startDestination later would rebuild the nav graph mid-flow.
     val startDestination = remember { if (settings.onboardingDone) Routes.RECORD else Routes.ONBOARDING }
+    // Connectivity changed: ask before switching the map source (US-22); never during onboarding.
+    val modeSuggestion by container.mapModeController.suggestion.collectAsStateWithLifecycle()
+    if (settings.onboardingDone) {
+        modeSuggestion?.let { suggestion ->
+            MapModePromptDialog(
+                suggestion = suggestion,
+                onConfirm = { container.appScope.launch { container.mapModeController.setMode(suggestion.target) } },
+                onDismiss = { container.mapModeController.dismissSuggestion() },
+            )
+        }
+    }
     val layoutType = if (showNavigation) {
         NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(currentWindowAdaptiveInfo())
     } else {

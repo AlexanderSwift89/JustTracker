@@ -166,6 +166,28 @@
     <string name="maps_status_error_corrupt">Файл не является картой</string>
     <string name="maps_status_error_unknown">Не удалось скачать</string>
     <string name="maps_attribution">Офлайн-карты: файлы Mapsforge © участники OpenStreetMap (ODbL), download.mapsforge.org</string>
+    <!-- Режим карты (US-22): явное переключение онлайн / офлайн -->
+    <string name="settings_map_mode">Режим карты</string>
+    <string name="settings_map_mode_no_regions">регионы не скачаны</string>
+    <string name="map_mode_online">Онлайн</string>
+    <string name="map_mode_online_desc">Фрагменты карты загружаются из интернета (OpenStreetMap) и кэшируются.</string>
+    <string name="map_mode_offline">Офлайн</string>
+    <string name="map_mode_offline_desc">Показываются только скачанные регионы; карта не использует сеть.</string>
+    <string name="map_mode_regions_none">Регионы не скачаны — офлайн-карта будет пустой. Скачайте регион в «Офлайн-картах».</string>
+    <plurals name="map_mode_regions_ready">
+        <item quantity="one">Готов %1$d скачанный регион.</item>
+        <item quantity="few">Готовы %1$d скачанных региона.</item>
+        <item quantity="many">Готовы %1$d скачанных регионов.</item>
+        <item quantity="other">Готовы %1$d скачанных региона.</item>
+    </plurals>
+    <string name="map_mode_badge_offline">Офлайн-карта</string>
+    <string name="map_mode_prompt_lost_title">Нет подключения к интернету</string>
+    <string name="map_mode_prompt_lost_body">Карта не может загружать новые фрагменты. Переключиться на офлайн-карту из скачанных регионов?</string>
+    <string name="map_mode_prompt_restored_title">Интернет снова доступен</string>
+    <string name="map_mode_prompt_restored_body">Переключить карту обратно на онлайн-фрагменты OpenStreetMap?</string>
+    <string name="map_mode_prompt_switch">Переключить: %1$s</string>
+    <string name="map_mode_prompt_keep">Оставить как есть</string>
+    <string name="action_apply">Применить</string>
     <string name="settings_maps_section">Офлайн-карты</string>
     <string name="settings_maps_manage">Управление регионами</string>
     <string name="settings_maps_summary_none">Регионы не скачаны</string>

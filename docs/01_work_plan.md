@@ -30,7 +30,8 @@ JustTracker — ответвление TrekLog 1.2.0 (история TrekLog с�
 | **J4** | Офлайн-карты регионов | Архитектор, Разработчик | Спайк osmdroid-mapsforge; `domain/maps`, каталог, Room `offline_regions`, DownloadManager, `OfflineRegionStore`, `HybridTileProvider`, экран «Офлайн-карты», 18 unit-тестов | 28 |
 | **J5** | Готовность к RuStore | Безопасность, Техлид, Тех. писатель | Версии из `-P`, job `release-signed`, GitHub Pages (`site/`), `store/rustore/` (листинг ru/en, иконка 512, скриншоты 9:16, декларации, возраст, модератор) | 6 |
 | **J6** | Документация по ролям | Все роли | Обновление `00`–`10`, README, CHANGELOG под JustTracker 1.0.0 | 12 |
-| | **Итого JustTracker 1.0.0** | | | **67** |
+| **J7** | Явный режим карты онлайн/офлайн (US-22) | Все роли | `MapMode` в настройках, диалог, окно при смене связности (`ConnectivityObserver`, `MapModeController`, `MapModeAdvisor` + тесты), провайдер на `MapTileProviderBasic` (фикс пустой карты при старте), бейдж, документация | 6 |
+| | **Итого JustTracker 1.0.0** | | | **73** |
 
 Критический путь: 3 → 4 → 5 → 6 → 7 → 9 → 10 → 11. Этапы 1–2 могут идти параллельно с 3; этап 8 параллелен с 7 после готовности 4–5.
 
@@ -76,6 +77,7 @@ T-32  maps data: assets/maps/regions.json, RegionCatalogParser (https + host whi
 T-33  maps render: HybridTileProvider (OfflineRegionModule → filesystem → approximater → downloader), интеграция в TrackMap (пересборка по readyCoverage/языку/теме, повторное INVERT_COLORS), createInstance в Application
 T-34  maps UI: OfflineMapsViewModel/Screen (каталог, импорт через OpenDocument, Wi-Fi only, хранилище, диалоги), маршрут offline_maps, секция в Settings, строки maps_* en/ru, proguard mapsforge, backup exclude external/maps
 T-35  release: versionCode/versionName из -P, job release-signed (секреты KEYSTORE_*), pages.yml + site/ (privacy RU/EN), store/rustore/* (листинг, make_icon.py, скриншоты, fit_9x16.py, декларации)
+T-37  Режим карты (US-22): domain/maps/MapMode (+ MapModeAdvisor + тест), data/network/ConnectivityObserver, data/maps/MapModeController, ключ map_mode, HybridTileProvider : MapTileProviderBasic (ONLINE / OFFLINE + setUseDataConnection(false)), MapModeDialog + MapModePromptDialog, пункт «Режим карты», MapModeBadge на Record/Detail, строки en/ru, документация (PRD US-22, UX §2.11, arch ADR-16, SA UC-11/NFR-16/17, тесты TC-73..82, гайд)
 T-36  Документация JustTracker: 00 контекст, 01 план, 02 позиционирование, 03 US-18..21 + §8 RuStore, 04 §2.1/§2.6/§2.10/§3/§6, 05 §7/§12 + ADR-13..15, 06 UC-08..10 + NFR-13/14, 07 угрозы/чек-лист RuStore/privacy, 08 TC-48+, 09_release_rustore, 10 гайд, README, CHANGELOG
 ```
 

@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.domain.model.AppLanguage
 import com.justtracker.app.domain.model.AppSettings
 import com.justtracker.app.domain.model.ThemeMode
@@ -29,6 +30,7 @@ class SettingsRepository(private val context: Context) {
         val POI_AUTO_SPEAK = booleanPreferencesKey("poi_auto_speak")
         val LANGUAGE = stringPreferencesKey("language")
         val MAPS_WIFI_ONLY = booleanPreferencesKey("maps_wifi_only")
+        val MAP_MODE = stringPreferencesKey("map_mode")
     }
 
     val settings: Flow<AppSettings> = context.settingsStore.data.map { p ->
@@ -42,6 +44,7 @@ class SettingsRepository(private val context: Context) {
             poiAutoSpeak = p[Keys.POI_AUTO_SPEAK] ?: false,
             language = AppLanguage.fromTag(p[Keys.LANGUAGE]),
             mapsWifiOnly = p[Keys.MAPS_WIFI_ONLY] ?: true,
+            mapMode = p[Keys.MAP_MODE]?.let { runCatching { MapMode.valueOf(it) }.getOrNull() } ?: MapMode.ONLINE,
         )
     }
 
@@ -56,4 +59,5 @@ class SettingsRepository(private val context: Context) {
     suspend fun setPoiAutoSpeak(on: Boolean) = context.settingsStore.edit { it[Keys.POI_AUTO_SPEAK] = on }
     suspend fun setLanguage(language: AppLanguage) = context.settingsStore.edit { it[Keys.LANGUAGE] = language.tag }
     suspend fun setMapsWifiOnly(on: Boolean) = context.settingsStore.edit { it[Keys.MAPS_WIFI_ONLY] = on }
+    suspend fun setMapMode(mode: MapMode) = context.settingsStore.edit { it[Keys.MAP_MODE] = mode.name }
 }

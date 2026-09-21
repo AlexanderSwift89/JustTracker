@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.graphics.Paint
 import android.graphics.drawable.GradientDrawable
 import android.view.MotionEvent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -28,6 +30,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.justtracker.app.R
 import com.justtracker.app.data.maps.render.HybridTileProvider
+import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.domain.poi.Poi
 import com.justtracker.app.util.AppLocale
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -112,6 +115,7 @@ fun TrackMap(
     val coverage by container.offlineRegionStore.readyCoverage.collectAsStateWithLifecycle()
     val offlineFiles = coverage.map { it.file }
     val mapLanguage = AppLocale.current(settings).language
+    val mapMode = settings.mapMode
     val density = LocalDensity.current
     val strokePx = with(density) { 6.dp.toPx() }
     val paddingPx = with(density) { 48.dp.toPx() }.toInt()
@@ -137,9 +141,9 @@ fun TrackMap(
     }
 
     // Tile chain is rebuilt only when the set of ready regions, the label language or the theme changes.
-    DisposableEffect(offlineFiles, mapLanguage, dark) {
-        val offline = HybridTileProvider.createOfflineSource(offlineFiles, mapLanguage)
-        val provider = HybridTileProvider.create(context, offline) { container.offlineRegionStore.readyCoverage.value }
+    DisposableEffect(mapMode, offlineFiles, mapLanguage, dark) {
+        val offline = if (mapMode == MapMode.OFFLINE) HybridTileProvider.createOfflineSource(offlineFiles, mapLanguage) else null
+        val provider = HybridTileProvider.create(context, mapMode, offline) { container.offlineRegionStore.readyCoverage.value }
         holder.map.tileProvider = provider // detaches the previous provider and creates a fresh TilesOverlay
         holder.map.overlayManager.tilesOverlay.setColorFilter(if (dark) TilesOverlay.INVERT_COLORS else null)
         onDispose { }
@@ -160,9 +164,10 @@ fun TrackMap(
         }
     }
 
+    Box(modifier = modifier.clipToBounds()) {
     AndroidView(
-        modifier = modifier
-            .clipToBounds()
+        modifier = Modifier
+            .fillMaxSize()
             .semantics { contentDescription = cdMap },
         factory = {
             holder.map.apply {
@@ -200,6 +205,7 @@ fun TrackMap(
             map.invalidate()
         },
     )
+    }
 }
 
 private fun syncPolylines(

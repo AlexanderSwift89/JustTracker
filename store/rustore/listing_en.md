@@ -22,6 +22,7 @@ OFFLINE MAPS
 • Download a region in advance (Settings → Offline maps) and the map works without internet — in the forest, in the mountains, abroad.
 • The catalogue covers the Russian federal districts, Crimea, Kaliningrad and neighbouring countries; you can also import your own Mapsforge map file.
 • Wi-Fi-only downloads by default, free-space check.
+• You choose the map mode: Online or Offline in Settings; when the internet drops or returns, the app asks whether to switch — it never switches on its own.
 
 HISTORY AND STATISTICS
 • Every track in a list: date, distance, time, activity type.

@@ -17,6 +17,8 @@ class JustTrackerApplication : Application() {
         configureOsmdroid()
         // Mapsforge needs its Android graphics factory once per process before any region renders.
         MapsForgeTileSource.createInstance(this)
+        // Internet reachability feeds the "switch map mode?" prompt (US-22).
+        container.connectivity.start()
         // Rows vs files vs DownloadManager may have drifted while the process was dead.
         container.appScope.launch { container.offlineRegionStore.reconcile() }
         // Idle until the user enables auto-announcements and a recording is running.
@@ -34,6 +36,9 @@ class JustTrackerApplication : Application() {
             osmdroidTileCache = File(osmdroidBasePath, "tiles").also { it.mkdirs() }
             tileFileSystemCacheMaxBytes = 200L * 1024 * 1024
             tileFileSystemCacheTrimBytes = 150L * 1024 * 1024
+            // Tile pipeline diagnostics in debug builds only (logcat tag OsmDroid).
+            isDebugTileProviders = BuildConfig.DEBUG
+            isDebugMapTileDownloader = BuildConfig.DEBUG
         }
     }
 }
