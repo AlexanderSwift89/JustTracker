@@ -10,7 +10,7 @@ JustTracker — ответвление [TrekLog 1.2.0](https://github.com/Alexan
 - **Язык** выбирается явно при первом запуске и в настройках (AppCompat per-app locales, работает с Android 8), варианта «системный» нет (ADR-15).
 - **Без Google Play Services**: геолокация через платформенный `LocationManager` (ADR-14) — приложение работает на Huawei/Honor и AOSP-прошивках.
 - **Material Design 3**: явные Typography/Shapes, splash screen, predictive back, адаптивная навигация (`NavigationSuiteScaffold`), edge-to-edge, themed icon.
-- **RuStore**: подпись собственным ключом, декларации разрешений и данных, возраст 0+ (436-ФЗ), политика конфиденциальности на GitHub Pages, материалы карточки в `store/rustore/`.
+- **RuStore**: подпись собственным ключом, декларации разрешений и данных, возраст 12+ (436-ФЗ), политика конфиденциальности на GitHub Pages, материалы карточки в `store/rustore/`.
 
 Сохранено из TrekLog: «Интересное рядом» (метки Википедии + озвучка, отключается), время записи как основное время, окраска линии по скорости, ползунок по треку.
 
@@ -19,7 +19,7 @@ JustTracker — ответвление [TrekLog 1.2.0](https://github.com/Alexan
 ```
 docs/                       документация команды (промпты ролей, план, PRD, UX, архитектура, безопасность, тесты, релиз RuStore, гайд)
 store/rustore/              материалы карточки RuStore: листинг ru/en, иконка 512, скриншоты 9:16, декларации, комментарий модератору
-site/                       GitHub Pages: лендинг и политика конфиденциальности (RU/EN)
+site/                       GitHub Pages: лендинг, политика конфиденциальности и лицензии (RU/EN)
 android/                    Gradle-проект приложения
   app/src/main/java/com/justtracker/app/
     domain/                 чистые модели и алгоритмы (гео, статистика, SpeedProfile, классификатор, GPX, poi, maps — выбор источника тайла, state machine регионов)
@@ -90,4 +90,6 @@ adb emu geo fix 37.6173 55.7558 150      # lon lat alt
 
 ## Лицензии
 
-Карты: © OpenStreetMap contributors (ODbL). Офлайн-карты: файлы Mapsforge (download.mapsforge.org), библиотека Mapsforge — LGPL 3. osmdroid — Apache 2.0. Описания мест — Wikipedia, CC BY-SA 4.0.
+Карты: © OpenStreetMap contributors (ODbL). Офлайн-карты: файлы Mapsforge (download.mapsforge.org), библиотека Mapsforge — LGPL 3. osmdroid — Apache 2.0. Описания мест — Wikipedia, CC BY-SA 4.0. Полный список с обязанностями — [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), для пользователей — https://alexanderswift89.github.io/JustTracker/licenses/ (Настройки → «Лицензии открытого ПО»); правовая проверка — `docs/07_security.md` §7.
+
+Само приложение — **проприетарное**: [LICENSE](LICENSE) (просмотр и сборка для личного ознакомления; оговорка о совместимости с LGPL для Mapsforge).

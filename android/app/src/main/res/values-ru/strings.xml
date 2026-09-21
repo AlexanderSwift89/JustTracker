@@ -131,6 +131,7 @@
     <string name="settings_accuracy_desc">Точки с точностью хуже %1$d м игнорируются</string>
     <string name="settings_keep_screen_on">Не гасить экран при записи</string>
     <string name="settings_privacy">Политика конфиденциальности</string>
+    <string name="settings_licenses">Лицензии открытого ПО</string>
     <string name="settings_version">Версия</string>
     <string name="settings_map_attribution">Данные карты © участники OpenStreetMap</string>
     <!-- Офлайн-карты (US-19, US-20) -->

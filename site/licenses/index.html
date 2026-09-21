@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JustTracker — Лицензии / Licences</title>
+<meta name="description" content="Стороннее программное обеспечение и данные, используемые в приложении JustTracker, и их лицензии. Third-party software and data used by the JustTracker Android app and their licences.">
+<style>
+  :root { --bg:#fbfdf8; --fg:#191c19; --muted:#414941; --accent:#1b6e3a; --card:#eef3ec; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111412; --fg:#e1e3de; --muted:#c1c9be; --accent:#8bd59b; --card:#1c211d; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 -apple-system, Roboto, "Segoe UI", sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { font-size:1.75rem; margin:0 0 4px; } h2 { font-size:1.25rem; margin-top:2.5rem; color:var(--accent); }
+  h3 { font-size:1.05rem; margin-top:1.5rem; }
+  .meta { color:var(--muted); font-size:.9rem; }
+  nav a { color:var(--accent); margin-right:16px; }
+  section.lang { border-top:1px solid var(--card); padding-top:8px; }
+  table { border-collapse:collapse; width:100%; font-size:.95rem; } td, th { border-bottom:1px solid var(--card); padding:8px 6px; text-align:left; vertical-align:top; }
+  code { background:var(--card); padding:1px 5px; border-radius:4px; }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<main>
+<h1>JustTracker</h1>
+<p class="meta">Стороннее ПО и данные · Third-party notices · Версия 1.0 / Version 1.0 · 1 октября 2026 г. / October 1, 2026</p>
+<nav><a href="#ru">Русский</a><a href="#en">English</a><a href="../privacy/">Политика конфиденциальности</a><a href="../">← justtracker</a></nav>
+
+<section class="lang" id="ru">
+<h2>Лицензии (RU)</h2>
+<p>JustTracker — проприетарное приложение (© разработчик JustTracker, все права защищены). Оно использует перечисленные ниже свободные библиотеки и открытые данные. Их лицензии сохраняют силу для соответствующих компонентов; полные тексты — по ссылкам.</p>
+
+<h3>Библиотеки</h3>
+<table>
+<tr><th>Компонент</th><th>Назначение</th><th>Лицензия</th></tr>
+<tr><td><a href="https://github.com/mapsforge/mapsforge" rel="noopener">Mapsforge</a> (<code>org.mapsforge:*</code>, подключается через <code>osmdroid-mapsforge</code>)</td><td>Отрисовка офлайн-карт из файлов регионов</td><td><a href="https://www.gnu.org/licenses/lgpl-3.0.html" rel="noopener">GNU LGPL 3.0</a></td></tr>
+<tr><td><a href="https://github.com/osmdroid/osmdroid" rel="noopener">osmdroid</a> (<code>osmdroid-android</code>, <code>osmdroid-mapsforge</code>)</td><td>Карта, онлайн-тайлы, кэш</td><td><a href="https://www.apache.org/licenses/LICENSE-2.0" rel="noopener">Apache 2.0</a></td></tr>
+<tr><td>AndroidX (Jetpack Compose, Material 3, Room, DataStore, Navigation, Lifecycle, AppCompat, Core, SplashScreen)</td><td>Интерфейс, база данных, настройки</td><td>Apache 2.0</td></tr>
+<tr><td>Kotlin stdlib, kotlinx.coroutines</td><td>Язык и асинхронность</td><td>Apache 2.0</td></tr>
+</table>
+<p><strong>Замечание о LGPL.</strong> Библиотека Mapsforge используется без изменений. В соответствии с разделом 4 LGPL 3.0 вы вправе модифицировать библиотеку и пересобрать приложение с изменённой версией, а также выполнять обратную разработку в объёме, необходимом для отладки таких изменений; лицензия приложения этого не ограничивает. Исходные материалы приложения, необходимые для пересборки (Minimal Corresponding Source и Corresponding Application Code по терминологии LGPL), предоставляются по запросу через канал обратной связи, указанный в политике конфиденциальности; это предложение действует не менее трёх лет с даты выпуска соответствующей версии приложения.</p>
+
+<h3>Данные</h3>
+<table>
+<tr><th>Источник</th><th>Где используется</th><th>Лицензия</th></tr>
+<tr><td>OpenStreetMap — © участники OpenStreetMap</td><td>Онлайн-карта (<code>tile.openstreetmap.org</code>), файлы офлайн-регионов Mapsforge (<code>download.mapsforge.org</code>), объекты «Интересное рядом» (Overpass API, FOSSGIS e.V.)</td><td><a href="https://www.openstreetmap.org/copyright" rel="noopener">ODbL 1.0</a></td></tr>
+<tr><td>Wikipedia (Фонд Викимедиа)</td><td>Краткие описания объектов в «Интересное рядом»; тексты не изменяются, в карточке есть ссылка на статью</td><td><a href="https://creativecommons.org/licenses/by-sa/4.0/deed.ru" rel="noopener">CC BY-SA 4.0</a></td></tr>
+</table>
+</section>
+
+<section class="lang" id="en">
+<h2>Licences (EN)</h2>
+<p>JustTracker is proprietary software (© the JustTracker developer, all rights reserved). It uses the free libraries and open data listed below; their licences continue to govern those components, and the full texts are linked.</p>
+
+<h3>Libraries</h3>
+<table>
+<tr><th>Component</th><th>Purpose</th><th>Licence</th></tr>
+<tr><td><a href="https://github.com/mapsforge/mapsforge" rel="noopener">Mapsforge</a> (<code>org.mapsforge:*</code>, via <code>osmdroid-mapsforge</code>)</td><td>Rendering offline maps from region files</td><td><a href="https://www.gnu.org/licenses/lgpl-3.0.html" rel="noopener">GNU LGPL 3.0</a></td></tr>
+<tr><td><a href="https://github.com/osmdroid/osmdroid" rel="noopener">osmdroid</a> (<code>osmdroid-android</code>, <code>osmdroid-mapsforge</code>)</td><td>Map view, online tiles, cache</td><td><a href="https://www.apache.org/licenses/LICENSE-2.0" rel="noopener">Apache 2.0</a></td></tr>
+<tr><td>AndroidX (Jetpack Compose, Material 3, Room, DataStore, Navigation, Lifecycle, AppCompat, Core, SplashScreen)</td><td>UI, database, settings</td><td>Apache 2.0</td></tr>
+<tr><td>Kotlin stdlib, kotlinx.coroutines</td><td>Language and concurrency</td><td>Apache 2.0</td></tr>
+</table>
+<p><strong>LGPL notice.</strong> The Mapsforge library is used unmodified. Under section 4 of the LGPL 3.0 you may modify the library and relink the App with your modified version, and reverse-engineer it to the extent needed to debug such modifications; the App’s licence does not restrict this. The materials needed for relinking (the Minimal Corresponding Source and Corresponding Application Code in LGPL terms) are provided on request through the contact channel given in the privacy policy; this offer is valid for at least three years from the release date of the respective App version.</p>
+
+<h3>Data</h3>
+<table>
+<tr><th>Source</th><th>Used for</th><th>Licence</th></tr>
+<tr><td>OpenStreetMap — © OpenStreetMap contributors</td><td>Online map (<code>tile.openstreetmap.org</code>), Mapsforge offline region files (<code>download.mapsforge.org</code>), Places nearby objects (Overpass API, FOSSGIS e.V.)</td><td><a href="https://www.openstreetmap.org/copyright" rel="noopener">ODbL 1.0</a></td></tr>
+<tr><td>Wikipedia (Wikimedia Foundation)</td><td>Lead summaries in Places nearby; text is unmodified and each card links to the article</td><td><a href="https://creativecommons.org/licenses/by-sa/4.0/" rel="noopener">CC BY-SA 4.0</a></td></tr>
+</table>
+</section>
+</main>
+</body>
+</html>

@@ -1,0 +1,89 @@
+JustTracker — Proprietary Licence / Проприетарная лицензия
+
+Copyright (c) 2026 the JustTracker developer. All rights reserved.
+© 2026 разработчик JustTracker. Все права защищены.
+
+-------------------------------------------------------------------------------
+EN
+-------------------------------------------------------------------------------
+
+1. This repository contains the source code, assets and documentation of the
+   JustTracker Android application ("the Software"). The Software is
+   proprietary. No licence to copy, modify, distribute, sublicense, sell or
+   otherwise use the Software is granted, except as stated below or in a
+   separate written agreement with the copyright holder.
+
+2. Permitted use. You may view the Software and build it from source for your
+   own personal, non-commercial evaluation. You may install and use the
+   compiled application distributed by the copyright holder through official
+   channels (RuStore, GitHub Releases) under the terms shown in the store.
+
+3. Third-party components. The Software incorporates open-source libraries and
+   open data listed in THIRD_PARTY_NOTICES.md. Those components remain under
+   their own licences (Apache 2.0, GNU LGPL 3.0, ODbL 1.0, CC BY-SA 4.0), which
+   take precedence over this licence for the respective components.
+
+4. LGPL compatibility clause. To the extent required by section 4 of the GNU
+   Lesser General Public License version 3 for the Mapsforge library, nothing
+   in this licence restricts you from (a) modifying the Mapsforge library and
+   relinking or recombining the application with your modified version, or
+   (b) reverse engineering the application to the extent necessary to debug
+   such modifications. The copyright holder provides the Minimal Corresponding
+   Source and Corresponding Application Code on request for at least three
+   years from the release date of the respective version.
+
+5. Trademarks. "JustTracker" and the application icon may not be used to
+   identify derived or third-party products.
+
+6. No warranty. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+   CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE USE OF THE SOFTWARE, to
+   the extent permitted by applicable law.
+
+7. Governing law. This licence is governed by the law of the Russian
+   Federation; mandatory consumer-protection rules of the user's country of
+   residence remain unaffected.
+
+-------------------------------------------------------------------------------
+RU
+-------------------------------------------------------------------------------
+
+1. Настоящий репозиторий содержит исходный код, ресурсы и документацию
+   Android-приложения JustTracker («Программа»). Программа является
+   проприетарной. Никакие права на копирование, изменение, распространение,
+   сублицензирование, продажу или иное использование Программы не
+   предоставляются, кроме прямо указанных ниже или в отдельном письменном
+   соглашении с правообладателем.
+
+2. Разрешённое использование. Вы можете просматривать Программу и собирать её
+   из исходного кода для личного некоммерческого ознакомления. Вы можете
+   устанавливать и использовать скомпилированное приложение, распространяемое
+   правообладателем по официальным каналам (RuStore, GitHub Releases), на
+   условиях, указанных в магазине.
+
+3. Сторонние компоненты. Программа включает библиотеки с открытым исходным
+   кодом и открытые данные, перечисленные в THIRD_PARTY_NOTICES.md. Они
+   остаются под собственными лицензиями (Apache 2.0, GNU LGPL 3.0, ODbL 1.0,
+   CC BY-SA 4.0), которые имеют приоритет над настоящей лицензией в отношении
+   соответствующих компонентов.
+
+4. Оговорка о совместимости с LGPL. В объёме, требуемом разделом 4 GNU Lesser
+   General Public License версии 3 в отношении библиотеки Mapsforge, ничто в
+   настоящей лицензии не ограничивает вас в (а) изменении библиотеки Mapsforge
+   и повторной сборке приложения с изменённой версией и (б) обратной
+   разработке приложения в объёме, необходимом для отладки таких изменений.
+   Правообладатель предоставляет по запросу Minimal Corresponding Source и
+   Corresponding Application Code в течение не менее трёх лет с даты выпуска
+   соответствующей версии.
+
+5. Товарные знаки. Название «JustTracker» и значок приложения не могут
+   использоваться для обозначения производных или сторонних продуктов.
+
+6. Отказ от гарантий. ПРОГРАММА ПРЕДОСТАВЛЯЕТСЯ «КАК ЕСТЬ», БЕЗ КАКИХ-ЛИБО
+   ГАРАНТИЙ, ЯВНЫХ ИЛИ ПОДРАЗУМЕВАЕМЫХ. ПРАВООБЛАДАТЕЛЬ НЕ НЕСЁТ
+   ОТВЕТСТВЕННОСТИ ЗА УБЫТКИ, ВОЗНИКШИЕ В СВЯЗИ С ИСПОЛЬЗОВАНИЕМ ПРОГРАММЫ, в
+   пределах, допускаемых применимым правом.
+
+7. Применимое право. Настоящая лицензия регулируется правом Российской
+   Федерации; императивные нормы о защите прав потребителей страны проживания
+   пользователя сохраняют силу.

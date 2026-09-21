@@ -19,7 +19,7 @@ simple and self-contained. Everything below the TrekLog 1.2.0 entry is inherited
   bar / rail), explicit M3 Typography (tabular figures) and Shapes, pinned top-bar scroll behaviour,
   themed (monochrome) launcher icon, new brand icon.
 - RuStore readiness: `store/rustore/` (RU/EN listing, 512 px icon + generator, 1080×1920 screenshots,
-  category & 436-FZ age rating, permissions / data-safety declaration, moderator notes), signed
+  category & 436-FZ age rating 12+, permissions / data-safety declaration, moderator notes), signed
   `release-signed` CI job, GitHub Pages site with the bilingual privacy policy, version overrides via
   `-PversionCode/-PversionName`.
 - 26 new unit tests (107 total): provider policy, language tags, tile bounds, map source resolver,
@@ -47,6 +47,13 @@ simple and self-contained. Everything below the TrekLog 1.2.0 entry is inherited
 - Network hosts whitelist extended with `download.mapsforge.org` (only https, only on explicit user
   action); catalogue parser rejects anything else. `DownloadCompleteReceiver` is exported (system
   broadcast) but only looks up the id in DownloadManager. R8 keeps `org.mapsforge.**`.
+- Privacy policy restructured for 152-FZ and GDPR at once (developer is neither a PD operator nor a
+  controller; purposes, retention, user rights, security sections); the COPPA-style "under 13" clause is
+  replaced by "no data collected from anyone, parental consent per applicable law". Store card and
+  landing page no longer link the source code. `THIRD_PARTY_NOTICES.md` added; legal review in
+  `docs/07_security.md` §7. Settings gains "Open-source licences" (→ `site/licenses/`, LGPL notice for
+  Mapsforge); proprietary `LICENSE` with an LGPL §4 compatibility clause; age rating set to 12+ because of
+  uncontrolled Wikipedia content in Places nearby.
 
 ## [1.2.0] - 2026-09-20 (Recording time + speed along the track)
 

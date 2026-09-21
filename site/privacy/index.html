@@ -28,80 +28,124 @@
 
 <section class="lang" id="ru">
 <h2>Политика конфиденциальности (RU)</h2>
-<p>JustTracker — приложение для Android, которое записывает GPS-трек по команде пользователя, показывает его на карте и хранит историю треков. Приложение не требует регистрации и не имеет собственных серверов.</p>
 
-<h3>1. Какие данные обрабатываются</h3>
+<h3>1. Общие положения</h3>
+<p>JustTracker (далее — «Приложение») — приложение для Android, которое по команде пользователя записывает GPS-трек, показывает его на карте и хранит историю треков на устройстве. Приложение не требует регистрации и не имеет серверов разработчика.</p>
+<p>Настоящая Политика составлена с учётом Федерального закона от 27.07.2006 № 152-ФЗ «О персональных данных», Федерального закона от 29.12.2010 № 436-ФЗ «О защите детей от информации, причиняющей вред их здоровью и развитию», а для пользователей за пределами Российской Федерации — принципов Регламента (ЕС) 2016/679 (GDPR) и иного применимого законодательства о защите данных.</p>
+<p><strong>Ключевое положение.</strong> Разработчик Приложения (далее — «Разработчик») не получает, не собирает, не хранит и не передаёт третьим лицам персональные данные пользователей. Все данные, описанные в разделе 2, обрабатываются самим пользователем на его устройстве для личных нужд. В отношении такой обработки Разработчик не является оператором персональных данных по смыслу 152-ФЗ (п. 1 ч. 2 ст. 1) и не выступает контролёром или процессором данных по смыслу GDPR, поскольку не имеет доступа к данным и не определяет цели и средства их обработки.</p>
+
+<h3>2. Данные, обрабатываемые на устройстве</h3>
 <table>
-<tr><th>Данные</th><th>Где хранятся</th><th>Кому передаются</th></tr>
-<tr><td>Координаты, скорость, высота, время точек трека (только между нажатиями «Старт» и «Стоп»)</td><td>Только на устройстве (локальная база данных приложения)</td><td>Никому. Разработчик доступа не имеет</td></tr>
-<tr><td>Настройки (язык, единицы, тема и т. п.)</td><td>Только на устройстве</td><td>Никому</td></tr>
-<tr><td>Файлы офлайн-карт регионов</td><td>В папке приложения на устройстве</td><td>Никому</td></tr>
+<tr><th>Данные</th><th>Цель</th><th>Где хранятся</th><th>Кому передаются</th></tr>
+<tr><td>Координаты, скорость, высота, время точек трека (только между нажатиями «Старт» и «Стоп»)</td><td>Запись, отображение и статистика маршрута; экспорт GPX по команде пользователя</td><td>Только на устройстве (локальная база данных Приложения)</td><td>Никому. Разработчик доступа не имеет</td></tr>
+<tr><td>Настройки (язык, единицы, тема и т. п.)</td><td>Работа Приложения</td><td>Только на устройстве</td><td>Никому</td></tr>
+<tr><td>Файлы офлайн-карт регионов</td><td>Отображение карты без интернета</td><td>В папке Приложения на устройстве</td><td>Никому</td></tr>
 </table>
-<p>Резервное копирование данных приложения в облако Android отключено: геоданные не покидают устройство. Данные удаляются при удалении трека в приложении или при удалении приложения.</p>
+<p>Срок хранения — до удаления пользователем. Данные удаляются при удалении трека в Приложении или при удалении Приложения. Резервное копирование данных Приложения в облако Android отключено: геоданные не покидают устройство. Просмотренные фрагменты онлайн-карты временно сохраняются в кэше Приложения на устройстве. Экспортированные вами GPX-файлы находятся под вашим контролем: они передаются только тому приложению, которое вы выбрали в системном окне «Поделиться».</p>
 
-<h3>2. Сетевые запросы</h3>
-<p>Приложение обращается в интернет только к следующим сервисам, всегда по HTTPS. При любом запросе сервер получает IP-адрес устройства.</p>
+<h3>3. Сетевые запросы к сторонним сервисам</h3>
+<p>Для отдельных функций ваше устройство напрямую, без участия Разработчика, обращается к следующим сервисам, всегда по HTTPS. При любом запросе сервер получает IP-адрес устройства — так же, как при открытии сайта в браузере.</p>
 <ul>
-<li><strong>Фрагменты карты (тайлы)</strong> — <code>tile.openstreetmap.org</code> (OpenStreetMap Foundation): запрашиваются координаты фрагментов карты, которые вы просматриваете.</li>
-<li><strong>Офлайн-карты</strong> — <code>download.mapsforge.org</code>: загрузка файла выбранного вами региона по вашей явной команде (Настройки → Офлайн-карты). Передаётся только название файла региона.</li>
-<li><strong>«Интересное рядом»</strong> (можно отключить в настройках) — <code>overpass-api.de</code>: запрашиваются объекты в примерном районе около 500 м (сетка, а не точное положение); <code>*.wikipedia.org</code>: запрашивается краткое описание выбранного объекта по названию статьи.</li>
+<li><strong>Фрагменты карты (тайлы)</strong> — <code>tile.openstreetmap.org</code> (OpenStreetMap Foundation): запрашиваются координаты фрагментов карты, которые вы просматриваете. <a href="https://osmfoundation.org/wiki/Privacy_Policy" rel="noopener">Политика OSMF</a>.</li>
+<li><strong>Офлайн-карты</strong> — <code>download.mapsforge.org</code> (проект Mapsforge): загрузка файла выбранного вами региона по вашей явной команде (Настройки → Офлайн-карты). Передаётся только название файла региона.</li>
+<li><strong>«Интересное рядом»</strong> (можно отключить в настройках) — <code>overpass-api.de</code> (FOSSGIS e.V., данные OpenStreetMap): запрашиваются объекты в примерном районе около 500 м (ячейка сетки, а не точное положение), для сохранённого трека — упрощённая линия маршрута, который вы открыли; <code>*.wikipedia.org</code> (Фонд Викимедиа): запрашивается краткое описание выбранного объекта по названию статьи. <a href="https://foundation.wikimedia.org/wiki/Policy:Privacy_policy" rel="noopener">Политика Фонда Викимедиа</a>.</li>
 </ul>
-<p>Приложение не содержит рекламных, аналитических и трекинговых SDK, не собирает идентификаторы устройства и не передаёт разработчику никакие данные.</p>
+<p>Серверы указанных организаций могут находиться за пределами Российской Федерации. Разработчик не осуществляет передачу данных этим организациям, в том числе трансграничную: соединение устанавливает ваше устройство по вашему действию. Обработка полученных сведений регулируется политиками соответствующих организаций.</p>
+<p>Вы можете свести сетевые запросы к минимуму: скачать офлайн-карту региона (тогда тайлы не запрашиваются) и отключить «Интересное рядом». Запись и просмотр треков полностью работают без интернета.</p>
+<p>Каждый запрос содержит технический заголовок User-Agent с названием и версией Приложения (этого требуют правила использования указанных сервисов); идентификаторов устройства, аккаунта или пользователя в запросах нет. Кнопка «Википедия» в карточке объекта открывает статью в вашем браузере — с этого момента действует политика конфиденциальности Фонда Викимедиа.</p>
+<p>Приложение не содержит рекламных, аналитических и трекинговых SDK, не собирает идентификаторы устройства и не отправляет Разработчику никакие данные, включая отчёты об ошибках.</p>
 
-<h3>3. Разрешения</h3>
+<h3>4. Разрешения</h3>
 <ul>
-<li><strong>Геолокация (точная и приблизительная)</strong> — запись трека. Используется только пока идёт запись; фоновое разрешение не запрашивается; при записи с выключенным экраном работает служба переднего плана с уведомлением.</li>
+<li><strong>Геолокация (точная и приблизительная)</strong> — запись трека. Используется только пока идёт запись; разрешение на фоновую геолокацию не запрашивается; при записи с выключенным экраном работает служба переднего плана с постоянно видимым уведомлением.</li>
 <li><strong>Уведомления</strong> — постоянное уведомление о ходе записи.</li>
-<li><strong>Интернет</strong> — см. раздел 2.</li>
+<li><strong>Интернет</strong> — см. раздел 3.</li>
 </ul>
 
-<h3>4. Озвучивание</h3>
-<p>Функция «Прочитать вслух» использует системный синтез речи устройства; текст описания не отправляется разработчику.</p>
+<h3>5. Озвучивание</h3>
+<p>Функция «Прочитать вслух» использует системный синтез речи устройства; текст описания не отправляется Разработчику.</p>
 
-<h3>5. Дети</h3>
-<p>Приложение не предназначено для детей младше 13 лет и не собирает данные о них.</p>
+<h3>6. Безопасность</h3>
+<p>Данные Приложения хранятся в его закрытом каталоге, недоступном другим приложениям (изоляция Android). Сетевые соединения — только HTTPS. Резервное копирование в облако отключено. Защита данных на устройстве обеспечивается средствами операционной системы; рекомендуем использовать блокировку экрана.</p>
 
-<h3>6. Изменения и контакты</h3>
-<p>Актуальная версия политики публикуется по адресу <a href="https://alexanderswift89.github.io/JustTracker/privacy/">alexanderswift89.github.io/JustTracker/privacy/</a>. Вопросы: <a href="https://github.com/AlexanderSwift89/JustTracker/issues">github.com/AlexanderSwift89/JustTracker/issues</a>.</p>
+<h3>7. Ваши права</h3>
+<p>Поскольку данные находятся только на вашем устройстве, вы реализуете права в отношении них самостоятельно, без обращения к Разработчику:</p>
+<ul>
+<li><strong>доступ</strong> — просмотр треков и статистики в Приложении;</li>
+<li><strong>исправление</strong> — переименование трека, изменение типа активности;</li>
+<li><strong>удаление</strong> — удаление отдельного трека или Приложения целиком;</li>
+<li><strong>переносимость</strong> — экспорт трека в GPX;</li>
+<li><strong>отказ от обработки</strong> — отключение «Интересное рядом», работа без интернета, отзыв разрешения на геолокацию в настройках Android.</li>
+</ul>
+<p>Разработчик не может предоставить, изменить или удалить ваши данные по запросу, так как не располагает ими. Права субъектов персональных данных по 152-ФЗ (ст. 14) и права по ст. 15–22 GDPR обеспечиваются перечисленными средствами. Вы вправе обратиться с жалобой в уполномоченный орган по защите прав субъектов персональных данных (в Российской Федерации — Роскомнадзор; в иных странах — надзорный орган по месту жительства).</p>
+
+<h3>8. Дети</h3>
+<p>Приложению присвоен возрастной рейтинг <strong>12+</strong> по 436-ФЗ — из-за описаний объектов из Википедии в функции «Интересное рядом», содержание которых Разработчик не контролирует; собственный контент Приложения возрастных ограничений не содержит. Приложение не собирает персональные данные ни от каких пользователей, включая детей любого возраста; Разработчик не получает сведений, позволяющих определить возраст пользователя.</p>
+<p>Установка Приложения и включение геолокации на устройстве ребёнка осуществляются родителями или иными законными представителями либо с их согласия в соответствии с применимым правом (в Российской Федерации — ст. 26 и 28 ГК РФ; в ЕС — ст. 8 GDPR; в США — COPPA). Родителям рекомендуется отключить функцию «Интересное рядом», если они не хотят, чтобы устройство ребёнка обращалось к сторонним сервисам, указанным в разделе 3.</p>
+
+<h3>9. Изменения и контакты</h3>
+<p>Актуальная версия Политики публикуется по адресу <a href="https://alexanderswift89.github.io/JustTracker/privacy/">alexanderswift89.github.io/JustTracker/privacy/</a> с указанием номера версии и даты вступления в силу; о существенных изменениях сообщается в описании обновления Приложения. Вопросы по Политике: <a href="https://github.com/AlexanderSwift89/JustTracker/issues">github.com/AlexanderSwift89/JustTracker/issues</a>.</p>
 </section>
 
 <section class="lang" id="en">
 <h2>Privacy Policy (EN)</h2>
-<p>JustTracker is an Android app that records a GPS track when you tell it to, shows it on a map and keeps a local history. It needs no account and has no servers of its own.</p>
 
-<h3>1. Data we process</h3>
+<h3>1. General</h3>
+<p>JustTracker (the “App”) is an Android app that records a GPS track when you tell it to, shows it on a map and keeps a local history of tracks on your device. It needs no account and has no developer servers.</p>
+<p>This Policy is drawn up with regard to Russian Federal Law No. 152-FZ “On Personal Data” and Federal Law No. 436-FZ “On the Protection of Children from Information Harmful to Their Health and Development”, and, for users outside the Russian Federation, the principles of Regulation (EU) 2016/679 (GDPR) and other applicable data-protection law.</p>
+<p><strong>Key statement.</strong> The developer of the App (the “Developer”) does not receive, collect, store or share any personal data of users. All data described in section 2 is processed by the user, on the user’s own device, for personal purposes. With respect to such processing the Developer is not a personal-data operator within the meaning of 152-FZ (art. 1(2)(1)) and is neither a controller nor a processor within the meaning of the GDPR, as the Developer has no access to the data and does not determine the purposes or means of its processing.</p>
+
+<h3>2. Data processed on the device</h3>
 <table>
-<tr><th>Data</th><th>Stored</th><th>Shared with</th></tr>
-<tr><td>Coordinates, speed, altitude and timestamps of track points (only between Start and Stop)</td><td>On the device only (the app’s local database)</td><td>Nobody. The developer has no access</td></tr>
-<tr><td>Settings (language, units, theme, …)</td><td>On the device only</td><td>Nobody</td></tr>
-<tr><td>Offline map region files</td><td>In the app’s folder on the device</td><td>Nobody</td></tr>
+<tr><th>Data</th><th>Purpose</th><th>Stored</th><th>Shared with</th></tr>
+<tr><td>Coordinates, speed, altitude and timestamps of track points (only between Start and Stop)</td><td>Recording, displaying and computing statistics of the route; GPX export on your command</td><td>On the device only (the App’s local database)</td><td>Nobody. The Developer has no access</td></tr>
+<tr><td>Settings (language, units, theme, …)</td><td>Operation of the App</td><td>On the device only</td><td>Nobody</td></tr>
+<tr><td>Offline map region files</td><td>Showing the map without internet</td><td>In the App’s folder on the device</td><td>Nobody</td></tr>
 </table>
-<p>Android cloud backup of the app data is disabled: location data never leaves the device. Data is deleted when you delete a track in the app or uninstall the app.</p>
+<p>Retention: until you delete it. Data is deleted when you delete a track in the App or uninstall the App. Android cloud backup of the App data is disabled: location data never leaves the device. Online map tiles you have viewed are kept temporarily in the App’s cache on the device. GPX files you export are under your control: they go only to the app you pick in the system “Share” dialog.</p>
 
-<h3>2. Network requests</h3>
-<p>The app connects only to the services below, always over HTTPS. Every request reveals the device’s IP address to that server.</p>
+<h3>3. Network requests to third-party services</h3>
+<p>For some features your device connects directly, without the Developer’s involvement, to the services below, always over HTTPS. Every request reveals the device’s IP address to that server, just as opening a website in a browser does.</p>
 <ul>
-<li><strong>Map tiles</strong> — <code>tile.openstreetmap.org</code> (OpenStreetMap Foundation): the coordinates of the map tiles you are viewing.</li>
-<li><strong>Offline maps</strong> — <code>download.mapsforge.org</code>: downloads the region file you explicitly chose (Settings → Offline maps). Only the file name of the region is sent.</li>
-<li><strong>Places nearby</strong> (can be switched off in Settings) — <code>overpass-api.de</code>: objects in an approximate ~500 m grid cell (not your exact position); <code>*.wikipedia.org</code>: the lead summary of the article you tapped, by article title.</li>
+<li><strong>Map tiles</strong> — <code>tile.openstreetmap.org</code> (OpenStreetMap Foundation): the coordinates of the map tiles you are viewing. <a href="https://osmfoundation.org/wiki/Privacy_Policy" rel="noopener">OSMF privacy policy</a>.</li>
+<li><strong>Offline maps</strong> — <code>download.mapsforge.org</code> (Mapsforge project): downloads the region file you explicitly chose (Settings → Offline maps). Only the file name of the region is sent.</li>
+<li><strong>Places nearby</strong> (can be switched off in Settings) — <code>overpass-api.de</code> (FOSSGIS e.V., OpenStreetMap data): objects in an approximate ~500 m grid cell (not your exact position), and for a saved track a simplified line of the route you opened; <code>*.wikipedia.org</code> (Wikimedia Foundation): the lead summary of the article you tapped, by article title. <a href="https://foundation.wikimedia.org/wiki/Policy:Privacy_policy" rel="noopener">Wikimedia privacy policy</a>.</li>
 </ul>
-<p>The app contains no advertising, analytics or tracking SDKs, collects no device identifiers and sends nothing to the developer.</p>
+<p>The servers of these organisations may be located outside the Russian Federation. The Developer does not transfer data to them, cross-border or otherwise: the connection is made by your device as a result of your action. Processing of the information they receive is governed by their own policies.</p>
+<p>You can keep network requests to a minimum: download an offline map of your region (then no tiles are requested) and switch off Places nearby. Recording and viewing tracks works fully offline.</p>
+<p>Every request carries a technical User-Agent header with the App’s name and version (the usage policies of these services require it); no device, account or user identifiers are sent. The “Wikipedia” button on a place card opens the article in your browser — from that point the Wikimedia Foundation’s privacy policy applies.</p>
+<p>The App contains no advertising, analytics or tracking SDKs, collects no device identifiers and sends nothing to the Developer, including crash reports.</p>
 
-<h3>3. Permissions</h3>
+<h3>4. Permissions</h3>
 <ul>
-<li><strong>Location (precise and approximate)</strong> — recording the track. Used only while a recording runs; background location is never requested; with the screen off a foreground service with a notification keeps recording.</li>
+<li><strong>Location (precise and approximate)</strong> — recording the track. Used only while a recording runs; background location permission is never requested; with the screen off a foreground service with an always-visible notification keeps recording.</li>
 <li><strong>Notifications</strong> — the persistent recording notification.</li>
-<li><strong>Internet</strong> — see section 2.</li>
+<li><strong>Internet</strong> — see section 3.</li>
 </ul>
 
-<h3>4. Read aloud</h3>
-<p>“Read aloud” uses the device’s system text-to-speech engine; the text is not sent to the developer.</p>
+<h3>5. Read aloud</h3>
+<p>“Read aloud” uses the device’s system text-to-speech engine; the text is not sent to the Developer.</p>
 
-<h3>5. Children</h3>
-<p>The app is not directed at children under 13 and collects no data about them.</p>
+<h3>6. Security</h3>
+<p>App data is stored in the App’s private directory, inaccessible to other apps (Android sandbox). Network connections are HTTPS only. Cloud backup is disabled. Protection of data on the device is provided by the operating system; we recommend using a screen lock.</p>
 
-<h3>6. Changes and contact</h3>
-<p>The current version of this policy is published at <a href="https://alexanderswift89.github.io/JustTracker/privacy/">alexanderswift89.github.io/JustTracker/privacy/</a>. Questions: <a href="https://github.com/AlexanderSwift89/JustTracker/issues">github.com/AlexanderSwift89/JustTracker/issues</a>.</p>
+<h3>7. Your rights</h3>
+<p>Because the data exists only on your device, you exercise your rights over it yourself, without contacting the Developer:</p>
+<ul>
+<li><strong>access</strong> — view tracks and statistics in the App;</li>
+<li><strong>rectification</strong> — rename a track, change its activity type;</li>
+<li><strong>erasure</strong> — delete an individual track or uninstall the App;</li>
+<li><strong>portability</strong> — export a track as GPX;</li>
+<li><strong>objection / restriction</strong> — switch off Places nearby, use the App offline, revoke the location permission in Android settings.</li>
+</ul>
+<p>The Developer cannot provide, change or delete your data on request, as the Developer does not hold it. The rights of data subjects under 152-FZ (art. 14) and under articles 15–22 GDPR are satisfied by the means listed above. You may lodge a complaint with the competent data-protection authority (in the Russian Federation — Roskomnadzor; elsewhere — the supervisory authority of your place of residence).</p>
+
+<h3>8. Children</h3>
+<p>The App is rated <strong>12+</strong> under 436-FZ because of the Wikipedia place summaries in Places nearby, whose content the Developer does not control; the App’s own content has no age restrictions. The App does not collect personal data from any user, including children of any age; the Developer receives no information that could reveal a user’s age.</p>
+<p>Installing the App and enabling location on a child’s device is done by the parents or other legal guardians, or with their consent, in accordance with applicable law (in the Russian Federation — articles 26 and 28 of the Civil Code; in the EU — article 8 GDPR; in the USA — COPPA). Parents may wish to switch off Places nearby if they do not want the child’s device to contact the third-party services listed in section 3.</p>
+
+<h3>9. Changes and contact</h3>
+<p>The current version of this Policy is published at <a href="https://alexanderswift89.github.io/JustTracker/privacy/">alexanderswift89.github.io/JustTracker/privacy/</a> with its version number and effective date; material changes are announced in the App’s update notes. Questions about this Policy: <a href="https://github.com/AlexanderSwift89/JustTracker/issues">github.com/AlexanderSwift89/JustTracker/issues</a>.</p>
 </section>
 </main>
 </body>

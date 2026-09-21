@@ -140,6 +140,8 @@
     <string name="settings_keep_screen_on">Keep screen on while recording</string>
     <string name="settings_privacy">Privacy policy</string>
     <string name="settings_privacy_url" translatable="false">https://alexanderswift89.github.io/JustTracker/privacy/</string>
+    <string name="settings_licenses">Open-source licences</string>
+    <string name="settings_licenses_url" translatable="false">https://alexanderswift89.github.io/JustTracker/licenses/</string>
     <string name="settings_version">Version</string>
     <string name="settings_map_attribution">Map data © OpenStreetMap contributors</string>
     <!-- Offline maps (US-19, US-20) -->

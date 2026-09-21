@@ -91,6 +91,7 @@ fun SettingsScreen(
     var themeDialog by remember { mutableStateOf(false) }
     var accuracy by remember(settings.maxAccuracyM) { mutableFloatStateOf(settings.maxAccuracyM.toFloat()) }
     val privacyUrl = stringResource(R.string.settings_privacy_url)
+    val licensesUrl = stringResource(R.string.settings_licenses_url)
 
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
@@ -200,6 +201,14 @@ fun SettingsScreen(
                 supportingContent = { Text(privacyUrl) },
                 modifier = Modifier.clickable {
                     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, privacyUrl.toUri())) }
+                },
+            )
+            // Third-party notices (Mapsforge is LGPL-3.0 — the user must be told; docs/07_security.md §7).
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_licenses)) },
+                supportingContent = { Text(licensesUrl) },
+                modifier = Modifier.clickable {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, licensesUrl.toUri())) }
                 },
             )
             ListItem(
