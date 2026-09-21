@@ -7,13 +7,17 @@
 ### 1.1. Ключ подписи — один и навсегда
 RuStore **не переподписывает** загруженные сборки и не хранит ключ разработчика: каждая следующая версия должна быть подписана тем же ключом, иначе обновление невозможно. Потеря ключа = новое приложение с нуля.
 
-```bash
-"D:\Android_studio\jbr\bin\keytool" -genkeypair -v -keystore justtracker-release.jks -alias release -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=JustTracker, O=JustTracker, C=RU"
+PowerShell (путь в кавычках нужно вызывать через оператор `&`, иначе `ParserError: Unexpected token '-genkeypair'`); ключ хранить **вне репозитория**, например в `D:\keys`:
+
+```powershell
+New-Item -ItemType Directory -Force D:\keys | Out-Null
+& "D:\Android_studio\jbr\bin\keytool.exe" -genkeypair -v -keystore D:\keys\justtracker-release.jks -alias release -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=JustTracker, O=JustTracker, C=RU"
+& "D:\Android_studio\jbr\bin\keytool.exe" -list -v -keystore D:\keys\justtracker-release.jks   # проверка
 ```
 
-Локально — `android/keystore.properties` (в `.gitignore`):
+Локально — `android/keystore.properties` (в `.gitignore`; путь абсолютный с прямыми слэшами или относительно `android/`):
 ```properties
-storeFile=../justtracker-release.jks
+storeFile=D:/keys/justtracker-release.jks
 storePassword=********
 keyAlias=release
 keyPassword=********
