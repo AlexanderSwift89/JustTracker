@@ -1,0 +1,6 @@
+# Normalise line endings: LF in the repo for everything text, CRLF only for Windows batch files.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.png binary
+*.jks binary
+*.jar binary
