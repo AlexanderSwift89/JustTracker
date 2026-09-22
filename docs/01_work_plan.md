@@ -32,6 +32,8 @@ JustTracker — ответвление TrekLog 1.2.0 (история TrekLog с�
 | **J6** | Документация по ролям | Все роли | Обновление `00`–`10`, README, CHANGELOG под JustTracker 1.0.0 | 12 |
 | **J7** | Явный режим карты онлайн/офлайн (US-22) | Все роли | `MapMode` в настройках, диалог, окно при смене связности (`ConnectivityObserver`, `MapModeController`, `MapModeAdvisor` + тесты), провайдер на `MapTileProviderBasic` (фикс пустой карты при старте), бейдж, документация | 6 |
 | | **Итого JustTracker 1.0.0** | | | **73** |
+| **J8** | 1.0.1: карточка трека, скелетоны, плавная офлайн-карта | Все роли | Фикс открытия деталей (D-11), сворачиваемая панель статистики, `Shimmer` + скелетоны на 5 экранах, `HybridTileProvider` на `MapTileProviderArray` + `OfflineRenderer`/`OfflineRegionModule`/`OfflineTiles` (D-12, ADR-17), Mapsforge напрямую, 6 unit-тестов, документация, версия 1.0.1 (versionCode 2) | 12 |
+| | **Итого JustTracker 1.0.1** | | | **85** |
 
 Критический путь: 3 → 4 → 5 → 6 → 7 → 9 → 10 → 11. Этапы 1–2 могут идти параллельно с 3; этап 8 параллелен с 7 после готовности 4–5.
 
@@ -79,6 +81,15 @@ T-34  maps UI: OfflineMapsViewModel/Screen (каталог, импорт чер�
 T-35  release: versionCode/versionName из -P, job release-signed (секреты KEYSTORE_*), pages.yml + site/ (privacy RU/EN), store/rustore/* (листинг, make_icon.py, скриншоты, fit_9x16.py, декларации)
 T-37  Режим карты (US-22): domain/maps/MapMode (+ MapModeAdvisor + тест), data/network/ConnectivityObserver, data/maps/MapModeController, ключ map_mode, HybridTileProvider : MapTileProviderBasic (ONLINE / OFFLINE + setUseDataConnection(false)), MapModeDialog + MapModePromptDialog, пункт «Режим карты», MapModeBadge на Record/Detail, строки en/ru, документация (PRD US-22, UX §2.11, arch ADR-16, SA UC-11/NFR-16/17, тесты TC-73..82, гайд)
 T-36  Документация JustTracker: 00 контекст, 01 план, 02 позиционирование, 03 US-18..21 + §8 RuStore, 04 §2.1/§2.6/§2.10/§3/§6, 05 §7/§12 + ADR-13..15, 06 UC-08..10 + NFR-13/14, 07 угрозы/чек-лист RuStore/privacy, 08 TC-48+, 09_release_rustore, 10 гайд, README, CHANGELOG
+
+--- JustTracker 1.0.1 ---
+T-38  Детали трека: поток POI в `TrackDetailViewModel` стартует с пустого списка (`scan`), состояние не ждёт Overpass (D-11); сворачиваемая сетка плиток (`statsVisible`, анимация веса карты 250 мс, строки `detail_hide_stats`/`detail_show_stats`)
+T-39  ui/common/Shimmer.kt: `Modifier.shimmer`, `SkeletonBox/Line/Paragraph/StatTile/TrackCard/ListItem`, `SkeletonGroup` (a11y), `rememberSkeletonVisible` (задержка 100 мс); скелетоны в History, TrackDetail, Stats, OfflineMaps, PoiCard; строка `cd_loading`
+T-40  domain/maps/OfflineTiles (+ MapFileStamp): tileSizeFor, scaleFor, renderThreads, fingerprint, sourceName; OfflineTilesTest (6)
+T-41  data/maps/render: OfflineRenderTheme (тема + DisplayModel на процесс, prewarm масштабов), OfflineRenderer (общий DirectRenderer, пул MultiMapDataStore, ThreadLocal-делегат), OfflineTileSource (RGB_565), OfflineTileWriter (purgeStale), OfflineRegionModule (N потоков, PNG в SQLite-кэш)
+T-42  HybridTileProvider : MapTileProviderArray — цепочка как у MapTileProviderBasic + офлайн-модули впереди (и в pre-cache), `isDowngradedMode` для покрытых тайлов, `setUseDataConnection(mode == ONLINE)`; TrackMap: провайдер без ключа `dark`, фильтр темы отдельным эффектом; AppContainer.offlineRenderTheme; AndroidGraphicFactory.createInstance в Application; кэш 300/240 МБ
+T-43  Зависимости: `osmdroid-mapsforge` → `mapsforge-map-android`/`mapsforge-map`/`mapsforge-themes` 0.21.0; THIRD_PARTY_NOTICES, site/licenses; версия 1.0.1 / versionCode 2; CHANGELOG, «Что нового» ru/en
+T-44  Документация 1.0.1: PRD US-08/US-19, UX §2.4/§7, архитектура §7/§12/ADR-17, SA UC-03/§3.9/NFR-13/NFR-18, тест-план TC-83..90 + D-11/D-12, гайд, README
 ```
 
 ## 4. Definition of Done
@@ -143,9 +154,9 @@ T-36  Документация JustTracker: 00 контекст, 01 план, 02
 | Расход батареи | Плохие отзывы | Интервал 1–2 с только при записи, `PRIORITY_HIGH_ACCURACY`, остановка при STOP, тест на реальном устройстве |
 | Шум GPS в городе | Кривые треки, завышенная дистанция | Фильтр по accuracy и правдоподобной скорости, минимальное смещение |
 | Google Play требует targetSdk 36 | Блок публикации | targetSdk 36 / compileSdk 37 с самого начала |
-| Несовместимость osmdroid-mapsforge 6.1.20 (mapsforge 0.21) с новыми V5-файлами | Офлайн-карты не открываются | Спайк подтвердил чтение V5 (malta.map 2026-07); при регрессии — Plan B: скопировать 3 класса osmdroid-mapsforge в `data/maps/render` и собрать против актуального mapsforge |
+| Несовместимость Mapsforge 0.21 с новыми V5-файлами | Офлайн-карты не открываются | Спайк подтвердил чтение V5 (malta.map 2026-07); рендер теперь собственный (`data/maps/render`, ADR-17) и зависит только от `org.mapsforge:*` — обновление библиотеки не требует ждать osmdroid-mapsforge |
 | Размер файлов регионов (0,1–1,8 ГБ), мобильный трафик | Жалобы, отказ от функции | Wi-Fi only по умолчанию, размер в диалоге, проверка свободного места, DownloadManager с докачкой |
 | download.mapsforge.org недоступен / изменил раскладку | Каталог не работает | Каталог в assets с явными URL; импорт своего `.map` как обход; при переезде мирора — обновление каталога релизом |
 | Потеря release-ключа | Невозможно обновить приложение в RuStore | Ключ и пароли в менеджере паролей + секреты GitHub; инструкция в `09_release_rustore.md` |
 | Устройства без GMS (Huawei/Honor) | Геолокация не работает при зависимости от GMS | ADR-14: только платформенный LocationManager; регресс на образе AOSP |
-| Крупные подписи на офлайн-карте при высокой плотности экрана (тайлы 256 px × DPI) | Читаемость | Совпадает с поведением онлайн-тайлов; кандидат на улучшение — рендер тайлов размером 256·density (Plan B) |
+| Фоновый рендер офлайн-тайлов (pre-cache кольца и зума −1) во время записи | Расход батареи/нагрев на слабых устройствах | Потоки рендера — ½ ядер (2–4), писатель кэша — MIN_PRIORITY, тайлы RGB_565; TC-90 на реальном устройстве; при жалобах — отключать pre-cache офлайн-модуля во время записи |

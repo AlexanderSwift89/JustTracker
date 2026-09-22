@@ -48,7 +48,10 @@ import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.UnitSystem
 import com.justtracker.app.ui.common.ActivityBadge
 import com.justtracker.app.ui.common.EmptyState
+import com.justtracker.app.ui.common.SkeletonGroup
+import com.justtracker.app.ui.common.SkeletonTrackCard
 import com.justtracker.app.ui.common.appViewModel
+import com.justtracker.app.ui.common.rememberSkeletonVisible
 import com.justtracker.app.util.TimeFormat
 import com.justtracker.app.util.UnitFormatter
 import kotlinx.coroutines.flow.SharingStarted
@@ -85,7 +88,20 @@ fun HistoryScreen(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = { TopAppBar(title = { Text(stringResource(R.string.history_title)) }, scrollBehavior = scrollBehavior) },
     ) { padding ->
-        if (state.loaded && state.tracks.isEmpty()) {
+        val skeleton = rememberSkeletonVisible(!state.loaded)
+        if (skeleton) {
+            // Placeholder cards with the footprint of the coming list (docs/04_ux_design.md §7).
+            SkeletonGroup(Modifier.padding(padding)) {
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    repeat(SKELETON_CARDS) { SkeletonTrackCard() }
+                }
+            }
+        } else if (state.loaded && state.tracks.isEmpty()) {
             EmptyState(
                 icon = Icons.Filled.Route,
                 title = stringResource(R.string.history_empty_title),
@@ -189,6 +205,8 @@ private fun TrackCard(track: Track, formatter: UnitFormatter, onClick: () -> Uni
         }
     }
 }
+
+private const val SKELETON_CARDS = 4
 
 @Composable
 fun RenameDialog(initial: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {

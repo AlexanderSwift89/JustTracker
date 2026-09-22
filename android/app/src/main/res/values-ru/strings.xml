@@ -101,6 +101,8 @@
     <string name="detail_cursor_speed">Скорость</string>
     <string name="detail_cursor_time">Время</string>
     <string name="detail_cursor_altitude">Высота</string>
+    <string name="detail_hide_stats">Скрыть статистику, увеличить карту</string>
+    <string name="detail_show_stats">Показать статистику</string>
 
     <string name="stats_title">Статистика</string>
     <string name="stats_total_tracks">Треков</string>
@@ -235,4 +237,5 @@
 
     <string name="cd_activity_icon">Тип движения: %1$s</string>
     <string name="cd_map">Карта</string>
+    <string name="cd_loading">Загрузка…</string>
 </resources>

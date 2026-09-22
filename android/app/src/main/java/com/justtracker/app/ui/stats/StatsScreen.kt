@@ -38,8 +38,13 @@ import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.UnitSystem
 import com.justtracker.app.ui.common.ActivityBadge
 import com.justtracker.app.ui.common.EmptyState
+import com.justtracker.app.ui.common.SkeletonGroup
+import com.justtracker.app.ui.common.SkeletonLine
+import com.justtracker.app.ui.common.SkeletonListItem
+import com.justtracker.app.ui.common.SkeletonStatTile
 import com.justtracker.app.ui.common.StatTile
 import com.justtracker.app.ui.common.appViewModel
+import com.justtracker.app.ui.common.rememberSkeletonVisible
 import com.justtracker.app.util.TimeFormat
 import com.justtracker.app.util.UnitFormatter
 import com.justtracker.app.util.labelRes
@@ -104,6 +109,10 @@ fun StatsScreen(viewModel: StatsViewModel = appViewModel { StatsViewModel(it) })
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = { TopAppBar(title = { Text(stringResource(R.string.stats_title)) }, scrollBehavior = scrollBehavior) },
     ) { padding ->
+        if (rememberSkeletonVisible(!state.loaded)) {
+            StatsSkeleton(Modifier.padding(padding))
+            return@Scaffold
+        }
         if (state.loaded && state.total.count == 0) {
             EmptyState(
                 icon = Icons.Filled.BarChart,
@@ -145,6 +154,28 @@ fun StatsScreen(viewModel: StatsViewModel = appViewModel { StatsViewModel(it) })
                     trailingContent = { Text(formatter.distance(agg.distanceM), style = MaterialTheme.typography.titleMedium) },
                 )
             }
+        }
+    }
+}
+
+/** Same rhythm as the loaded screen: three tiles, a section title, three tiles, a list (docs/04_ux_design.md §7). */
+@Composable
+private fun StatsSkeleton(modifier: Modifier = Modifier) {
+    SkeletonGroup(modifier) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            repeat(2) { block ->
+                if (block > 0) SkeletonLine(width = 96.dp, height = 16.dp, modifier = Modifier.padding(top = 8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    repeat(3) { SkeletonStatTile(Modifier.weight(1f)) }
+                }
+            }
+            SkeletonLine(width = 96.dp, height = 16.dp, modifier = Modifier.padding(top = 8.dp))
+            repeat(3) { SkeletonListItem() }
         }
     }
 }

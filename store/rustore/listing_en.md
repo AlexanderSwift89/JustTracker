@@ -46,6 +46,13 @@ Map data © OpenStreetMap contributors (ODbL). Offline maps: Mapsforge files. Pl
 
 Privacy policy: https://alexanderswift89.github.io/JustTracker/privacy/
 
+## What's new (version 1.0.1)
+
+• A track opens from History right away — no more second attempts.
+• "Hide statistics" button on the track card: the map fills the screen, the route slider stays.
+• The offline map is smooth and crisp: tiles render on several threads, are cached, and no longer stay blurry after zooming.
+• Clear loading placeholders on every screen.
+
 ## What's new (version 1.0.0)
 
 First release of JustTracker: one-button GPS track recording, offline map regions, history and statistics, GPX export, no Google services required, Russian and English interface.

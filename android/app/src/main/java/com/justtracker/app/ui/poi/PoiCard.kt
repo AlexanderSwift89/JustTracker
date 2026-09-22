@@ -18,7 +18,6 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.justtracker.app.R
 import com.justtracker.app.domain.poi.PoiKind
+import com.justtracker.app.ui.common.SkeletonGroup
+import com.justtracker.app.ui.common.SkeletonParagraph
 import com.justtracker.app.util.UnitFormatter
 
 /**
@@ -71,11 +72,10 @@ fun PoiCard(
                     .heightIn(min = 72.dp, max = 260.dp),
             ) {
                 when (state.status) {
-                    SummaryStatus.LOADING -> CircularProgressIndicator(
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .size(28.dp),
-                    )
+                    // Wikipedia round trip: text-shaped placeholder instead of a spinner (docs/04_ux_design.md §7).
+                    SummaryStatus.LOADING -> SkeletonGroup(Modifier.fillMaxWidth()) {
+                        SkeletonParagraph(lines = 4, modifier = Modifier.padding(top = 4.dp))
+                    }
                     SummaryStatus.READY -> Text(
                         state.summary?.extract.orEmpty(),
                         style = MaterialTheme.typography.bodyLarge,

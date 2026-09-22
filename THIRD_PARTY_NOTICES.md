@@ -6,8 +6,9 @@
 
 | Компонент | Лицензия | Обязанности |
 |---|---|---|
-| [Mapsforge](https://github.com/mapsforge/mapsforge) (`org.mapsforge:*`, через `osmdroid-mapsforge`) — рендеринг офлайн-карт | [LGPL-3.0](https://www.gnu.org/licenses/lgpl-3.0.html) | Уведомить пользователя, что библиотека используется и под какой лицензией; предоставить текст лицензии; обеспечить возможность замены библиотеки и не запрещать обратную разработку для отладки (LGPL §4) — оговорка в `LICENSE` п. 4 и письменное предложение предоставить Minimal Corresponding Source по запросу. Модификаций библиотеки нет. |
-| [osmdroid](https://github.com/osmdroid/osmdroid) (`org.osmdroid:osmdroid-android`, `osmdroid-mapsforge`) — карта | [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) | Сохранить уведомление об авторских правах и текст лицензии. |
+| [Mapsforge](https://github.com/mapsforge/mapsforge) (`org.mapsforge:mapsforge-map-android`, `mapsforge-map`, `mapsforge-map-reader`, `mapsforge-core`, `mapsforge-themes` 0.21.0) — чтение файлов регионов и рендеринг офлайн-карт | [LGPL-3.0](https://www.gnu.org/licenses/lgpl-3.0.html) | Уведомить пользователя, что библиотека используется и под какой лицензией; предоставить текст лицензии; обеспечить возможность замены библиотеки и не запрещать обратную разработку для отладки (LGPL §4) — оговорка в `LICENSE` п. 4 и письменное предложение предоставить Minimal Corresponding Source по запросу. Модификаций библиотеки нет. |
+| [osmdroid](https://github.com/osmdroid/osmdroid) (`org.osmdroid:osmdroid-android`) — карта, онлайн-тайлы, кэш | [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) | Сохранить уведомление об авторских правах и текст лицензии. |
+| [AndroidSVG](https://github.com/BigBadaboom/androidsvg) (`com.caverock:androidsvg`, транзитивно через Mapsforge) — растеризация SVG-символов темы карты | Apache-2.0 | То же. |
 | AndroidX (Compose, Material 3, Room, DataStore, Navigation, Lifecycle, AppCompat, Core, SplashScreen) | Apache-2.0 | То же. |
 | Kotlin stdlib, kotlinx.coroutines | Apache-2.0 | То же. |
 

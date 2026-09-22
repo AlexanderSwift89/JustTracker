@@ -1,5 +1,48 @@
 # Changelog
 
+## JustTracker [1.0.1] - 2026-09-22 (versionCode 2)
+
+### Fixed
+- **Track detail sometimes did not load from History** (D-11): the screen state waited for the first
+  emission of the "places nearby" flow, which was held back by the rate-limited Overpass request
+  (≥ 15 s between calls, 60 s backoff, 10/25 s timeouts) — the track appeared only after the request
+  finished or hit the cache on the 2nd–3rd attempt. The POI flow now starts with an empty list (as the
+  Record screen already did); the track, scrubber and tiles appear as soon as Room has answered.
+- **Offline map loaded "in chunks" and stayed blurry after zooming** (D-12, ADR-17): osmdroid's
+  `MapTileProviderBasic` keeps a rescaled/expired placeholder for good once the data connection is off,
+  so covered tiles were never re-rendered; `osmdroid-mapsforge` rendered on a single `synchronized`
+  thread. `HybridTileProvider` now builds the same chain on `MapTileProviderArray`, overrides
+  `isDowngradedMode` (a tile the renderer covers is always re-requested) and puts the offline modules
+  first — also in the pre-cache.
+
+### Added
+- **Collapsible statistics panel in Track detail** (US-08): a chevron button next to the activity type
+  hides the tile grid so the map takes the whole height; the distance slider and the values at the
+  cursor stay in place. Shown by default on every open; the choice survives rotation.
+- **Skeleton ("shimmer") loading states** (UX §7) instead of blank screens / spinners: History cards,
+  the whole Track detail layout, Statistics tiles, the Offline maps catalogue and the Wikipedia summary
+  in the place card. Appear only when a load takes longer than 100 ms, announced as "Loading…" to
+  TalkBack.
+- **Own multi-threaded offline renderer** (`OfflineRenderer`, `OfflineRegionModule`): one shared
+  Mapsforge `DirectRenderer` (consistent labels across tile borders), a pool of `MapFile` stores — one
+  per concurrent render, 2–4 threads (half the cores); rendered tiles are written as PNG into the shared
+  osmdroid SQLite cache under a name that fingerprints the region set (files + size + mtime, language,
+  tile size), stale namespaces are purged; the approximation module upscales cached offline tiles for
+  the next zoom; the pre-cache renders the border ring and the zoom-out level ahead of time.
+- **Crisp, correctly sized offline labels on dense screens**: 512 px tiles when density ≥ 1.5 (drawn
+  at 1.4× instead of 2.75× upscaling), RGB_565 bitmaps; the Mapsforge theme is now scaled by
+  `tileSize/256` only — `AndroidGraphicFactory` had also applied the display density, so labels and
+  symbols were density× too large on top of the upscaling (closes OBS-05).
+- 6 new unit tests (`OfflineTilesTest`, 118 total): tile size per density, render threads, region-set
+  fingerprint / cache namespace.
+
+### Changed
+- Mapsforge 0.21 is a direct dependency (`mapsforge-map-android`, `mapsforge-map`, `mapsforge-themes`);
+  `osmdroid-mapsforge` removed. Third-party notices and the licences page updated accordingly.
+- Tile cache limit raised to 300 MB (trim to 240 MB); it now holds rendered offline tiles as well.
+- Theme (light/dark) changes only re-apply the map colour filter; the tile provider is no longer rebuilt.
+- `versionCode` 2, `versionName` 1.0.1; "What's new" in `store/rustore/listing_*.md`.
+
 ## JustTracker [1.0.0] - 2026-09-21 (fork of TrekLog 1.2.0 for RuStore)
 
 JustTracker is a new product line (`com.justtracker.app`, versionCode 1) branched from TrekLog 1.2.0: "just a tracker" —

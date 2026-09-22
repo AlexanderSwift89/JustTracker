@@ -109,6 +109,8 @@
     <string name="detail_cursor_speed">Speed</string>
     <string name="detail_cursor_time">Time</string>
     <string name="detail_cursor_altitude">Altitude</string>
+    <string name="detail_hide_stats">Hide statistics, enlarge the map</string>
+    <string name="detail_show_stats">Show statistics</string>
 
     <!-- Stats -->
     <string name="stats_title">Statistics</string>
@@ -245,4 +247,5 @@
     <!-- Accessibility -->
     <string name="cd_activity_icon">Activity type: %1$s</string>
     <string name="cd_map">Map</string>
+    <string name="cd_loading">Loading…</string>
 </resources>

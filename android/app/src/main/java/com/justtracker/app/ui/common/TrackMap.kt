@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -140,13 +141,20 @@ fun TrackMap(
         MapHolder(map)
     }
 
-    // Tile chain is rebuilt only when the set of ready regions, the label language or the theme changes.
-    DisposableEffect(mapMode, offlineFiles, mapLanguage, dark) {
-        val offline = if (mapMode == MapMode.OFFLINE) HybridTileProvider.createOfflineSource(offlineFiles, mapLanguage) else null
-        val provider = HybridTileProvider.create(context, mapMode, offline) { container.offlineRegionStore.readyCoverage.value }
+    // Tile chain is rebuilt only when the map mode, the set of ready regions (offline only) or the label language changes.
+    val regionFiles = if (mapMode == MapMode.OFFLINE) offlineFiles else emptyList()
+    DisposableEffect(mapMode, regionFiles, mapLanguage) {
+        val provider = HybridTileProvider.create(context, mapMode, regionFiles, mapLanguage, { container.offlineRenderTheme }) {
+            container.offlineRegionStore.readyCoverage.value
+        }
         holder.map.tileProvider = provider // detaches the previous provider and creates a fresh TilesOverlay
         holder.map.overlayManager.tilesOverlay.setColorFilter(if (dark) TilesOverlay.INVERT_COLORS else null)
         onDispose { }
+    }
+    // Theme changes only touch the overlay filter; the provider (and its rendered tiles) is kept.
+    LaunchedEffect(dark) {
+        holder.map.overlayManager.tilesOverlay.setColorFilter(if (dark) TilesOverlay.INVERT_COLORS else null)
+        holder.map.invalidate()
     }
 
     DisposableEffect(lifecycleOwner) {

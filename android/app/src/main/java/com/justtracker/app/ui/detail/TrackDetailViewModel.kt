@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -48,6 +49,12 @@ data class TrackDetailUiState(
 class TrackDetailViewModel(private val container: AppContainer, private val trackId: Long) : ViewModel() {
     private val repo = container.trackRepository
 
+    /**
+     * Places along the track. Starts with an empty list *immediately* (`scan`) so the screen never
+     * waits for Overpass: the lookup is rate-limited (≥ 15 s between calls, 60 s backoff) and used to
+     * hold back the whole state — the track appeared only after the request finished (D-11). An
+     * unavailable result keeps whatever was shown before.
+     */
     @OptIn(ExperimentalCoroutinesApi::class)
     private val pois: Flow<List<Poi>> = combine(repo.observePoints(trackId), container.settingsRepository.settings) { points, s ->
         if (s.poiEnabled && points.size >= 2) points.map { it.lat to it.lon } else emptyList()
@@ -57,9 +64,10 @@ class TrackDetailViewModel(private val container: AppContainer, private val trac
             if (line.isEmpty()) emptyList()
             else when (val r = container.poiRepository.aroundTrack(trackId, line)) {
                 is PoiResult.Found -> r.pois
-                PoiResult.Unavailable -> emptyList()
+                PoiResult.Unavailable -> null
             }
         }
+        .scan(emptyList<Poi>()) { prev, next -> next ?: prev }
 
     private val segments: Flow<List<PathSegment>> = repo.observePoints(trackId)
         .map { TrackPath.build(it) }

@@ -1,6 +1,8 @@
 package com.justtracker.app.ui.detail
 
 import android.content.Intent
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -18,6 +21,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -39,6 +44,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,12 +58,17 @@ import com.justtracker.app.domain.model.ActivityType
 import com.justtracker.app.ui.common.ActivityBadge
 import com.justtracker.app.ui.common.LocalAppContainer
 import com.justtracker.app.ui.common.MapModeBadge
+import com.justtracker.app.ui.common.SkeletonBox
+import com.justtracker.app.ui.common.SkeletonGroup
+import com.justtracker.app.ui.common.SkeletonLine
+import com.justtracker.app.ui.common.SkeletonStatTile
 import com.justtracker.app.ui.common.SpeedLegend
 import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.ui.common.StatTile
 import com.justtracker.app.ui.common.TrackCursor
 import com.justtracker.app.ui.common.TrackMap
 import com.justtracker.app.ui.common.appViewModel
+import com.justtracker.app.ui.common.rememberSkeletonVisible
 import com.justtracker.app.ui.history.DeleteDialog
 import com.justtracker.app.ui.history.RenameDialog
 import com.justtracker.app.ui.poi.PoiCard
@@ -140,6 +151,10 @@ fun TrackDetailScreen(
     var showRename by remember { mutableStateOf(false) }
     var showTypeSheet by remember { mutableStateOf(false) }
     var showDelete by remember { mutableStateOf(false) }
+    // Stats grid is shown by default; the user can fold it away to give the map the whole screen while the
+    // scrubber and its values stay put (docs/04_ux_design.md §2.4). Survives rotation, not navigation.
+    var statsVisible by rememberSaveable { mutableStateOf(true) }
+    val mapWeight by animateFloatAsState(if (statsVisible) MAP_WEIGHT else 1f, tween(STATS_TOGGLE_MS), label = "mapWeight")
     val exportFailed = stringResource(R.string.detail_export_failed)
     val chooserTitle = stringResource(R.string.detail_export_chooser)
 
@@ -190,14 +205,16 @@ fun TrackDetailScreen(
             )
         },
     ) { padding ->
+        val skeleton = rememberSkeletonVisible(!state.loaded)
         if (track == null) {
-            if (state.loaded) {
-                Text(
+            when {
+                state.loaded -> Text(
                     stringResource(R.string.detail_not_found),
                     modifier = Modifier
                         .padding(padding)
                         .padding(24.dp),
                 )
+                skeleton -> TrackDetailSkeleton(Modifier.padding(padding))
             }
             return@Scaffold
         }
@@ -209,7 +226,7 @@ fun TrackDetailScreen(
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .weight(0.45f),
+                    .weight(mapWeight),
             ) {
                 TrackMap(
                     segments = state.segments,
@@ -244,7 +261,7 @@ fun TrackDetailScreen(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 ActivityBadge(track.activityType, size = 32)
@@ -253,8 +270,15 @@ fun TrackDetailScreen(
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier
                         .padding(start = 12.dp)
+                        .weight(1f)
                         .clickable { showTypeSheet = true },
                 )
+                IconButton(onClick = { statsVisible = !statsVisible }) {
+                    Icon(
+                        if (statsVisible) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowUp,
+                        contentDescription = stringResource(if (statsVisible) R.string.detail_hide_stats else R.string.detail_show_stats),
+                    )
+                }
             }
             val pace = if (track.activityType == ActivityType.WALK || track.activityType == ActivityType.RUN) {
                 formatter.pace(if (track.distanceM > 0) (track.movingTimeMs / 1000.0) / track.distanceM else null)
@@ -275,16 +299,19 @@ fun TrackDetailScreen(
                 if (track.pausedTimeMs > 0) add(stringResource(R.string.detail_paused_time) to TimeFormat.duration(track.pausedTimeMs))
                 add(stringResource(R.string.detail_started) to TimeFormat.dateTime(track.startedAt))
             }
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(0.55f),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(tiles) { (label, value) -> StatTile(label = label, value = value) }
+            // The grid takes what the map gives up; it leaves the composition once the map owns the whole height.
+            if (mapWeight < 1f) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f - mapWeight),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(tiles) { (label, value) -> StatTile(label = label, value = value) }
+                }
             }
         }
     }
@@ -352,3 +379,74 @@ fun TrackDetailScreen(
         }
     }
 }
+
+/**
+ * Placeholder with the screen's own layout while the track and its points are read from Room
+ * (docs/04_ux_design.md §7): map area, scrubber row, activity row and the first tiles of the grid.
+ */
+@Composable
+private fun TrackDetailSkeleton(modifier: Modifier = Modifier) {
+    SkeletonGroup(modifier) {
+        Column(Modifier.fillMaxSize()) {
+            SkeletonBox(
+                Modifier
+                    .fillMaxWidth()
+                    .weight(MAP_WEIGHT),
+                shape = MaterialTheme.shapes.extraSmall,
+            )
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SkeletonBox(Modifier.size(24.dp), shape = MaterialTheme.shapes.small)
+                    SkeletonBox(
+                        Modifier
+                            .weight(1f)
+                            .padding(horizontal = 16.dp)
+                            .height(8.dp),
+                        shape = MaterialTheme.shapes.extraSmall,
+                    )
+                    SkeletonBox(Modifier.size(24.dp), shape = MaterialTheme.shapes.small)
+                }
+                SkeletonLine(
+                    width = 140.dp,
+                    height = 14.dp,
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(top = 10.dp),
+                )
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    repeat(4) { SkeletonLine(width = 56.dp, height = 18.dp) }
+                }
+            }
+            Row(
+                Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SkeletonBox(Modifier.size(32.dp), shape = androidx.compose.foundation.shape.CircleShape)
+                SkeletonLine(width = 96.dp, height = 16.dp, modifier = Modifier.padding(start = 12.dp))
+            }
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f - MAP_WEIGHT)
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                repeat(3) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SkeletonStatTile(Modifier.weight(1f))
+                        SkeletonStatTile(Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Share of the height the map takes while the stats grid is visible (docs/04_ux_design.md §2.4). */
+private const val MAP_WEIGHT = 0.45f
+private const val STATS_TOGGLE_MS = 250

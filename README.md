@@ -6,7 +6,7 @@
 
 JustTracker — ответвление [TrekLog 1.2.0](https://github.com/AlexanderSwift89/treklog-android) (история коммитов сохранена). Что изменилось относительно TrekLog:
 
-- **Офлайн-карты** — Настройки → Офлайн-карты: каталог регионов (федеральные округа РФ, Крым, Калининград, соседние страны) в формате Mapsforge с download.mapsforge.org, загрузка через системный DownloadManager (Wi-Fi only по умолчанию), импорт своего `.map`; явный **режим карты** Онлайн / Офлайн в настройках — при потере или возврате интернета приложение спрашивает во всплывающем окне, переключиться ли, и никогда не переключает само (ADR-13, ADR-16).
+- **Офлайн-карты** — Настройки → Офлайн-карты: каталог регионов (федеральные округа РФ, Крым, Калининград, соседние страны) в формате Mapsforge с download.mapsforge.org, загрузка через системный DownloadManager (Wi-Fi only по умолчанию), импорт своего `.map`; явный **режим карты** Онлайн / Офлайн в настройках — при потере или возврате интернета приложение спрашивает во всплывающем окне, переключиться ли, и никогда не переключает само (ADR-13, ADR-16). С 1.0.1 фрагменты рендерятся несколькими потоками, кэшируются на диске и не остаются размытыми после зума (ADR-17).
 - **Язык** выбирается явно при первом запуске и в настройках (AppCompat per-app locales, работает с Android 8), варианта «системный» нет (ADR-15).
 - **Без Google Play Services**: геолокация через платформенный `LocationManager` (ADR-14) — приложение работает на Huawei/Honor и AOSP-прошивках.
 - **Material Design 3**: явные Typography/Shapes, splash screen, predictive back, адаптивная навигация (`NavigationSuiteScaffold`), edge-to-edge, themed icon.
@@ -23,12 +23,12 @@ site/                       GitHub Pages: лендинг, политика ко�
 android/                    Gradle-проект приложения
   app/src/main/java/com/justtracker/app/
     domain/                 чистые модели и алгоритмы (гео, статистика, SpeedProfile, классификатор, GPX, poi, maps — выбор источника тайла, state machine регионов)
-    data/                   Room, DataStore, LocationManager, poi (Overpass/Wikipedia), tts, maps (каталог, DownloadManager, OfflineRegionStore, HybridTileProvider)
+    data/                   Room, DataStore, LocationManager, poi (Overpass/Wikipedia), tts, maps (каталог, DownloadManager, OfflineRegionStore; render — HybridTileProvider, OfflineRenderer, OfflineRegionModule)
     service/                TrackingService (foreground, type=location), TrackingController, PoiAnnouncer
-    ui/                     Compose: onboarding (язык → разрешения) / record / history / detail / stats / settings / maps (офлайн-карты) / poi
+    ui/                     Compose: onboarding (язык → разрешения) / record / history / detail / stats / settings / maps (офлайн-карты) / poi; common/Shimmer — скелетоны загрузки
     util/                   AppLocale, UnitFormatter, TimeFormat, AppLog
   app/src/main/assets/maps/regions.json   каталог регионов
-  app/src/test/             unit-тесты (107)
+  app/src/test/             unit-тесты (118)
   app/schemas/              экспорт схемы Room
 CHANGELOG.md
 ```
@@ -80,7 +80,7 @@ adb emu geo fix 37.6173 55.7558 150      # lon lat alt
 
 ## Ключевые решения
 
-- osmdroid вместо Google Maps SDK — без ключей и биллинга (ADR-01); офлайн — файлы регионов Mapsforge, а не массовая загрузка тайлов OSM (ADR-13).
+- osmdroid вместо Google Maps SDK — без ключей и биллинга (ADR-01); офлайн — файлы регионов Mapsforge, а не массовая загрузка тайлов OSM (ADR-13); рендер офлайн-тайлов — собственный многопоточный поверх Mapsforge с дисковым кэшем и тайлами 512 px на плотных экранах (ADR-17).
 - Платформенный LocationManager вместо Fused Location Provider — нет зависимости от GMS (ADR-14).
 - Per-app locale через AppCompat с DataStore как источником истины (ADR-15).
 - Foreground service типа `location`, без `ACCESS_BACKGROUND_LOCATION` (ADR-02).
@@ -90,6 +90,6 @@ adb emu geo fix 37.6173 55.7558 150      # lon lat alt
 
 ## Лицензии
 
-Карты: © OpenStreetMap contributors (ODbL). Офлайн-карты: файлы Mapsforge (download.mapsforge.org), библиотека Mapsforge — LGPL 3. osmdroid — Apache 2.0. Описания мест — Wikipedia, CC BY-SA 4.0. Полный список с обязанностями — [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), для пользователей — https://alexanderswift89.github.io/JustTracker/licenses/ (Настройки → «Лицензии открытого ПО»); правовая проверка — `docs/07_security.md` §7.
+Карты: © OpenStreetMap contributors (ODbL). Офлайн-карты: файлы Mapsforge (download.mapsforge.org), библиотека Mapsforge (`org.mapsforge:*`, подключена напрямую) — LGPL 3. osmdroid (`osmdroid-android`) — Apache 2.0. Описания мест — Wikipedia, CC BY-SA 4.0. Полный список с обязанностями — [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), для пользователей — https://alexanderswift89.github.io/JustTracker/licenses/ (Настройки → «Лицензии открытого ПО»); правовая проверка — `docs/07_security.md` §7.
 
 Само приложение — **проприетарное**: [LICENSE](LICENSE) (просмотр и сборка для личного ознакомления; оговорка о совместимости с LGPL для Mapsforge).

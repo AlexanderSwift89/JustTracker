@@ -56,7 +56,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.justtracker.app.R
 import com.justtracker.app.domain.maps.RegionError
 import com.justtracker.app.domain.maps.RegionStatus
+import com.justtracker.app.ui.common.SkeletonGroup
+import com.justtracker.app.ui.common.SkeletonListItem
 import com.justtracker.app.ui.common.appViewModel
+import com.justtracker.app.ui.common.rememberSkeletonVisible
 
 /** Settings → Offline maps: catalogue downloads, imported files, Wi-Fi-only switch (US-19, US-20). */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -104,6 +107,7 @@ fun OfflineMapsScreen(
             )
         },
     ) { padding ->
+        val skeleton = rememberSkeletonVisible(!state.loaded)
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -146,6 +150,10 @@ fun OfflineMapsScreen(
                 }
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
                 SectionHeader(stringResource(R.string.maps_catalog_header))
+            }
+            if (skeleton) {
+                // Catalogue rows are still being read (catalogue asset + Room): same footprint as the list.
+                item { SkeletonGroup { Column { repeat(SKELETON_ROWS) { SkeletonListItem() } } } }
             }
             items(state.catalog, key = { "c-" + it.id }) { row ->
                 RegionListItem(
@@ -222,6 +230,8 @@ fun OfflineMapsScreen(
         )
     }
 }
+
+private const val SKELETON_ROWS = 6
 
 @Composable
 private fun SectionHeader(text: String) {
