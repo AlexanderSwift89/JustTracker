@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -51,9 +52,16 @@ fun PoiCard(
 ) {
     val context = LocalContext.current
     val pageUrl = state.summary?.pageUrl ?: state.poi.wikipedia.pageUrl
+    // 260 dp of text leave no room for the buttons on a landscape phone: the box shrinks with the window
+    // and the whole sheet scrolls if it still does not fit.
+    val summaryMaxHeight = (LocalWindowInfo.current.containerDpSize.height * SUMMARY_HEIGHT_SHARE).coerceIn(SUMMARY_MIN_HEIGHT, SUMMARY_MAX_HEIGHT)
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+        Column(
+            Modifier
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 8.dp),
+        ) {
             Text(state.poi.name, style = MaterialTheme.typography.titleLarge)
             val subtitle = buildString {
                 append(stringResource(state.poi.kind.labelRes()))
@@ -69,7 +77,7 @@ fun PoiCard(
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 72.dp, max = 260.dp),
+                    .heightIn(min = SUMMARY_MIN_HEIGHT, max = summaryMaxHeight),
             ) {
                 when (state.status) {
                     // Wikipedia round trip: text-shaped placeholder instead of a spinner (docs/04_ux_design.md §7).
@@ -119,6 +127,10 @@ fun PoiCard(
         }
     }
 }
+
+private val SUMMARY_MIN_HEIGHT = 72.dp
+private val SUMMARY_MAX_HEIGHT = 260.dp
+private const val SUMMARY_HEIGHT_SHARE = 0.3f
 
 fun PoiKind.labelRes(): Int = when (this) {
     PoiKind.MUSEUM -> R.string.poi_kind_museum

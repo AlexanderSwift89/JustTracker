@@ -6,15 +6,21 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
@@ -81,18 +87,40 @@ fun OnboardingScreen(onDone: () -> Unit) {
     }
 }
 
+/**
+ * Full-height step that scrolls when the content does not fit (a phone in landscape is ~360 dp tall):
+ * the weighted spacers centre the content while it fits and collapse once it scrolls, so the
+ * "Continue" button can always be reached. In a wide window the column keeps a readable width.
+ */
+@Composable
+private fun StepColumn(content: @Composable ColumnScope.() -> Unit) {
+    BoxWithConstraints(
+        Modifier
+            .fillMaxSize()
+            .safeDrawingPadding(),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = STEP_MAX_WIDTH)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .heightIn(min = maxHeight)
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            content = content,
+        )
+    }
+}
+
+private val STEP_MAX_WIDTH = 560.dp
+
 @Composable
 private fun LanguageStep(initial: AppLanguage, onContinue: (AppLanguage) -> Unit) {
     var selected by rememberSaveable { mutableStateOf(initial) }
     val scope = rememberCoroutineScope()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .safeDrawingPadding()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
+    StepColumn {
         Spacer(Modifier.weight(1f))
         Box(
             modifier = Modifier
@@ -168,13 +196,7 @@ private fun PermissionsStep(onDone: () -> Unit) {
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .safeDrawingPadding()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
+    StepColumn {
         Spacer(Modifier.weight(1f))
         Box(
             modifier = Modifier

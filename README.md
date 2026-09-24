@@ -9,7 +9,8 @@ JustTracker — ответвление [TrekLog 1.2.0](https://github.com/Alexan
 - **Офлайн-карты** — Настройки → Офлайн-карты: каталог регионов (федеральные округа РФ, Крым, Калининград, соседние страны) в формате Mapsforge с download.mapsforge.org, загрузка через системный DownloadManager (Wi-Fi only по умолчанию), импорт своего `.map`; явный **режим карты** Онлайн / Офлайн в настройках — при потере или возврате интернета приложение спрашивает во всплывающем окне, переключиться ли, и никогда не переключает само (ADR-13, ADR-16). С 1.0.1 фрагменты рендерятся несколькими потоками, кэшируются на диске и не остаются размытыми после зума (ADR-17).
 - **Язык** выбирается явно при первом запуске и в настройках (AppCompat per-app locales, работает с Android 8), варианта «системный» нет (ADR-15).
 - **Без Google Play Services**: геолокация через платформенный `LocationManager` (ADR-14) — приложение работает на Huawei/Honor и AOSP-прошивках.
-- **Material Design 3**: явные Typography/Shapes, splash screen, predictive back, адаптивная навигация (`NavigationSuiteScaffold`), edge-to-edge, themed icon.
+- **Material Design 3**: явные Typography/Shapes, splash screen, predictive back, адаптивная навигация (`NavigationSuiteScaffold`: bar в портрете, rail в landscape), edge-to-edge, themed icon. С 1.0.2 все экраны работают в landscape и при шрифте до 200 %, поворот не пересоздаёт activity (ADR-18).
+- **1.0.2**: правдоподобный набор/сброс высоты (сглаживание вдоль пути, удаление сбоев GPS-высоты — ADR-19), GPX, проходящий проверку по схеме GPX 1.1 (скорость и курс — в расширении Garmin); запись больше не «застревает» на 0 м, если первая точка пришла издалека.
 - **RuStore**: подпись собственным ключом, декларации разрешений и данных, возраст 12+ (436-ФЗ), политика конфиденциальности на GitHub Pages, материалы карточки в `store/rustore/`.
 
 Сохранено из TrekLog: «Интересное рядом» (метки Википедии + озвучка, отключается), время записи как основное время, окраска линии по скорости, ползунок по треку.
@@ -28,8 +29,8 @@ android/                    Gradle-проект приложения
     ui/                     Compose: onboarding (язык → разрешения) / record / history / detail / stats / settings / maps (офлайн-карты) / poi; common/Shimmer — скелетоны загрузки
     util/                   AppLocale, UnitFormatter, TimeFormat, AppLog
   app/src/main/assets/maps/regions.json   каталог регионов
-  app/src/test/             unit-тесты (118)
-  app/schemas/              экспорт схемы Room
+  app/src/test/             unit-тесты (151); resources/gpx — подмножества XSD GPX 1.1 и Garmin TrackPointExtension v2 для проверки экспорта
+  app/schemas/              экспорт схемы Room (версии 1 и 2; 1 → 2 — AutoMigration)
 CHANGELOG.md
 ```
 
@@ -66,7 +67,7 @@ cd android
 .\gradlew.bat :app:assembleRelease      # release APK (~3 МБ)
 ```
 
-Release подписывается ключом из `android/keystore.properties` (см. `docs/09_release_rustore.md`); без файла — debug-ключом для локальной проверки. Версию можно задать снаружи: `-PversionCode=2 -PversionName=1.0.1`.
+Release подписывается ключом из `android/keystore.properties` (см. `docs/09_release_rustore.md`); без файла — debug-ключом для локальной проверки. Версию можно задать снаружи: `-PversionCode=3 -PversionName=1.0.2`.
 
 ## Запуск на эмуляторе и симуляция GPS
 
@@ -76,7 +77,7 @@ adb shell pm grant com.justtracker.app.debug android.permission.ACCESS_FINE_LOCA
 adb emu geo fix 37.6173 55.7558 150      # lon lat alt
 ```
 
-Скрипт подачи движущихся точек — в `docs/08_test_plan.md` §2 (десятичный разделитель — точка). Проверка офлайн-карт: скачать регион «Мальта» (6,7 МБ), `adb shell cmd connectivity airplane-mode enable`, `adb emu geo fix 14.515 35.899`, начать запись — карта Валлетты рисуется без сети. Проверка без Google-сервисов — образ `system-images;android-34;default;x86_64`.
+Скрипт подачи движущихся точек — в `docs/08_test_plan.md` §2 (десятичный разделитель — точка). Поворот экрана без датчика: `adb shell settings put system accelerometer_rotation 0`, затем `adb shell settings put system user_rotation 1` (landscape) / `0` (портрет). Проверка офлайн-карт: скачать регион «Мальта» (6,7 МБ), `adb shell cmd connectivity airplane-mode enable`, `adb emu geo fix 14.515 35.899`, начать запись — карта Валлетты рисуется без сети. Проверка без Google-сервисов — образ `system-images;android-34;default;x86_64`.
 
 ## Ключевые решения
 
@@ -87,6 +88,7 @@ adb emu geo fix 37.6173 55.7558 150      # lon lat alt
 - База данных — единственный источник истины между сервисом и UI (ADR-04).
 - Все величины хранятся в СИ, единицы применяются только в UI (ADR-05).
 - Время записи — производная от `startedAt`/`finishedAt` (ADR-11); окраска линии — `PolychromaticPaintList`, одна полилиния на сегмент (ADR-12).
+- Поворот экрана без пересоздания activity, защищённое вписывание трека в карту (ADR-18); набор высоты — сглаживание вдоль пути, удаление «залипаний» GPS-высоты, гистерезис по точкам разворота (ADR-19).
 
 ## Лицензии
 

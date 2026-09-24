@@ -3,12 +3,16 @@ package com.justtracker.app.ui.detail
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.justtracker.app.di.AppContainer
+import com.justtracker.app.domain.geo.ElevationCalculator
+import com.justtracker.app.domain.geo.ElevationResult
 import com.justtracker.app.domain.gpx.GpxWriter
 import com.justtracker.app.domain.model.ActivityType
 import com.justtracker.app.domain.model.Track
+import com.justtracker.app.domain.model.TrackStatus
 import com.justtracker.app.domain.model.UnitSystem
 import com.justtracker.app.data.poi.PoiResult
 import com.justtracker.app.domain.poi.Poi
@@ -19,20 +23,23 @@ import com.justtracker.app.util.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.scan
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.math.abs
 
 data class TrackDetailUiState(
     val track: Track? = null,
@@ -46,7 +53,11 @@ data class TrackDetailUiState(
     val cursor: TrackCursor? = null,
 )
 
-class TrackDetailViewModel(private val container: AppContainer, private val trackId: Long) : ViewModel() {
+class TrackDetailViewModel(
+    private val container: AppContainer,
+    private val trackId: Long,
+    savedState: SavedStateHandle,
+) : ViewModel() {
     private val repo = container.trackRepository
 
     /**
@@ -69,23 +80,45 @@ class TrackDetailViewModel(private val container: AppContainer, private val trac
         }
         .scan(emptyList<Poi>()) { prev, next -> next ?: prev }
 
-    private val segments: Flow<List<PathSegment>> = repo.observePoints(trackId)
-        .map { TrackPath.build(it) }
-        .flowOn(Dispatchers.Default)
+    private class Geometry(val segments: List<PathSegment>, val elevation: ElevationResult)
 
-    /** Global vertex index the user scrubbed to; 0 (track start) until touched. */
-    private val cursorIndex = MutableStateFlow(0)
+    /** Track line and gain/loss, both derived from the points off the main thread; shared by the state and the write-back. */
+    private val geometry: SharedFlow<Geometry> = repo.observePoints(trackId)
+        .map { points -> Geometry(TrackPath.build(points), ElevationCalculator.gainLoss(points)) }
+        .flowOn(Dispatchers.Default)
+        .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), replay = 1)
+
+    /**
+     * Global vertex index the user scrubbed to; 0 (track start) until touched. Saved state, like the
+     * screen's dialogs and camera: returning to a process killed in the background keeps the position.
+     */
+    private val cursorIndex = savedState.getMutableStateFlow(KEY_CURSOR, 0)
 
     val state: StateFlow<TrackDetailUiState> = combine(
         repo.observeTrack(trackId),
-        segments,
+        geometry,
         container.settingsRepository.settings,
         pois,
         cursorIndex,
-    ) { track, segs, settings, poiList, idx ->
-        val cursor = track?.let { TrackPath.cursorAt(segs, idx, it.startedAt) }
-        TrackDetailUiState(track, segs, settings.units, loaded = true, pois = poiList, cursor = cursor)
+    ) { track, geo, settings, poiList, idx ->
+        // Gain/loss are always shown as computed from the points by the current algorithm, never from a stale row.
+        val shown = track?.copy(elevationGainM = geo.elevation.gainM, elevationLossM = geo.elevation.lossM)
+        val cursor = shown?.let { TrackPath.cursorAt(geo.segments, idx, it.startedAt) }
+        TrackDetailUiState(shown, geo.segments, settings.units, loaded = true, pois = poiList, cursor = cursor)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrackDetailUiState())
+
+    init {
+        // Tracks finished before 1.0.2 stored the gain/loss of the old algorithm (GPS noise counted as
+        // climbing, docs/06_system_analysis.md §3.4): write the recomputed values back once.
+        viewModelScope.launch {
+            val track = repo.getTrack(trackId) ?: return@launch
+            if (track.status != TrackStatus.FINISHED) return@launch
+            val elevation = geometry.first().elevation
+            if (abs(track.elevationGainM - elevation.gainM) > ELEVATION_EPSILON_M || abs(track.elevationLossM - elevation.lossM) > ELEVATION_EPSILON_M) {
+                repo.setElevation(trackId, elevation)
+            }
+        }
+    }
 
     /** Tap on the track line moves the scrubber to that vertex. */
     fun onTrackTap(segment: Int, index: Int) {
@@ -135,5 +168,11 @@ class TrackDetailViewModel(private val container: AppContainer, private val trac
             AppLog.e("GPX export failed", e)
             null
         }
+    }
+
+    private companion object {
+        /** Below this the stored gain/loss already match the recomputed ones (rounding only). */
+        const val ELEVATION_EPSILON_M = 0.5
+        const val KEY_CURSOR = "cursorIndex"
     }
 }

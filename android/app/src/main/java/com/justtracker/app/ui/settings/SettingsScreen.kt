@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -91,10 +92,11 @@ fun SettingsScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val readyRegions by viewModel.readyRegions.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    var languageDialog by remember { mutableStateOf(false) }
-    var mapModeDialog by remember { mutableStateOf(false) }
-    var unitsDialog by remember { mutableStateOf(false) }
-    var themeDialog by remember { mutableStateOf(false) }
+    // Open dialogs survive an activity recreation (e.g. the theme change they trigger themselves).
+    var languageDialog by rememberSaveable { mutableStateOf(false) }
+    var mapModeDialog by rememberSaveable { mutableStateOf(false) }
+    var unitsDialog by rememberSaveable { mutableStateOf(false) }
+    var themeDialog by rememberSaveable { mutableStateOf(false) }
     var accuracy by remember(settings.maxAccuracyM) { mutableFloatStateOf(settings.maxAccuracyM.toFloat()) }
     val privacyUrl = stringResource(R.string.settings_privacy_url)
     val licensesUrl = stringResource(R.string.settings_licenses_url)
@@ -301,7 +303,7 @@ private fun <T> ChoiceDialog(title: String, options: List<Pair<T, String>>, sele
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 options.forEach { (value, label) ->
                     androidx.compose.foundation.layout.Row(
                         Modifier

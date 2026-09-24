@@ -4,8 +4,10 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -49,7 +51,12 @@ fun MapModeDialog(current: MapMode, readyRegions: Int, onConfirm: (MapMode) -> U
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.settings_map_mode)) },
         text = {
-            Column(Modifier.selectableGroup()) {
+            // Two options with descriptions do not fit a landscape phone: the body scrolls between title and buttons.
+            Column(
+                Modifier
+                    .selectableGroup()
+                    .verticalScroll(rememberScrollState()),
+            ) {
                 MapMode.entries.forEach { mode ->
                     androidx.compose.foundation.layout.Row(
                         Modifier
@@ -95,7 +102,7 @@ fun MapModePromptDialog(suggestion: MapModeSuggestion, onConfirm: () -> Unit, on
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(title)) },
-        text = { Text(stringResource(body)) },
+        text = { Text(stringResource(body), modifier = Modifier.verticalScroll(rememberScrollState())) },
         confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.map_mode_prompt_switch, stringResource(suggestion.target.labelRes()))) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.map_mode_prompt_keep)) } },
     )

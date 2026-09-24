@@ -17,8 +17,10 @@ import androidx.core.content.ContextCompat
 import com.justtracker.app.JustTrackerApplication
 import com.justtracker.app.di.AppContainer
 import com.justtracker.app.domain.geo.FilterResult
+import com.justtracker.app.domain.geo.JumpStreak
 import com.justtracker.app.domain.geo.LocationFilter
 import com.justtracker.app.domain.geo.Sample
+import com.justtracker.app.domain.geo.StartCheck
 import com.justtracker.app.domain.model.ActivityType
 import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.TrackPoint
@@ -51,7 +53,11 @@ class TrackingService : Service() {
         val stats: IncrementalStats,
         var segment: Int,
         var pausedAt: Long?,
+        /** First fix of the current segment, recorded once the next fix confirms it (LocationFilter.confirmStart). */
+        var pendingStart: PendingFix? = null,
     )
+
+    private class PendingFix(val sample: Sample, val location: Location)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var container: AppContainer
@@ -62,6 +68,7 @@ class TrackingService : Service() {
     private var locationJob: Job? = null
     private var lastNotificationUpdate = 0L
     private var filter = LocationFilter()
+    private var jumps = JumpStreak(filter)
 
     override fun onCreate() {
         super.onCreate()
@@ -107,6 +114,7 @@ class TrackingService : Service() {
             }
             val settings = container.settingsRepository.current()
             filter = LocationFilter(maxAccuracyM = settings.maxAccuracyM.toFloat())
+            jumps = JumpStreak(filter)
             val now = System.currentTimeMillis()
             val track = container.trackRepository.createTrack(autoName(ActivityType.UNKNOWN, now), now)
             session = Session(track, IncrementalStats(), segment = 0, pausedAt = null)
@@ -121,6 +129,8 @@ class TrackingService : Service() {
         locationJob = null
         s.pausedAt = System.currentTimeMillis()
         s.stats.breakSegment()
+        s.pendingStart = null
+        jumps.reset()
         scope.launch {
             s.track = s.track.copy(status = TrackStatus.PAUSED)
             container.trackRepository.updateTrack(s.track)
@@ -195,6 +205,7 @@ class TrackingService : Service() {
     private suspend fun attach(track: Track) {
         val settings = container.settingsRepository.current()
         filter = LocationFilter(maxAccuracyM = settings.maxAccuracyM.toFloat())
+        jumps = JumpStreak(filter)
         val stats = IncrementalStats(
             distanceM = track.distanceM,
             movingTimeMs = track.movingTimeMs,
@@ -244,44 +255,96 @@ class TrackingService : Service() {
                 lastLon = if (sample.accuracyM <= POSITION_MARKER_ACCURACY_M) sample.lon else it.lastLon,
             )
         }
-        when (val result = filter.evaluate(s.stats.lastSample, sample)) {
-            is FilterResult.Rejected -> AppLog.geo { "rejected ${result.reason} acc=${sample.accuracyM} t=${sample.timestamp} lat=${sample.lat} lon=${sample.lon} prev=${s.stats.lastSample?.lat}" }
-            is FilterResult.Accepted -> {
-                s.stats.accept(sample, result.distanceM, result.speedMps)
-                val point = TrackPoint(
-                    trackId = s.track.id,
-                    segment = s.segment,
-                    timestamp = sample.timestamp,
-                    lat = sample.lat,
-                    lon = sample.lon,
-                    altitudeM = if (loc.hasAltitude()) loc.altitude else null,
-                    accuracyM = sample.accuracyM,
-                    speedMps = result.speedMps,
-                    bearingDeg = if (loc.hasBearing()) loc.bearing else null,
-                )
-                s.track = s.track.copy(
-                    distanceM = s.stats.distanceM,
-                    movingTimeMs = s.stats.movingTimeMs,
-                    maxSpeedMps = s.stats.maxSpeedMps,
-                    avgSpeedMps = s.stats.avgSpeedMps,
-                    pointCount = s.stats.pointCount,
-                )
-                try {
-                    container.trackRepository.addPoint(point, s.track)
-                } catch (e: SQLiteFullException) {
-                    AppLog.e("Storage full, finishing track", e)
-                    handleStop()
+        if (s.stats.lastSample == null) {
+            // First fix of a segment (start, resume, recovery): nothing to check it against, so it waits for the
+            // next fix (docs/06_system_analysis.md §3.1 rule 6) instead of becoming the reference unchecked.
+            val pending = s.pendingStart
+            if (pending == null) {
+                if (filter.evaluate(null, sample) is FilterResult.Accepted) s.pendingStart = PendingFix(sample, loc)
+                return
+            }
+            when (filter.confirmStart(pending.sample, sample)) {
+                StartCheck.IGNORE -> return
+                StartCheck.REPLACE -> {
+                    AppLog.geo { "segment start replaced: lat=${pending.sample.lat} lon=${pending.sample.lon} -> lat=${sample.lat} lon=${sample.lon}" }
+                    s.pendingStart = PendingFix(sample, loc)
                     return
                 }
-                container.trackingController.update { it.copy(currentSpeedMps = s.stats.currentSpeedMps) }
-                if (s.stats.pointCount >= MAX_POINTS_PER_TRACK) {
-                    AppLog.w("Max points reached, finishing track")
-                    handleStop()
-                    return
+                StartCheck.CONFIRMED -> {
+                    s.pendingStart = null
+                    if (!record(s, pending.sample, pending.location, distanceM = 0.0, speedMps = pending.sample.speedMps ?: 0f)) return
                 }
-                refreshNotification(force = false)
             }
         }
+        when (val result = filter.evaluate(s.stats.lastSample, sample)) {
+            is FilterResult.Accepted -> {
+                jumps.reset()
+                record(s, sample, loc, result.distanceM, result.speedMps)
+            }
+            is FilterResult.Rejected -> {
+                AppLog.geo { "rejected ${result.reason} acc=${sample.accuracyM} t=${sample.timestamp} lat=${sample.lat} lon=${sample.lon} prev=${s.stats.lastSample?.lat}" }
+                when (result.reason) {
+                    FilterResult.Reason.IMPLAUSIBLE_SPEED -> if (jumps.onImplausible(sample)) reanchor(s, sample, loc)
+                    FilterResult.Reason.TOO_CLOSE -> jumps.reset()
+                    FilterResult.Reason.INACCURATE, FilterResult.Reason.NOT_NEWER -> Unit
+                }
+            }
+        }
+    }
+
+    /**
+     * Consistent fixes keep arriving far from the last recorded one (LocationFilter rule 7): that one was the
+     * outlier. The track continues from [sample] in a new segment, so no line joins the two places; a stray
+     * start of a few points is deleted instead, so it neither shows on the map nor widens the fit.
+     */
+    private suspend fun reanchor(s: Session, sample: Sample, loc: Location) {
+        AppLog.geo { "re-anchored at lat=${sample.lat} lon=${sample.lon}" }
+        val deleted = container.trackRepository.deleteSegmentIfShort(s.track.id, s.segment, STRAY_SEGMENT_MAX_POINTS)
+        if (deleted == 0) s.segment += 1
+        s.stats.pointCount -= deleted
+        s.stats.breakSegment()
+        s.pendingStart = null
+        record(s, sample, loc, distanceM = 0.0, speedMps = sample.speedMps ?: 0f)
+    }
+
+    /** Stores an accepted fix; false when the recording was finished because of it (storage full, point limit). */
+    private suspend fun record(s: Session, sample: Sample, loc: Location, distanceM: Double, speedMps: Float): Boolean {
+        s.stats.accept(sample, distanceM, speedMps)
+        val point = TrackPoint(
+            trackId = s.track.id,
+            segment = s.segment,
+            timestamp = sample.timestamp,
+            lat = sample.lat,
+            lon = sample.lon,
+            altitudeM = if (loc.hasAltitude()) loc.altitude else null,
+            accuracyM = sample.accuracyM,
+            speedMps = speedMps,
+            bearingDeg = if (loc.hasBearing()) loc.bearing else null,
+            // Quality gate input for elevation gain/loss (docs/06_system_analysis.md §3.4).
+            verticalAccuracyM = if (loc.hasAltitude() && loc.hasVerticalAccuracy()) loc.verticalAccuracyMeters else null,
+        )
+        s.track = s.track.copy(
+            distanceM = s.stats.distanceM,
+            movingTimeMs = s.stats.movingTimeMs,
+            maxSpeedMps = s.stats.maxSpeedMps,
+            avgSpeedMps = s.stats.avgSpeedMps,
+            pointCount = s.stats.pointCount,
+        )
+        try {
+            container.trackRepository.addPoint(point, s.track)
+        } catch (e: SQLiteFullException) {
+            AppLog.e("Storage full, finishing track", e)
+            handleStop()
+            return false
+        }
+        container.trackingController.update { it.copy(currentSpeedMps = s.stats.currentSpeedMps) }
+        if (s.stats.pointCount >= MAX_POINTS_PER_TRACK) {
+            AppLog.w("Max points reached, finishing track")
+            handleStop()
+            return false
+        }
+        refreshNotification(force = false)
+        return true
     }
 
     // ---------------------------------------------------------------- helpers
@@ -354,5 +417,8 @@ class TrackingService : Service() {
         const val NOTIFICATION_THROTTLE_MS = 3000L
         const val MAX_POINTS_PER_TRACK = 100_000
         const val POSITION_MARKER_ACCURACY_M = 100f
+
+        /** A segment this short that the track moved away from is a stray start, not a part of the route. */
+        const val STRAY_SEGMENT_MAX_POINTS = 3
     }
 }

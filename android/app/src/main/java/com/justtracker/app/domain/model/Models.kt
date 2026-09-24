@@ -36,10 +36,13 @@ data class TrackPoint(
     val timestamp: Long,
     val lat: Double,
     val lon: Double,
+    /** Height above the WGS84 ellipsoid, as reported by the receiver. */
     val altitudeM: Double?,
     val accuracyM: Float,
     val speedMps: Float?,
     val bearingDeg: Float?,
+    /** Receiver's 68 % vertical accuracy of [altitudeM]; null when not reported (points recorded before 1.0.2 too). */
+    val verticalAccuracyM: Float? = null,
 )
 
 data class Track(

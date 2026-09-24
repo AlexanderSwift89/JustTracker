@@ -41,8 +41,12 @@
         android:usesCleartextTraffic="false"
         tools:targetApi="36">
 
+        <!-- Rotation, split screen and window resizing are handled by Compose without recreating the activity:
+             the map, its tile cache and camera stay alive (docs/05_architecture.md ADR-18). Theme and language
+             changes still recreate it. -->
         <activity
             android:name=".ui.MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
             android:exported="true"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize"

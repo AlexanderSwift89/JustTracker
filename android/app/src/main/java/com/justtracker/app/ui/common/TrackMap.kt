@@ -3,6 +3,7 @@ package com.justtracker.app.ui.common
 import android.annotation.SuppressLint
 import android.graphics.Paint
 import android.graphics.drawable.GradientDrawable
+import android.os.SystemClock
 import android.view.MotionEvent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,6 +13,8 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
@@ -34,6 +37,9 @@ import com.justtracker.app.data.maps.render.HybridTileProvider
 import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.domain.poi.Poi
 import com.justtracker.app.util.AppLocale
+import org.osmdroid.events.MapListener
+import org.osmdroid.events.ScrollEvent
+import org.osmdroid.events.ZoomEvent
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
@@ -46,21 +52,106 @@ import org.osmdroid.views.overlay.TilesOverlay
 import org.osmdroid.views.overlay.advancedpolyline.ColorMapping
 import org.osmdroid.views.overlay.advancedpolyline.PolychromaticPaintList
 
+/**
+ * Camera of a [TrackMap] kept across activity recreation (theme or language change, process death):
+ * a rotation no longer recreates the activity, but these still do. [userMoved] — the user panned or
+ * zoomed, so the camera must not be re-fitted to the track.
+ */
+private class MapCamera(
+    var latitude: Double = Double.NaN,
+    var longitude: Double = Double.NaN,
+    var zoom: Double = Double.NaN,
+    var userMoved: Boolean = false,
+) {
+    val isSet: Boolean get() = !latitude.isNaN() && !longitude.isNaN() && !zoom.isNaN()
+
+    companion object {
+        val Saver: Saver<MapCamera, DoubleArray> = Saver(
+            save = { doubleArrayOf(it.latitude, it.longitude, it.zoom, if (it.userMoved) 1.0 else 0.0) },
+            restore = { MapCamera(it[0], it[1], it[2], it[3] != 0.0) },
+        )
+    }
+}
+
 /** Mutable state the AndroidView keeps between recompositions. */
-private class MapHolder(val map: MapView) {
+private class MapHolder(val map: MapView, val camera: MapCamera) {
     val polylines = mutableListOf<Polyline>()
     val mappings = mutableListOf<SpeedMapping>()
     var positionMarker: Marker? = null
     var startMarker: Marker? = null
     var finishMarker: Marker? = null
     var highlightMarker: Marker? = null
-    var fitted = false
     var lastFollowTarget: GeoPoint? = null
     var lineColor: Int = 0
     var speedColors = false
     val poiMarkers = LinkedHashMap<String, Marker>()
     var onPoiClick: ((Poi) -> Unit)? = null
     var onTrackTap: ((segment: Int, index: Int) -> Unit)? = null
+    var onUserGesture: (() -> Unit)? = null
+
+    /** Uptime of the last touch on the map: camera changes right after one are the user's. */
+    var lastTouchUptime = 0L
+
+    /** Fit-to-track (detail): the track's bounds and the view size the camera was last fitted for. */
+    var fitBox: BoundingBox? = null
+    var fitPaddingPx = 0
+    var fitMinViewportPx = 0
+    var fittedWidth = 0
+    var fittedHeight = 0
+    val fitRunnable = Runnable { fitIfNeeded() }
+
+    /**
+     * Fits the track once per view size while the user has not moved the camera: first layout, rotation,
+     * the stats panel folding in or out. Size changes of an animation are coalesced into one fit.
+     */
+    fun requestFit(immediately: Boolean) {
+        map.removeCallbacks(fitRunnable)
+        if (immediately) fitIfNeeded() else map.postDelayed(fitRunnable, FIT_SETTLE_MS)
+    }
+
+    private fun fitIfNeeded() {
+        val box = fitBox ?: return
+        if (camera.userMoved) return
+        if (map.width == fittedWidth && map.height == fittedHeight) return
+        if (fitCamera(map, box, fitPaddingPx, fitMinViewportPx)) {
+            fittedWidth = map.width
+            fittedHeight = map.height
+        }
+    }
+
+    fun rememberCamera() {
+        val center = map.mapCenter
+        camera.latitude = center.latitude
+        camera.longitude = center.longitude
+        camera.zoom = map.zoomLevelDouble
+        if (SystemClock.uptimeMillis() - lastTouchUptime < USER_CAMERA_WINDOW_MS) camera.userMoved = true
+    }
+}
+
+/**
+ * Fits [box] into the map with up to [paddingPx] around it. osmdroid derives the zoom from the view size
+ * minus twice the padding: for a view smaller than that (the 45 %-high detail map in landscape, split
+ * screen, a view not laid out yet) the zoom is NaN and `Projection.getCloserPixel` loops forever on the
+ * main thread — the app froze after a rotation (D-13). The padding shrinks with the view, and nothing
+ * happens until the view is at least [minViewportPx] in both directions. Returns whether it fitted.
+ */
+private fun fitCamera(map: MapView, box: BoundingBox, paddingPx: Int, minViewportPx: Int): Boolean {
+    val width = map.width
+    val height = map.height
+    val padding = fitPadding(width, height, paddingPx, minViewportPx) ?: return false
+    val zoom = MapView.getTileSystem().getBoundingBoxZoom(box, width - 2 * padding, height - 2 * padding)
+    if (zoom.isNaN() || zoom.isInfinite()) return false
+    map.zoomToBoundingBox(box, false, padding, FIT_MAX_ZOOM, null)
+    return true
+}
+
+/**
+ * Padding for fitting a track into a [width] × [height] px view: at most [paddingPx], but leaving at
+ * least [minViewportPx] for the track in both directions; null while the view is smaller than that.
+ */
+internal fun fitPadding(width: Int, height: Int, paddingPx: Int, minViewportPx: Int): Int? {
+    if (width < minViewportPx || height < minViewportPx) return null
+    return paddingPx.coerceAtMost((minOf(width, height) - minViewportPx) / 2).coerceAtLeast(0)
 }
 
 /**
@@ -84,7 +175,8 @@ private class SpeedMapping(var speeds: FloatArray, var maxMps: Double, val fallb
  * @param maxSpeedMps top of the speed colour scale (the track's max speed).
  * @param position current user position; drawn as a dot and followed when [follow] is true.
  * @param highlight vertex to mark with a small ring (the tapped section).
- * @param fitToTrack when true, the camera fits the whole track once (detail mode).
+ * @param fitToTrack when true, the camera fits the whole track for every new view size until the
+ *   user pans or zooms (detail mode); the camera itself survives activity recreation.
  * @param onUserGesture invoked when the user drags the map (used to disable follow mode).
  * @param onTrackTap invoked with (segment, vertex index) when the user taps the line.
  * @param pois places with a Wikipedia article drawn as pins; tapping one calls [onPoiClick].
@@ -120,25 +212,53 @@ fun TrackMap(
     val density = LocalDensity.current
     val strokePx = with(density) { 6.dp.toPx() }
     val paddingPx = with(density) { 48.dp.toPx() }.toInt()
+    val minViewportPx = with(density) { FIT_MIN_VIEWPORT.toPx() }.toInt()
     val primaryArgb = MaterialTheme.colorScheme.primary.toArgb()
     val startColor = Color(0xFF2E7D32).toArgb()
     val finishColor = Color(0xFFC62828).toArgb()
     val highlightColor = MaterialTheme.colorScheme.onSurface.toArgb()
     val cdMap = stringResource(R.string.cd_map)
+    val camera = rememberSaveable(saver = MapCamera.Saver) { MapCamera() }
 
     val holder = remember {
         val map = MapView(context).apply {
+            // The view may be detached from the window and attached again while it lives on — the detail map
+            // moves between the portrait and the landscape layout (movableContentOf). osmdroid would destroy
+            // itself on that detach (tile provider and overlays gone, grey map); the DisposableEffect below
+            // destroys it when the composable really leaves the composition.
+            setDestroyMode(false)
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
             zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
             isTilesScaledToDpi = true
             minZoomLevel = 3.0
             maxZoomLevel = 20.0
-            controller.setZoom(DEFAULT_ZOOM)
+            if (camera.isSet) {
+                controller.setZoom(camera.zoom)
+                controller.setCenter(GeoPoint(camera.latitude, camera.longitude))
+            } else {
+                controller.setZoom(DEFAULT_ZOOM)
+            }
             overlays.add(CopyrightOverlay(context))
             if (dark) overlayManager.tilesOverlay.setColorFilter(TilesOverlay.INVERT_COLORS)
         }
-        MapHolder(map)
+        MapHolder(map, camera).also { h ->
+            map.addMapListener(object : MapListener {
+                override fun onScroll(event: ScrollEvent?): Boolean {
+                    h.rememberCamera()
+                    return false
+                }
+
+                override fun onZoom(event: ZoomEvent?): Boolean {
+                    h.rememberCamera()
+                    return false
+                }
+            })
+            // A new size (rotation, split screen, stats panel) re-fits an untouched detail map.
+            map.addOnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
+                if (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop) h.requestFit(immediately = h.fittedWidth == 0)
+            }
+        }
     }
 
     // Tile chain is rebuilt only when the map mode, the set of ready regions (offline only) or the label language changes.
@@ -168,6 +288,7 @@ fun TrackMap(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+            holder.map.removeCallbacks(holder.fitRunnable)
             holder.map.onDetach()
         }
     }
@@ -180,13 +301,15 @@ fun TrackMap(
         factory = {
             holder.map.apply {
                 setOnTouchListener { _, event ->
-                    if (event.action == MotionEvent.ACTION_MOVE && onUserGesture != null) onUserGesture()
+                    holder.lastTouchUptime = SystemClock.uptimeMillis()
+                    if (event.actionMasked == MotionEvent.ACTION_MOVE) holder.onUserGesture?.invoke()
                     false
                 }
             }
         },
         update = { map ->
             holder.onTrackTap = onTrackTap
+            holder.onUserGesture = onUserGesture
             syncPolylines(holder, segments, lineColor.toArgb(), strokePx, speedColors, maxSpeedMps)
             syncStartFinish(holder, segments, showStartFinish, startColor, finishColor)
             syncPosition(holder, position, primaryArgb)
@@ -194,15 +317,14 @@ fun TrackMap(
             holder.onPoiClick = onPoiClick
             syncPois(holder, pois)
 
-            if (fitToTrack && !holder.fitted) {
+            if (fitToTrack && holder.fitBox == null) {
                 val all = segments.flatMap { it.points }
-                if (all.size >= 2) {
-                    holder.fitted = true
-                    val box = BoundingBox.fromGeoPoints(all)
-                    map.post { map.zoomToBoundingBox(box, false, paddingPx) }
-                } else if (all.size == 1) {
-                    holder.fitted = true
-                    map.controller.setCenter(all.first())
+                if (all.isNotEmpty()) {
+                    holder.fitBox = BoundingBox.fromGeoPoints(all)
+                    holder.fitPaddingPx = paddingPx
+                    holder.fitMinViewportPx = minViewportPx
+                    // Before the first layout the view has no size; the layout listener fits it then.
+                    holder.requestFit(immediately = true)
                 }
             }
             if (follow && position != null && position != holder.lastFollowTarget) {
@@ -412,3 +534,15 @@ private fun ringMarker(map: MapView, color: Int, sizeDp: Float): Marker {
 private const val DEFAULT_ZOOM = 4.0
 private const val FOLLOW_ZOOM = 17.0
 private const val FOLLOW_MIN_ZOOM = 14.0
+
+/** Closest zoom a fit may choose (a one-point or very short track). */
+private const val FIT_MAX_ZOOM = 18.0
+
+/** Below this in either direction the map is not fitted at all (it is collapsed or not laid out). */
+private val FIT_MIN_VIEWPORT = 32.dp
+
+/** Size changes of an animation (stats panel, 250 ms) are fitted once, after they settle. */
+private const val FIT_SETTLE_MS = 150L
+
+/** A camera move this soon after a touch on the map is the user's, not a fit or the follow animation. */
+private const val USER_CAMERA_WINDOW_MS = 600L

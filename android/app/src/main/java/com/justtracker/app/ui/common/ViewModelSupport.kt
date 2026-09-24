@@ -2,7 +2,9 @@ package com.justtracker.app.ui.common
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -18,4 +20,14 @@ inline fun <reified VM : ViewModel> appViewModel(
 ): VM {
     val container = LocalAppContainer.current
     return viewModel(key = key, factory = viewModelFactory { initializer { create(container) } })
+}
+
+/** Same, for a ViewModel that keeps UI state in a [SavedStateHandle] — it survives the process being killed in the background. */
+@Composable
+inline fun <reified VM : ViewModel> appViewModelWithState(
+    key: String? = null,
+    crossinline create: (AppContainer, SavedStateHandle) -> VM,
+): VM {
+    val container = LocalAppContainer.current
+    return viewModel(key = key, factory = viewModelFactory { initializer { create(container, createSavedStateHandle()) } })
 }

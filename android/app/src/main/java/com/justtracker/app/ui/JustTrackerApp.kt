@@ -13,11 +13,10 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,9 +34,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.window.core.layout.WindowSizeClass
 import kotlinx.coroutines.launch
 import com.justtracker.app.R
 import com.justtracker.app.domain.model.AppSettings
+import com.justtracker.app.ui.common.FittedText
 import com.justtracker.app.ui.common.LocalAppContainer
 import com.justtracker.app.ui.maps.MapModePromptDialog
 import com.justtracker.app.ui.detail.TrackDetailScreen
@@ -69,8 +70,9 @@ private val tabs = listOf(
 )
 
 /**
- * App shell: adaptive navigation (bottom bar on phones, rail in landscape / on tablets — M3
- * navigation suite) around the NavHost. Full-screen destinations (onboarding, track detail) hide it.
+ * App shell: adaptive navigation (bottom bar on a phone in portrait, side rail whenever the window is
+ * not compact in width — a phone in landscape, tablets; M3 navigation suite) around the NavHost.
+ * Full-screen destinations (onboarding, track detail, offline maps) hide it.
  */
 @Composable
 fun JustTrackerApp(settings: AppSettings) {
@@ -93,10 +95,13 @@ fun JustTrackerApp(settings: AppSettings) {
             )
         }
     }
-    val layoutType = if (showNavigation) {
-        NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(currentWindowAdaptiveInfo())
-    } else {
-        NavigationSuiteType.None
+    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
+    val layoutType = when {
+        !showNavigation -> NavigationSuiteType.None
+        // The default picks a bottom bar for any compact height, i.e. for a phone in landscape, where it takes a
+        // fifth of the height from the map: every window that is not compact in width gets the side rail instead.
+        windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) -> NavigationSuiteType.NavigationRail
+        else -> NavigationSuiteType.NavigationBar
     }
 
     NavigationSuiteScaffold(
@@ -126,7 +131,8 @@ fun JustTrackerApp(settings: AppSettings) {
                             Icon(tab.icon, contentDescription = null)
                         }
                     },
-                    label = { Text(stringResource(tab.labelRes)) },
+                    // One line, scaled down if needed: at a large font "Статистика" broke into "Статистик / а".
+                    label = { FittedText(stringResource(tab.labelRes), style = LocalTextStyle.current) },
                 )
             }
         },

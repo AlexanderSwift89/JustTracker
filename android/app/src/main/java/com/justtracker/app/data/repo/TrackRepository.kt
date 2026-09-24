@@ -5,6 +5,7 @@ import com.justtracker.app.data.db.TrackDao
 import com.justtracker.app.data.db.toDomain
 import com.justtracker.app.data.db.toEntity
 import com.justtracker.app.domain.activity.ActivityClassifier
+import com.justtracker.app.domain.geo.ElevationResult
 import com.justtracker.app.domain.model.ActivityType
 import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.TrackPoint
@@ -35,6 +36,17 @@ class TrackRepository(private val dao: TrackDao) {
     suspend fun getLastPoint(trackId: Long): TrackPoint? = dao.getLastPoint(trackId)?.toDomain()
     suspend fun maxSegment(trackId: Long): Int = dao.maxSegment(trackId)
 
+    /**
+     * Deletes the points of [segment] when it has at most [maxPoints] of them — a stray start the recording
+     * moved away from (LocationFilter rule 7); returns how many were deleted (0 for a real segment).
+     */
+    suspend fun deleteSegmentIfShort(trackId: Long, segment: Int, maxPoints: Int): Int {
+        val count = dao.countSegmentPoints(trackId, segment)
+        if (count == 0 || count > maxPoints) return 0
+        dao.deleteSegmentPoints(trackId, segment)
+        return count
+    }
+
     suspend fun createTrack(name: String, startedAt: Long): Track {
         val track = Track(
             name = name,
@@ -56,6 +68,9 @@ class TrackRepository(private val dao: TrackDao) {
     suspend fun rename(id: Long, name: String) = dao.renameTrack(id, name.trim().take(MAX_NAME_LENGTH))
 
     suspend fun setActivityType(id: Long, type: ActivityType) = dao.setActivityType(id, type.name, manual = true)
+
+    /** Stores gain/loss recomputed from the points (tracks finished before the 1.0.2 algorithm). */
+    suspend fun setElevation(id: Long, elevation: ElevationResult) = dao.setElevation(id, elevation.gainM, elevation.lossM)
 
     suspend fun delete(id: Long) = dao.deleteTrack(id)
 

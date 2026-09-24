@@ -8,7 +8,7 @@ import com.justtracker.app.domain.model.TrackStats
 
 /**
  * Full statistics pass over an ordered list of points (docs/06_system_analysis.md §3.2–3.4).
- * Distances and moving time are only accumulated between neighbours of the same segment.
+ * Distances, moving time and elevation are only accumulated between neighbours of the same segment.
  */
 object TrackStatsCalculator {
     /** Below this speed the user is considered standing still. */
@@ -35,7 +35,7 @@ object TrackStatsCalculator {
         val end = finishedAt ?: points.last().timestamp
         val total = (end - startedAt - pausedTimeMs).coerceAtLeast(0)
         val avg = if (movingMs > 0) distance / (movingMs / 1000.0) else 0.0
-        val elevation = ElevationCalculator.gainLoss(points.mapNotNull { it.altitudeM })
+        val elevation = ElevationCalculator.gainLoss(points)
         return TrackStats(
             distanceM = distance,
             movingTimeMs = movingMs,

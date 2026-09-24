@@ -1,5 +1,74 @@
 # Changelog
 
+## JustTracker [1.0.2] - 2026-09-23 (versionCode 3)
+
+### Fixed
+- **App froze after rotating portrait → landscape → portrait** (D-13): in landscape the Track detail map was
+  45 % of ~360 dp, smaller than the 2 × 48 dp fit padding; osmdroid computed a NaN zoom and
+  `Projection.getCloserPixel` looped forever on the main thread (ANR reproduced on an API 34 emulator).
+  The track is now fitted only into a view of at least 32 dp with a padding that shrinks to fit, the zoom is
+  checked to be finite, and fitting follows the view's size changes instead of a `post` before layout.
+- **Elevation gain/loss were inflated 2–3×** (D-14): an 11 km run on almost flat ground showed "+134 m / −125 m"
+  (the old algorithm reproduces exactly that on the user's GPX). Phone GPS altitude noise and receiver
+  "stuck altitude" artefacts (+12…20 m within a second, held 20–160 s) were counted as climbing, and a height
+  difference across a pause was counted too. New `ElevationCalculator` (ADR-19): per segment, vertical-accuracy
+  gate, removal of excursions that start with an impossible step and return, mean over ±75 m of path (at least
+  ±15 s), 6 m turning-point hysteresis. The same run now gives +55 m / −41 m. Tracks recorded earlier are
+  recomputed when their detail screen is opened.
+- **GPX export did not validate against the GPX 1.1 schema** (D-15): per-point `<speed>` was written into
+  `<extensions>` in the GPX namespace, which the schema forbids; timestamps were truncated to whole seconds, so
+  fixes less than a second apart shared a time. Speed and course now go into Garmin TrackPointExtension v2
+  (`gpxtpx:`), times keep milliseconds when present, metadata gets `<bounds>`, longitude 180° is written as −180°,
+  non-finite points and characters XML 1.0 cannot carry are dropped.
+- **GPX file name lost the Cyrillic track name** (D-16): "Бег · 23 сент., 14:33" became `23_._14_33_4.gpx`,
+  now `Бег_23_сент_14_33_4.gpx` (letters of any script and digits are kept).
+- **Track detail map turned grey after a rotation** (D-17): the map moves between the portrait and the landscape
+  layout (`movableContentOf`), which detaches the `MapView` from the window, and osmdroid destroyed its tile
+  provider and overlays on detach. The view now keeps itself (`setDestroyMode(false)`) and is destroyed when it
+  leaves the composition.
+- **Rename dialog in landscape**: the keyboard covered Save / Cancel (D-18); the keyboard's ✓ key now saves.
+- **A recording could stay at 0 m for good** (D-19): the first fix of a segment was taken unchecked, so a far-off
+  first fix (a coarse or stale position) made every real fix an "implausible jump". The first fix now waits for the
+  next one to confirm it, and 5 consistent fixes in a row away from the recorded one move the track there, deleting
+  a stray start of up to 3 points (`LocationFilter` rules 6–7).
+- **"Start" tile showed "23 сент." instead of "23 сент. 2026 г., 20:36"** (D-20, portrait, default font): the tile now
+  spans the whole row of the stats grid.
+- **Large font sizes (150–200 %)** (D-21): cursor values ran together in the landscape pane ("20:36:36150"), tile
+  and navigation labels broke mid-word ("Статистик / а"), the recording-time unit was cut ("ч:мм:с"). Single-line
+  values and labels now shrink to fit (down to 60 %, then "…") instead of being clipped or broken.
+- **Cursor position in Track detail was lost** when the system killed the app in the background (D-22); it is now
+  saved state like the dialogs, the stats panel and the map camera.
+- Debug builds drew osmdroid's tile borders and indices over the map (D-23, `isDebugTileProviders`); release builds
+  were not affected.
+
+### Changed
+- **Rotation no longer recreates the activity** (ADR-18, `configChanges` for orientation and window size): the
+  map keeps its tiles and camera, open dialogs stay open. Recreation for other reasons (theme, language, process
+  death) keeps the map camera, open dialogs (`rememberSaveable`) and the Track detail cursor (`SavedStateHandle`).
+  Re-tested on an API 34 emulator: every screen, dialog and sheet in both orientations, theme and language changes,
+  process death, window resizing, font scale 150 % and 200 %, onboarding in landscape.
+- **Landscape layouts**: the navigation rail replaces the bottom bar whenever the window is at least 600 dp wide
+  (a phone in landscape); Track detail shows the map on the left at full height with the scrubber, values and
+  tiles in a scrollable pane on the right; the Record panel and GPS banner are capped at 640 dp and centred;
+  onboarding steps, the map-mode and choice dialogs, the activity-type sheet, the place card and empty states
+  scroll when they do not fit.
+- The Track detail map re-fits the track for every new view size (rotation, split screen, stats panel) until
+  the user pans or zooms it.
+
+### Data
+- Room schema version 2: nullable `track_points.verticalAccuracyM` (vertical accuracy of the fix), added by an
+  automatic migration from version 1; older points keep `null`.
+
+### Tests
+- 151 unit tests (+33): the fit padding that produced the NaN zoom (`TrackMapFitTest`); elevation against
+  AR(1) GPS noise, stuck-altitude excursions, segments, the accuracy gate and turning points; GPX validated
+  against the GPX 1.1 and TrackPointExtension v2 schemas (`src/test/resources/gpx`), milliseconds,
+  longitude 180°, invalid XML characters, Cyrillic file names; first-fix confirmation and re-anchoring after a run
+  of jumps (`LocationFilterTest`); rows of the stats grid with the full-width "Start" tile (`StatGridRowsTest`).
+- Test plan: TC-91…95 and TC-98 passed on the emulator, new TC-100…103 (large font, process death, far-off first
+  fix, "Start" tile).
+- `versionCode` 3, `versionName` 1.0.2; "What's new" in `store/rustore/listing_*.md`.
+
 ## JustTracker [1.0.1] - 2026-09-22 (versionCode 2)
 
 ### Fixed

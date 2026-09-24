@@ -34,6 +34,8 @@ JustTracker — ответвление TrekLog 1.2.0 (история TrekLog с�
 | | **Итого JustTracker 1.0.0** | | | **73** |
 | **J8** | 1.0.1: карточка трека, скелетоны, плавная офлайн-карта | Все роли | Фикс открытия деталей (D-11), сворачиваемая панель статистики, `Shimmer` + скелетоны на 5 экранах, `HybridTileProvider` на `MapTileProviderArray` + `OfflineRenderer`/`OfflineRegionModule`/`OfflineTiles` (D-12, ADR-17), Mapsforge напрямую, 6 unit-тестов, документация, версия 1.0.1 (versionCode 2) | 12 |
 | | **Итого JustTracker 1.0.1** | | | **85** |
+| **J9** | 1.0.2: высота, ориентация экрана, GPX | Все роли | Разбор GPX пользователя; `ElevationCalculator` (сегменты, фильтр точности, удаление «залипаний», окно по пути, точки разворота) + пересчёт старых треков, колонка `verticalAccuracyM` (схема v2, AutoMigration); фикс зависания при повороте (D-13: безопасное вписывание, `configChanges`, камера в `rememberSaveable`), landscape-раскладки (rail, детали в две панели, панель записи ≤ 640 dp, прокрутка онбординга/диалогов/листов, диалоги переживают пересоздание); GPX по схеме (Garmin TrackPointExtension v2, миллисекунды, `bounds`, имя файла на кириллице); повторное тестирование ориентации на эмуляторе по всем сценариям и исправление найденного (D-17…D-23: серая карта после поворота, клавиатура над кнопками переименования, запись на 0 м при далёкой первой точке, обрезанная дата «Начало», крупный шрифт, курсор после смерти процесса, отладочная сетка тайлов); 33 unit-теста (XSD-валидация, зум NaN при вписывании, первая точка сегмента, строки сетки); документация; версия 1.0.2 (versionCode 3) | 16 |
+| | **Итого JustTracker 1.0.2** | | | **101** |
 
 Критический путь: 3 → 4 → 5 → 6 → 7 → 9 → 10 → 11. Этапы 1–2 могут идти параллельно с 3; этап 8 параллелен с 7 после готовности 4–5.
 
@@ -90,6 +92,14 @@ T-41  data/maps/render: OfflineRenderTheme (тема + DisplayModel на про�
 T-42  HybridTileProvider : MapTileProviderArray — цепочка как у MapTileProviderBasic + офлайн-модули впереди (и в pre-cache), `isDowngradedMode` для покрытых тайлов, `setUseDataConnection(mode == ONLINE)`; TrackMap: провайдер без ключа `dark`, фильтр темы отдельным эффектом; AppContainer.offlineRenderTheme; AndroidGraphicFactory.createInstance в Application; кэш 300/240 МБ
 T-43  Зависимости: `osmdroid-mapsforge` → `mapsforge-map-android`/`mapsforge-map`/`mapsforge-themes` 0.21.0; THIRD_PARTY_NOTICES, site/licenses; версия 1.0.1 / versionCode 2; CHANGELOG, «Что нового» ru/en
 T-44  Документация 1.0.1: PRD US-08/US-19, UX §2.4/§7, архитектура §7/§12/ADR-17, SA UC-03/§3.9/NFR-13/NFR-18, тест-план TC-83..90 + D-11/D-12, гайд, README
+
+--- JustTracker 1.0.2 ---
+T-45  domain/geo/ElevationCalculator: gainLoss(points) по сегментам — фильтр verticalAccuracyM ≤ 15 м (с откатом при большинстве неточных), spikeFreeMask, smoothAlongPath (±75 м / ±15 с), turningPointGainLoss (6 м); TrackStatsCalculator → gainLoss(points); 13 + 1 unit-тестов (AR(1)-шум, залипания, сегменты)
+T-46  data: TrackPoint/TrackPointEntity.verticalAccuracyM, JustTrackerDatabase v2 + AutoMigration(1→2), schemas/2.json, TrackDao.setElevation; TrackingService пишет Location.verticalAccuracyMeters; TrackDetailViewModel — Geometry(segments, elevation) через shareIn, показ пересчитанного набора и однократная запись в строку трека
+T-47  Ориентация: TrackMap — fitCamera/fitPadding (≥ 32 dp, отступ по размеру, проверка NaN; TrackMapFitTest — 4), вписывание по OnLayoutChangeListener (150 мс на серию размеров), MapCamera в rememberSaveable, userMoved по касанию; манифест configChanges; JustTrackerApp — rail при ширине ≥ 600 dp (currentWindowAdaptiveInfoV2); TrackDetailScreen — BoxWithConstraints, двухпанельная раскладка, movableContentOf для карты, прокручиваемый лист типов; RecordScreen — панель/баннер ≤ 640 dp; Onboarding/EmptyState — прокрутка с центрированием; MapModeDialog/ChoiceDialog/PoiCard — прокрутка; флаги диалогов History/Settings/OfflineMaps/Detail/Record — rememberSaveable (по id)
+T-48  domain/gpx/GpxWriter: xmlns:gpxtpx + xsi:schemaLocation, bounds, время с миллисекундами, speed/course в TrackPointExtension v2, долгота 180 → −180, фильтр нечисловых точек и недопустимых XML-символов, имя файла \p{L}\p{N}; 11 unit-тестов с валидацией по XSD (test/resources/gpx)
+T-49  Документация 1.0.2: PRD US-08/US-11 + границы релиза, UX §1/§2.1/§2.2/§2.4/§2.7/§6/§7, архитектура §5/§6/§7/§8/§13/ADR-18/ADR-19, SA UC-03/UC-04/§2/§3.4/§5/NFR-19, безопасность (имя файла), тест-план TC-91..99 + D-13..D-16 + OBS-10/11, гайд, README, CHANGELOG, «Что нового»; версия 1.0.2 (versionCode 3)
+T-50  Повторное тестирование ориентации на эмуляторе API 34 (host GPU): все экраны, диалоги, листы, системные диалоги разрешений, пересоздание по теме/языку, смерть процесса, `wm size`, шрифт 150/200 %, онбординг в landscape (данные — резервная копия через `run-as`). Исправлено: `setDestroyMode(false)` в TrackMap (D-17), `ImeAction.Done` в переименовании (D-18), `LocationFilter.confirmStart` + `JumpStreak` + `reanchor` в TrackingService (D-19), `FittedText` и плитка «Начало» на всю строку (`gridRows`, D-20/D-21), курсор в `SavedStateHandle` (`appViewModelWithState`, D-22), без `isDebugTileProviders` (D-23); +11 unit-тестов (LocationFilterTest, StatGridRowsTest); тест-план TC-91…95/98 ✅, TC-100…103
 ```
 
 ## 4. Definition of Done
@@ -120,6 +130,8 @@ T-44  Документация 1.0.1: PRD US-08/US-19, UX §2.4/§7, архит�
 - **Единицы хранения:** СИ — метры, м/с, секунды/миллисекунды epoch, градусы WGS84. Конвертация только в UI-слое через `UnitFormatter`.
 - **Ошибки:** доменные функции не бросают исключения на некорректных данных — возвращают пустой/нулевой результат; IO-ошибки логируются через `Timber`-подобный `Log` обёрткой `AppLog`, в release координаты не логируются.
 - **Состояние:** ViewModel → `StateFlow<UiState>`; сервис пишет только в БД; UI читает только из БД (single source of truth).
+- **Ориентация (1.0.2, ADR-18):** поворот не пересоздаёт activity — раскладка строится от размеров (`BoxWithConstraints`, класс ширины окна), ресурсы `-land` не используются; флаги открытых диалогов и листов — `rememberSaveable` (объекты — по id), чтобы переживать пересоздание по теме/языку; всё, что может не поместиться по высоте (≈ 360 dp в landscape), прокручивается.
+- **Схема БД:** только через миграции (`AutoMigration` или ручные) и экспортированные `schemas/*.json`; `fallbackToDestructiveMigration` запрещён.
 - **Версии:** только через `gradle/libs.versions.toml`.
 
 ## 6. Сборка и инструменты
@@ -144,6 +156,7 @@ T-44  Документация 1.0.1: PRD US-08/US-19, UX §2.4/§7, архит�
 3. Smoke: старт записи → 30 с симулированного движения → стоп → трек в истории → открыть детали → экспорт GPX.
 4. Ревью по чек-листу безопасности для изменений в манифесте/сервисе/экспорте/receiver **и для любого нового сетевого хоста**.
 5. Для изменений в карте/локали — smoke на эмуляторе без Google APIs (AOSP) и проверка офлайн-региона в авиарежиме.
+6. Для изменений UI — каждый затронутый экран в портрете и landscape телефона, поворот туда и обратно (в т. ч. с открытым диалогом), без ANR (TC-91..95).
 
 ## 8. Риски и митигация
 

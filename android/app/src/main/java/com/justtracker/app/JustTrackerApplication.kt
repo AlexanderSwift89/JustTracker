@@ -37,8 +37,8 @@ class JustTrackerApplication : Application() {
             osmdroidTileCache = File(osmdroidBasePath, "tiles").also { it.mkdirs() }
             tileFileSystemCacheMaxBytes = 300L * 1024 * 1024
             tileFileSystemCacheTrimBytes = 240L * 1024 * 1024
-            // Tile pipeline diagnostics in debug builds only (logcat tag OsmDroid).
-            isDebugTileProviders = BuildConfig.DEBUG
+            // Download diagnostics in debug builds only (logcat tag OsmDroid). isDebugTileProviders stays off:
+            // besides logging, osmdroid then paints every tile's border and index over the map.
             isDebugMapTileDownloader = BuildConfig.DEBUG
         }
     }

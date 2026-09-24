@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -75,6 +76,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.justtracker.app.R
 import com.justtracker.app.ui.common.ActivityBadge
+import com.justtracker.app.ui.common.FittedText
 import com.justtracker.app.ui.common.Permissions
 import com.justtracker.app.ui.common.LocalAppContainer
 import com.justtracker.app.ui.common.MapModeBadge
@@ -108,12 +110,13 @@ fun RecordScreen(
 
     var hasPermission by remember { mutableStateOf(Permissions.hasLocation(context)) }
     var locationEnabled by remember { mutableStateOf(Permissions.isLocationEnabled(context)) }
-    var deniedForever by remember { mutableStateOf(false) }
+    var deniedForever by rememberSaveable { mutableStateOf(false) }
     var follow by rememberSaveable { mutableStateOf(true) }
     var statsExpanded by rememberSaveable { mutableStateOf(false) }
-    var showStopDialog by remember { mutableStateOf(false) }
-    var showGpsOffDialog by remember { mutableStateOf(false) }
-    var pendingStart by remember { mutableStateOf(false) }
+    // Dialogs and a start waiting for a permission answer survive an activity recreation too.
+    var showStopDialog by rememberSaveable { mutableStateOf(false) }
+    var showGpsOffDialog by rememberSaveable { mutableStateOf(false) }
+    var pendingStart by rememberSaveable { mutableStateOf(false) }
     var handledFinishSerial by rememberSaveable { mutableIntStateOf(state.live.finishSerial) }
 
     val tooFewMessage = stringResource(R.string.record_too_few_points)
@@ -232,7 +235,8 @@ fun RecordScreen(
                 visible = !locationEnabled,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)),
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                    .widthIn(max = PANEL_MAX_WIDTH),
                 enter = fadeIn(),
                 exit = fadeOut(),
             ) {
@@ -267,13 +271,15 @@ fun RecordScreen(
                 if (appSettings.mapMode == MapMode.OFFLINE) MapModeBadge()
             }
 
-            // Bottom panel behaves like an M3 standard bottom sheet: edge to edge, only the top
-            // corners rounded, no outer margins — so it covers as little map as possible.
+            // Bottom panel behaves like an M3 standard bottom sheet: edge to edge, only the top corners
+            // rounded, no outer margins — so it covers as little map as possible. In a wide window (a phone
+            // in landscape) it is capped at the sheet's max width and centred, leaving the map on both sides.
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)),
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+                    .widthIn(max = PANEL_MAX_WIDTH)
+                    .fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 state.tapped?.let { tap ->
@@ -477,12 +483,11 @@ private fun RecordingPanel(
         ) {
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
+                    FittedText(
                         speedText,
-                        style = MaterialTheme.typography.headlineLarge.tabular(),
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.headlineLarge.tabular().copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
-                        maxLines = 1,
+                        modifier = Modifier.weight(1f, fill = false),
                     )
                     UnitText(formatter.speedUnit(), style = MaterialTheme.typography.titleSmall, bottomPadding = 5.dp)
                 }
@@ -569,7 +574,10 @@ private fun GpsIndicator(searching: Boolean) {
     }
 }
 
-/** Value + unit on one line, text label underneath: "1,25 km / Distance". */
+/**
+ * Value + unit on one line, text label underneath: "1,25 km / Distance". The unit is measured first and
+ * the value scales down when both do not fit (a large font in portrait clipped "ч:мм:сс" to "ч:мм:с").
+ */
 @Composable
 private fun MetricCell(
     value: String,
@@ -581,12 +589,12 @@ private fun MetricCell(
 ) {
     Column(modifier) {
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(
+            FittedText(
                 value,
-                style = (if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge).tabular(),
-                fontWeight = FontWeight.SemiBold,
+                style = (if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge).tabular()
+                    .copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha),
-                maxLines = 1,
+                modifier = Modifier.weight(1f, fill = false),
             )
             UnitText(unit, style = MaterialTheme.typography.labelMedium, bottomPadding = if (compact) 2.dp else 3.dp)
         }
@@ -615,4 +623,7 @@ private fun MetricLabel(label: String) {
         overflow = TextOverflow.Ellipsis,
     )
 }
+
+/** M3 bottom sheet max width: the panel and the GPS banner do not stretch across a landscape screen. */
+private val PANEL_MAX_WIDTH = 640.dp
 

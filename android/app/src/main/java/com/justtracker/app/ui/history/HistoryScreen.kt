@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -31,12 +33,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -80,8 +85,11 @@ fun HistoryScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val formatter = remember(state.units) { UnitFormatter(context, state.units) }
-    var renameTarget by remember { mutableStateOf<Track?>(null) }
-    var deleteTarget by remember { mutableStateOf<Track?>(null) }
+    // Kept by id so an open dialog survives an activity recreation (theme / language change).
+    var renameTargetId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var deleteTargetId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val renameTarget = state.tracks.firstOrNull { it.id == renameTargetId }
+    val deleteTarget = state.tracks.firstOrNull { it.id == deleteTargetId }
 
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
@@ -121,8 +129,8 @@ fun HistoryScreen(
                         track = track,
                         formatter = formatter,
                         onClick = { onOpenTrack(track.id) },
-                        onRename = { renameTarget = track },
-                        onDelete = { deleteTarget = track },
+                        onRename = { renameTargetId = track.id },
+                        onDelete = { deleteTargetId = track.id },
                     )
                 }
             }
@@ -132,19 +140,19 @@ fun HistoryScreen(
     renameTarget?.let { track ->
         RenameDialog(
             initial = track.name,
-            onDismiss = { renameTarget = null },
+            onDismiss = { renameTargetId = null },
             onSave = { name ->
                 viewModel.rename(track.id, name)
-                renameTarget = null
+                renameTargetId = null
             },
         )
     }
     deleteTarget?.let { track ->
         DeleteDialog(
-            onDismiss = { deleteTarget = null },
+            onDismiss = { deleteTargetId = null },
             onConfirm = {
                 viewModel.delete(track.id)
-                deleteTarget = null
+                deleteTargetId = null
             },
         )
     }
@@ -210,7 +218,7 @@ private const val SKELETON_CARDS = 4
 
 @Composable
 fun RenameDialog(initial: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
-    var name by remember { mutableStateOf(initial) }
+    var name by rememberSaveable { mutableStateOf(initial) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.detail_rename_title)) },
@@ -220,6 +228,9 @@ fun RenameDialog(initial: String, onDismiss: () -> Unit, onSave: (String) -> Uni
                 onValueChange = { if (it.length <= TrackRepository.MAX_NAME_LENGTH) name = it },
                 singleLine = true,
                 label = { Text(stringResource(R.string.detail_rename_hint)) },
+                // In landscape the keyboard covers the dialog's buttons: its ✓ key saves as well.
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { if (name.isNotBlank()) onSave(name) }),
                 modifier = Modifier.width(320.dp),
             )
         },

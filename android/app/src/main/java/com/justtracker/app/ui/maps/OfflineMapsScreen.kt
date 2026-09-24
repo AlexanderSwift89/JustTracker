@@ -45,6 +45,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -71,8 +72,11 @@ fun OfflineMapsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
-    var confirmDownload by remember { mutableStateOf<RegionRow?>(null) }
-    var confirmDelete by remember { mutableStateOf<RegionRow?>(null) }
+    // Kept by region id so an open confirmation survives an activity recreation.
+    var confirmDownloadId by rememberSaveable { mutableStateOf<String?>(null) }
+    var confirmDeleteId by rememberSaveable { mutableStateOf<String?>(null) }
+    val confirmDownload = state.catalog.firstOrNull { it.id == confirmDownloadId }
+    val confirmDelete = (state.catalog + state.imported).firstOrNull { it.id == confirmDeleteId }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -159,9 +163,9 @@ fun OfflineMapsScreen(
                 RegionListItem(
                     row = row,
                     state = state,
-                    onDownload = { confirmDownload = row },
+                    onDownload = { confirmDownloadId = row.id },
                     onCancel = { viewModel.cancel(row.id) },
-                    onDelete = { confirmDelete = row },
+                    onDelete = { confirmDeleteId = row.id },
                     onRetry = { viewModel.download(row.id) },
                 )
             }
@@ -176,7 +180,7 @@ fun OfflineMapsScreen(
                         state = state,
                         onDownload = {},
                         onCancel = {},
-                        onDelete = { confirmDelete = row },
+                        onDelete = { confirmDeleteId = row.id },
                         onRetry = {},
                     )
                 }
@@ -194,7 +198,7 @@ fun OfflineMapsScreen(
 
     confirmDownload?.let { row ->
         AlertDialog(
-            onDismissRequest = { confirmDownload = null },
+            onDismissRequest = { confirmDownloadId = null },
             title = { Text(stringResource(R.string.maps_download_confirm_title)) },
             text = {
                 Text(
@@ -208,25 +212,25 @@ fun OfflineMapsScreen(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    confirmDownload = null
+                    confirmDownloadId = null
                     viewModel.download(row.id)
                 }) { Text(stringResource(R.string.maps_download)) }
             },
-            dismissButton = { TextButton(onClick = { confirmDownload = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { TextButton(onClick = { confirmDownloadId = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
     confirmDelete?.let { row ->
         AlertDialog(
-            onDismissRequest = { confirmDelete = null },
+            onDismissRequest = { confirmDeleteId = null },
             title = { Text(stringResource(R.string.maps_delete_confirm_title)) },
             text = { Text(stringResource(R.string.maps_delete_confirm_body, row.name(state.language))) },
             confirmButton = {
                 TextButton(onClick = {
-                    confirmDelete = null
+                    confirmDeleteId = null
                     viewModel.delete(row.id)
                 }) { Text(stringResource(R.string.action_delete)) }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { TextButton(onClick = { confirmDeleteId = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }

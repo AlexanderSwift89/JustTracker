@@ -48,6 +48,9 @@ interface TrackDao {
     @Query("UPDATE tracks SET activityType = :type, activityManual = :manual WHERE id = :id")
     suspend fun setActivityType(id: Long, type: String, manual: Boolean)
 
+    @Query("UPDATE tracks SET elevationGainM = :gainM, elevationLossM = :lossM WHERE id = :id")
+    suspend fun setElevation(id: Long, gainM: Double, lossM: Double)
+
     @Insert
     suspend fun insertPoint(point: TrackPointEntity): Long
 
@@ -65,6 +68,12 @@ interface TrackDao {
 
     @Query("SELECT COALESCE(MAX(segment), -1) FROM track_points WHERE trackId = :trackId")
     suspend fun maxSegment(trackId: Long): Int
+
+    @Query("SELECT COUNT(*) FROM track_points WHERE trackId = :trackId AND segment = :segment")
+    suspend fun countSegmentPoints(trackId: Long, segment: Int): Int
+
+    @Query("DELETE FROM track_points WHERE trackId = :trackId AND segment = :segment")
+    suspend fun deleteSegmentPoints(trackId: Long, segment: Int)
 
     @Transaction
     suspend fun insertPointAndUpdateTrack(point: TrackPointEntity, track: TrackEntity) {

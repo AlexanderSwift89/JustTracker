@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Test-only restatement of Garmin's TrackPointExtension v2 element
+  (https://www8.garmin.com/xmlschemas/TrackPointExtensionv2.xsd) for GpxWriterTest: the official element
+  order, with value ranges at least as strict as the official ones (speed ≥ 0, course in [0, 360)).
+-->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://www.garmin.com/xmlschemas/TrackPointExtension/v2"
+            targetNamespace="http://www.garmin.com/xmlschemas/TrackPointExtension/v2"
+            elementFormDefault="qualified">
+
+  <xsd:element name="TrackPointExtension" type="TrackPointExtension_t"/>
+
+  <xsd:complexType name="TrackPointExtension_t">
+    <xsd:sequence>
+      <xsd:element name="atemp" type="xsd:double" minOccurs="0"/>
+      <xsd:element name="wtemp" type="xsd:double" minOccurs="0"/>
+      <xsd:element name="depth" type="xsd:double" minOccurs="0"/>
+      <xsd:element name="hr" type="xsd:unsignedByte" minOccurs="0"/>
+      <xsd:element name="cad" type="xsd:unsignedByte" minOccurs="0"/>
+      <xsd:element name="speed" type="MetersPerSecond_t" minOccurs="0"/>
+      <xsd:element name="course" type="DegreesTrue_t" minOccurs="0"/>
+      <xsd:element name="bearing" type="DegreesTrue_t" minOccurs="0"/>
+    </xsd:sequence>
+  </xsd:complexType>
+
+  <xsd:simpleType name="MetersPerSecond_t">
+    <xsd:restriction base="xsd:double">
+      <xsd:minInclusive value="0"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
+  <xsd:simpleType name="DegreesTrue_t">
+    <xsd:restriction base="xsd:decimal">
+      <xsd:minInclusive value="0"/>
+      <xsd:maxExclusive value="360"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+</xsd:schema>

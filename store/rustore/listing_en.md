@@ -46,6 +46,14 @@ Map data © OpenStreetMap contributors (ODbL). Offline maps: Mapsforge files. Pl
 
 Privacy policy: https://alexanderswift89.github.io/JustTracker/privacy/
 
+## What's new (version 1.0.2)
+
+• Realistic elevation gain and loss: GPS altitude glitches no longer count as climbing (older tracks are recomputed when opened).
+• Fixed a freeze after rotating the screen; every screen works in landscape — track map on the left, statistics on the right.
+• Standards-compliant GPX export: per-point speed for Strava and Garmin Connect, the file is named after the track.
+• A recording no longer stays at 0 m when the first GPS fix lands far from you.
+• Large fonts: values, the track start date and tab labels are shown in full.
+
 ## What's new (version 1.0.1)
 
 • A track opens from History right away — no more second attempts.
