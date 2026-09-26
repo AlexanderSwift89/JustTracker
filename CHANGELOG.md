@@ -80,6 +80,9 @@
   when the key's certificate differs from the published one (`releaseCertSha256`); release procedure in
   `docs/09_release_rustore.md` §1.1 adds an `apksigner verify --print-certs` check before every upload.
 - "What's new" for the RuStore upload of 1.0.2 includes the 1.0.1 changes: 1.0.1 never reached RuStore.
+- Pre-upload check `docs/09_release_rustore.md` §1.5, referenced by the store and test-plan checklists: build,
+  signature/package/version of the APK, the release APK on a device including an update over the published
+  version (new TC-104), a release archive with the APK and `mapping.txt`, upload rules (stop on a key warning).
 
 ## JustTracker [1.0.1] - 2026-09-22 (versionCode 2)
 

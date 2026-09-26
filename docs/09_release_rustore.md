@@ -42,7 +42,7 @@ cd android
 .\gradlew.bat :app:bundleRelease      # app/build/outputs/bundle/release/app-release.aab
 .\gradlew.bat :app:assembleRelease    # app/build/outputs/apk/release/app-release.apk (~3 МБ)
 ```
-RuStore принимает и AAB, и APK (на версию — 1 AAB + до 8 APK или до 10 APK). **Рекомендуемый формат — APK:** для него достаточно подписи самого файла, приватный ключ не покидает компьютер, а сплиты JustTracker не нужны (native-кода нет, языковые сплиты отключены; release-APK ≈ 3 МБ). Для **AAB** RuStore сам генерирует APK и требует один раз загрузить подпись (блок «Подпись для загрузки AAB» в карточке версии): скачать в диалоге `pepk.jar` и команду с уникальным `--encryptionkey`, выполнить её из папки с ключом (`& "D:\Android_studio\jbr\bin\java.exe" -jar pepk.jar --keystore=D:\keys\justtracker-release.jks --alias=release --output=D:\keys\pepk_out.zip --include-cert --encryptionkey=…`), экспортировать сертификат (`& "D:\Android_studio\jbr\bin\keytool.exe" -export -rfc -keystore D:\keys\justtracker-release.jks -alias release -file D:\keys\upload_certificate.pem`) и загрузить оба файла → «Отправить подпись»; после этого копия ключа хранится у RuStore. `mapping.txt` из `app/build/outputs/mapping/release/` сохранить рядом с версией — по нему расшифровываются стек-трейсы из отзывов. Release-сборку **обязательно** прогнать на устройстве (чек-лист `08_test_plan.md` §6), в том числе офлайн-регион в авиарежиме и образ без Google-сервисов.
+RuStore принимает и AAB, и APK (на версию — 1 AAB + до 8 APK или до 10 APK). **Рекомендуемый формат — APK:** для него достаточно подписи самого файла, приватный ключ не покидает компьютер, а сплиты JustTracker не нужны (native-кода нет, языковые сплиты отключены; release-APK ≈ 3 МБ). Для **AAB** RuStore сам генерирует APK и требует один раз загрузить подпись (блок «Подпись для загрузки AAB» в карточке версии): скачать в диалоге `pepk.jar` и команду с уникальным `--encryptionkey`, выполнить её из папки с ключом (`& "D:\Android_studio\jbr\bin\java.exe" -jar pepk.jar --keystore=D:\keys\justtracker-release.jks --alias=release --output=D:\keys\pepk_out.zip --include-cert --encryptionkey=…`), экспортировать сертификат (`& "D:\Android_studio\jbr\bin\keytool.exe" -export -rfc -keystore D:\keys\justtracker-release.jks -alias release -file D:\keys\upload_certificate.pem`) и загрузить оба файла → «Отправить подпись»; после этого копия ключа хранится у RuStore. `mapping.txt` из `app/build/outputs/mapping/release/` сохранить в архив релиза — по нему расшифровываются стек-трейсы из отзывов. Перед загрузкой — **обязательная проверка по §1.5**: подпись и версия файла, release-APK на устройстве (в том числе офлайн-регион в авиарежиме и образ без Google-сервисов), архив.
 
 ### 1.4. CI
 `.github/workflows/android.yml`:
@@ -51,14 +51,55 @@ RuStore принимает и AAB, и APK (на версию — 1 AAB + до 8 
 
 `.github/workflows/pages.yml` публикует `site/` (лендинг, политика конфиденциальности, лицензии — RU/EN) на GitHub Pages при push в `main`, затрагивающем `site/`. Шаг `actions/configure-pages` с `enablement: true` сам включает Pages с источником *GitHub Actions* при первом запуске (без этого первый деплой падал: «Get Pages site failed … Not Found»); если в организации это запрещено — включить вручную: Settings → Pages → Source: *GitHub Actions*. URL политики: https://alexanderswift89.github.io/JustTracker/privacy/, лицензий: https://alexanderswift89.github.io/JustTracker/licenses/.
 
-Порядок выпуска: `versionCode`/`versionName` → `CHANGELOG.md` → `store/rustore/listing_*.md` («Что нового») → commit → `git tag v1.0.0 && git push origin main v1.0.0` → зелёный CI → скачать `JustTracker-release-signed` (или собрать локально) → RuStore Console.
+Порядок выпуска: `versionCode`/`versionName` → `CHANGELOG.md` → `store/rustore/listing_*.md` («Что нового») → commit → `git tag vX.Y.Z && git push origin main vX.Y.Z` → зелёный CI → собрать локально (или скачать `JustTracker-release-signed`) → **проверка §1.5** → RuStore Console.
+
+### 1.5. Проверка перед загрузкой — каждый релиз
+В RuStore должен уйти ровно тот файл, что собран из коммита релиза release-ключом и проверен на устройстве. Без этой проверки 1.0.0 ушла старым APK с debug-подписью, и в 1.0.2 пришлось сменить ключ (D-24).
+
+1. **Исходники и тексты.** `git status` — чисто, `git log -1` — коммит релиза. `versionCode` больше, чем у версии, **опубликованной** в RuStore (RuStore Console, список версий приложения), `versionName` — как в верхнем разделе `CHANGELOG.md`. «Что нового» (`store/rustore/listing_ru.md`, `listing_en.md`) перечисляет всё, что изменилось **с последней опубликованной в RuStore версии**: изменения версий, которые в RuStore не выходили, тоже входят (1.0.2 после 1.0.0). Изменились разрешения, сетевые хосты или обработка данных — обновить `permissions_data_safety.md`, `site/privacy/`, `moderator_notes.md`.
+2. **Сборка** — в папке `android`, непосредственно перед загрузкой:
+   ```powershell
+   .\gradlew.bat :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
+   ```
+   Тесты и lint — зелёные. Ключ с другим сертификатом остановит сборку на `verifyReleaseKey`; без `keystore.properties` сборка пройдёт, но с debug-подписью — это покажет шаг 3. APK из CI (`JustTracker-release-signed`) проходит те же шаги 3–6.
+3. **Проверка файла** — там же:
+   ```powershell
+   $apk = "app\build\outputs\apk\release\app-release.apk"
+   $bt = "D:\Android_sdk\build-tools\37.0.0"
+   & "$bt\apksigner.bat" verify --print-certs $apk | Select-String "certificate DN|SHA-256 digest"
+   & "$bt\aapt2.exe" dump badging $apk | Select-String "^package:|debuggable"
+   ```
+   Должно быть:
+   - `certificate DN: CN=JustTracker, O=JustTracker, C=RU` — **не** `CN=Android Debug`;
+   - `certificate SHA-256 digest: bcb70f4ee27dce1ae28c92465ae10d7c4cedb3eaddff46596de71bf806ef8709`;
+   - `package: name='com.justtracker.app'` с `versionCode` и `versionName` из шага 1;
+   - строки с `debuggable` нет.
+
+   Любое расхождение — не загружать. Дата файла не показатель: если исходники не менялись, Gradle не перезаписывает APK.
+4. **Release-APK на устройстве** — R8 и сжатие ресурсов могут сломать то, что работает в debug. Эмулятор или телефон; симуляция GPS и авиарежим — `README.md` («Запуск на эмуляторе и симуляция GPS») и `08_test_plan.md` §2:
+   ```powershell
+   $adb = "D:\Android_sdk\platform-tools\adb.exe"
+   & $adb install -r $apk
+   & $adb logcat -c
+   & $adb shell am start -W -n com.justtracker.app/.ui.MainActivity
+   ```
+   Пройти онбординг → запись 30 с → стоп → карточка трека → экспорт GPX → «История», «Статистика», «Настройки» → офлайн-регион в авиарежиме; `& $adb logcat -d -b crash` — пусто. **Обновление поверх опубликованной версии** (начиная с 1.0.3): на устройстве стоит версия из RuStore или APK из архива релизов (шаг 5) с записанными треками → `adb install -r` нового APK → `Success`, треки и настройки на месте (TC-104); `INSTALL_FAILED_UPDATE_INCOMPATIBLE` — другой ключ, не загружать. Исключение — 1.0.2: поверх 1.0.0 она не встанет (другой ключ, D-24), 1.0.0 сначала удалить, экспортировав треки в GPX. Полная регрессия — `08_test_plan.md` §6, в том числе образ без Google-сервисов (TC-65).
+5. **Архив релиза** вне репозитория: APK с номером версии и `mapping.txt` — по нему расшифровываются стек-трейсы из отзывов, а следующая сборка его перезапишет. Путь — например, `D:\releases\JustTracker\<версия>`:
+   ```powershell
+   $v = "1.0.2"; $dst = "D:\releases\JustTracker\$v"
+   New-Item -ItemType Directory -Force $dst | Out-Null
+   Copy-Item $apk "$dst\JustTracker-$v.apk"
+   Copy-Item app\build\outputs\mapping\release\mapping.txt $dst
+   ```
+6. **Загрузка.** В консоль — `JustTracker-<версия>.apk` из архива (или `app-release.apk` из шага 3), не старые файлы из «Загрузок». Консоль должна показать `com.justtracker.app` и новую версию **без** предупреждения «Ключ подписи не совпадает…»; если оно появилось — остановиться и вернуться к шагу 3, «дополнительный APK со старой подписью» не загружать (для 1.0.2 предупреждение ожидаемо — единственный раз, D-24). «Что нового» — из шага 1.
+7. **После публикации** — тег `vX.Y.Z` на коммите релиза (если ещё нет), установка или обновление из RuStore на телефоне (§2, п. 8).
 
 ## 2. RuStore Console — пошагово
 
 1. **Аккаунт разработчика** (console.rustore.ru): вход по VK ID. Физлицо — мгновенная регистрация с верификацией личности; ИП/юрлицо — ИНН, реквизиты, проверка до нескольких дней. Приложение бесплатное, поэтому статус физлица достаточен (монетизация с 01.02.2026 доступна только ИП/юрлицам).
 2. **Создать приложение**: название «JustTracker — GPS-трекер маршрутов», пакет `com.justtracker.app` (совпадает с APK — проверяется автоматически), тип — приложение, бесплатное.
 3. **Карточка** (`store/rustore/listing_ru.md`, `listing_en.md`): краткое описание ≤ 80, полное ≤ 4000 символов; категория «Здоровье и спорт» (`category_age.md`); возрастной рейтинг **12+** по 436-ФЗ (внешний контент Википедии); иконка `icon-512.png`; 3–10 скриншотов 9:16 из `screenshots/` (1080×1920, одной ориентации); сайт и URL политики конфиденциальности (`contact.md`); e-mail поддержки — **обязателен, указывает владелец аккаунта**.
-4. **Загрузка версии**: APK (рекомендуется, см. §1.3) или AAB с загрузкой подписи, «Что нового» из листинга. Автопроверки RuStore: подпись, targetSdk ≥ 28 (у нас 36), совпадение пакета, 64-bit (native-кода нет — не затрагивает).
+4. **Загрузка версии**: APK, прошедший проверку §1.5 (рекомендуется, см. §1.3), или AAB с загрузкой подписи, «Что нового» из листинга. Автопроверки RuStore: подпись (совпадение ключа с опубликованной версией), targetSdk ≥ 28 (у нас 36), совпадение пакета, 64-bit (native-кода нет — не затрагивает).
 5. **Разрешения и безопасность данных**: заполнить по `store/rustore/permissions_data_safety.md` — назначение `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, `POST_NOTIFICATIONS`; обоснование foreground service `location`; какие данные обрабатываются и куда уходят (только на устройстве; IP — серверам карт; приблизительный район — Overpass/Wikipedia при включённой функции).
 6. **Комментарий для модератора**: вставить `store/rustore/moderator_notes.md` — аккаунт не нужен, шаги проверки записи с симуляцией GPS, тестовый регион «Мальта» 6,7 МБ для офлайн-карт.
 7. **Отправить на модерацию**: обычно до 24 ч, у новых приложений — 1–3 дня. Типичные причины отказа: крэш при проверке, описание не соответствует функциям, не задекларированное разрешение, неверный возраст — всё закрыто чек-листом `store/rustore/README.md`.
@@ -66,9 +107,9 @@ RuStore принимает и AAB, и APK (на версию — 1 AAB + до 8 
 
 ## 3. Обновления
 
-1. Поднять `versionCode`/`versionName`, обновить `CHANGELOG.md` и «Что нового» (ru + en).
-2. Тег → CI → подписанная сборка тем же ключом.
-3. В консоли: новая версия → загрузить AAB/APK → «Что нового» → при изменении разрешений/данных обновить декларации → на модерацию (обновления проходят быстрее).
+1. Поднять `versionCode`/`versionName`, обновить `CHANGELOG.md` и «Что нового» (ru + en) — всё, что изменилось с последней опубликованной в RuStore версии.
+2. Собрать тем же ключом (локально или тег → CI) и проверить по §1.5.
+3. В консоли: новая версия → загрузить проверенный APK → «Что нового» → при изменении разрешений/данных обновить декларации → на модерацию (обновления проходят быстрее).
 4. При изменении политики конфиденциальности — обновить `site/privacy/index.html` (дата и версия), `07_security.md` §6 и, при необходимости, раздел «Безопасность данных» в консоли.
 
 ## 4. Privacy Policy
