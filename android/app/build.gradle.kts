@@ -1,3 +1,5 @@
+import java.security.KeyStore
+import java.security.MessageDigest
 import java.util.Properties
 
 plugins {
@@ -8,12 +10,18 @@ plugins {
 }
 
 // Release signing is read from keystore.properties (git-ignored). Without it the release
-// build falls back to the debug key so `bundleRelease` still works for local verification.
+// build falls back to the debug key so `bundleRelease` still works for local verification —
+// such a build must never be uploaded: 1.0.0 reached RuStore that way (D-24).
 // RuStore does not re-sign uploads: the same release key must be used for every version.
 val keystorePropsFile = rootProject.file("keystore.properties")
 val keystoreProps = Properties().apply {
     if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
 }
+
+// SHA-256 of the release certificate (CN=JustTracker, O=JustTracker, C=RU) — the key JustTracker is
+// published with in RuStore since 1.0.2. `verifyReleaseKey` fails a release build when the key in
+// keystore.properties has another certificate.
+val releaseCertSha256 = "bcb70f4ee27dce1ae28c92465ae10d7c4cedb3eaddff46596de71bf806ef8709"
 
 android {
     namespace = "com.justtracker.app"
@@ -107,6 +115,49 @@ kotlin {
 
 room {
     schemaDirectory("$projectDir/schemas")
+}
+
+// Fails a release build whose key from keystore.properties is not the published one (releaseCertSha256):
+// RuStore refuses such an upload as a signature change.
+abstract class VerifyReleaseKey : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val storeFile: RegularFileProperty
+
+    @get:Internal
+    abstract val storePassword: Property<String>
+
+    @get:Input
+    abstract val keyAlias: Property<String>
+
+    @get:Input
+    abstract val expectedSha256: Property<String>
+
+    @TaskAction
+    fun verify() {
+        val file = storeFile.get().asFile
+        val cert = KeyStore.getInstance(file, storePassword.get().toCharArray()).getCertificate(keyAlias.get())
+            ?: throw GradleException("No key '${keyAlias.get()}' in $file")
+        val actual = MessageDigest.getInstance("SHA-256").digest(cert.encoded).joinToString("") { "%02x".format(it) }
+        if (actual != expectedSha256.get()) {
+            throw GradleException(
+                "Release key $file (${keyAlias.get()}) has certificate SHA-256 $actual, but JustTracker is " +
+                    "published in RuStore with ${expectedSha256.get()}. Point android/keystore.properties " +
+                    "(or the CI signing secrets) at the release key — docs/09_release_rustore.md §1.1.",
+            )
+        }
+    }
+}
+
+if (keystoreProps.isNotEmpty()) {
+    val verifyReleaseKey = tasks.register<VerifyReleaseKey>("verifyReleaseKey") {
+        storeFile.set(rootProject.file(keystoreProps.getProperty("storeFile")))
+        storePassword.set(keystoreProps.getProperty("storePassword"))
+        keyAlias.set(keystoreProps.getProperty("keyAlias"))
+        expectedSha256.set(releaseCertSha256)
+    }
+    // pre<Variant>Build runs before anything else of the variant: a wrong key fails in seconds, not after R8.
+    tasks.named { it == "preReleaseBuild" }.configureEach { dependsOn(verifyReleaseKey) }
 }
 
 dependencies {

@@ -67,7 +67,7 @@ cd android
 .\gradlew.bat :app:assembleRelease      # release APK (~3 МБ)
 ```
 
-Release подписывается ключом из `android/keystore.properties` (см. `docs/09_release_rustore.md`); без файла — debug-ключом для локальной проверки. Версию можно задать снаружи: `-PversionCode=3 -PversionName=1.0.2`.
+Release подписывается ключом из `android/keystore.properties` (см. `docs/09_release_rustore.md` §1.1; сертификат сверяет задача `verifyReleaseKey`); без файла — debug-ключом только для локальной проверки, в RuStore такую сборку не загружать (D-24). Версию можно задать снаружи: `-PversionCode=4 -PversionName=1.0.3`.
 
 ## Запуск на эмуляторе и симуляция GPS
 

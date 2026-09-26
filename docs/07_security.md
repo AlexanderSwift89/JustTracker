@@ -52,7 +52,7 @@
 - [ ] Никаких SDK аналитики/рекламы/крэшлитики с передачей данных и никаких `com.google.android.gms:*` (ADR-14). Крэши — по отзывам RuStore + `mapping.txt`.
 - [ ] `FileProvider` только с `cache-path name="exports" path="exports/"`.
 - [ ] Логирование координат — только в debug через `AppLog.geo()`; в release функция — no-op; R8 `-assumenosideeffects` для `android.util.Log.d/v`.
-- [ ] R8 включён, `isDebuggable=false` в release, отдельный keystore, пароль в `keystore.properties` (в `.gitignore`).
+- [ ] R8 включён, `isDebuggable=false` в release, отдельный keystore, пароль в `keystore.properties` (в `.gitignore`); release-APK подписан release-ключом (`CN=JustTracker`, SHA-256 `BC:B7:0F:…:87:09`), а не debug-ключом — сертификат сверяет `verifyReleaseKey` (D-24).
 - [ ] Ограничение на длину имени трека (100 символов), санитизация имени файла GPX (1.0.2: `[^\p{L}\p{M}\p{N}_-]+` → `_`, до 60 символов + `_<id>.gpx` — буквы любого алфавита остаются, разделители пути, `..`, управляющие и bidi-символы (подмена расширения через U+202E) — нет).
 - [ ] Экспорт GPX через XML-writer с экранированием, чтобы имя трека не ломало XML; символы, недопустимые в XML 1.0, удаляются (1.0.2); документ валиден по схеме GPX 1.1 (unit-тест).
 - [ ] (JustTracker) Импортируемый `.map` копируется в папку приложения (без сохранения URI-прав), проверяется заголовок; имя из `DISPLAY_NAME` используется только как подпись.

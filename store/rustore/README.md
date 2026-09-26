@@ -16,7 +16,7 @@
 ## Чек-лист перед отправкой на модерацию
 
 - [ ] Версия и `versionCode` подняты (`android/app/build.gradle.kts`), `CHANGELOG.md` обновлён, тег `vX.Y.Z` создан.
-- [ ] Подписанный APK (рекомендуется; AAB требует загрузки подписи через PEPK — `docs/09_release_rustore.md` §1.3) собран **тем же** release-ключом, что и предыдущие версии (RuStore не переподписывает): `.\gradlew.bat :app:bundleRelease` с `android/keystore.properties` или job `release-signed` в CI.
+- [ ] Подписанный APK (рекомендуется; AAB требует загрузки подписи через PEPK — `docs/09_release_rustore.md` §1.3) собран **тем же** release-ключом, что и предыдущие версии (RuStore не переподписывает): `.\gradlew.bat :app:assembleRelease` с `android/keystore.properties` или job `release-signed` в CI. `apksigner verify --print-certs` показывает `CN=JustTracker`, SHA-256 `bcb70f4e…ef8709` — не `CN=Android Debug` (D-24, `docs/09_release_rustore.md` §1.1).
 - [ ] `mapping.txt` из `app/build/outputs/mapping/release/` сохранён (для расшифровки крэшей).
 - [ ] Release-сборка проверена на устройстве: запуск, выбор языка, запись 30 с, стоп, детали, экспорт GPX, офлайн-регион в авиарежиме.
 - [ ] Проверка на устройстве/эмуляторе **без Google-сервисов** (образ AOSP): геолокация и карта работают.

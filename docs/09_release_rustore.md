@@ -7,7 +7,16 @@
 ### 1.1. Ключ подписи — один и навсегда
 RuStore **не переподписывает** загруженные сборки и не хранит ключ разработчика: каждая следующая версия должна быть подписана тем же ключом, иначе обновление невозможно. Потеря ключа = новое приложение с нуля.
 
-PowerShell (путь в кавычках нужно вызывать через оператор `&`, иначе `ParserError: Unexpected token '-genkeypair'`); ключ хранить **вне репозитория**, например в `D:\keys`:
+**Ключ JustTracker** — `D:\keys\justtracker-release.jks`, alias `release`, сертификат `CN=JustTracker, O=JustTracker, C=RU`, SHA-256 `BC:B7:0F:4E:E2:7D:CE:1A:E2:8C:92:46:5A:E1:0D:7C:4C:ED:B3:EA:DD:FF:46:59:6D:E7:1B:F8:06:EF:87:09`. Им подписываются все версии начиная с **1.0.2**.
+
+Версия 1.0.0 ушла в RuStore подписанной **debug-ключом** компьютера разработчика (`CN=Android Debug`, SHA-256 `DA:F3:A5:1D:…:9E:60`, проверено по APK из RuStore): загрузили release-APK, собранный до появления `keystore.properties`, а без него сборка подписывает release debug-ключом (D-24). Пользователей у 1.0.0 не было, поэтому с 1.0.2 приложение перешло на release-ключ: при загрузке 1.0.2 RuStore предупреждает, что ключ не совпадает с 1.0.0, — это ожидаемо, дополнительный APK со старой подписью не загружаем; установившим 1.0.0 — удалить её (сначала экспортировать треки в GPX) и поставить заново.
+
+Защита от повторения: задача Gradle `verifyReleaseKey` (запускается перед `preReleaseBuild`, если есть `keystore.properties`) сверяет сертификат ключа с `releaseCertSha256` в `app/build.gradle.kts` и останавливает сборку при несовпадении. Без `keystore.properties` release по-прежнему подписывается debug-ключом — **такой APK/AAB в RuStore не загружать**. Перед каждой загрузкой проверить файл — SHA-256 должен быть `bcb70f4e…ef8709`:
+```powershell
+& "D:\Android_sdk\build-tools\37.0.0\apksigner.bat" verify --print-certs android\app\build\outputs\apk\release\app-release.apk
+```
+
+Ключ создан один раз (21.09.2026) командой ниже; **повторно не создавать** — новый ключ для RuStore означает смену подписи. PowerShell (путь в кавычках нужно вызывать через оператор `&`, иначе `ParserError: Unexpected token '-genkeypair'`); ключ хранить **вне репозитория**, например в `D:\keys`:
 
 ```powershell
 New-Item -ItemType Directory -Force D:\keys | Out-Null
@@ -25,7 +34,7 @@ keyPassword=********
 Резервные копии `.jks` и паролей — в менеджере паролей/офлайн-носителе. Для CI ключ кладётся в секреты репозитория (§1.4). Тот же ключ использовать, если приложение когда-нибудь появится в других магазинах.
 
 ### 1.2. Версия
-`android/app/build.gradle.kts`: `versionCode` +1 на каждую загрузку в консоль (RuStore требует строго возрастающий), `versionName` — семантическая (текущая — `1.0.1`, `versionCode` 2). Оба значения можно переопределить в командной строке: `-PversionCode=3 -PversionName=1.0.2`.
+`android/app/build.gradle.kts`: `versionCode` +1 на каждую загрузку в консоль (RuStore требует строго возрастающий), `versionName` — семантическая (текущая — `1.0.2`, `versionCode` 3). Оба значения можно переопределить в командной строке: `-PversionCode=4 -PversionName=1.0.3`.
 
 ### 1.3. Сборка
 ```bash
@@ -38,7 +47,7 @@ RuStore принимает и AAB, и APK (на версию — 1 AAB + до 8 
 ### 1.4. CI
 `.github/workflows/android.yml`:
 - каждый push/PR в `main` — unit-тесты, lint, `JustTracker-<versionName>-debug.apk` (артефакт 30 дней);
-- тег `vX.Y.Z` — GitHub Release с debug-APK (для тестировщиков) и job **`release-signed`**: если в секретах репозитория заданы `KEYSTORE_BASE64` (base64 файла `.jks`), `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`, собираются подписанные AAB + APK + `mapping.txt` как артефакт `JustTracker-release-signed` (90 дней). Без секретов job — no-op.
+- тег `vX.Y.Z` — GitHub Release с debug-APK (для тестировщиков) и job **`release-signed`**: если в секретах репозитория заданы `KEYSTORE_BASE64` (base64 файла `.jks`), `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`, собираются подписанные AAB + APK + `mapping.txt` как артефакт `JustTracker-release-signed` (90 дней). Без секретов job — no-op. В секретах должен лежать тот же ключ, что в §1.1: иначе `verifyReleaseKey` остановит job.
 
 `.github/workflows/pages.yml` публикует `site/` (лендинг, политика конфиденциальности, лицензии — RU/EN) на GitHub Pages при push в `main`, затрагивающем `site/`. Шаг `actions/configure-pages` с `enablement: true` сам включает Pages с источником *GitHub Actions* при первом запуске (без этого первый деплой падал: «Get Pages site failed … Not Found»); если в организации это запрещено — включить вручную: Settings → Pages → Source: *GitHub Actions*. URL политики: https://alexanderswift89.github.io/JustTracker/privacy/, лицензий: https://alexanderswift89.github.io/JustTracker/licenses/.
 

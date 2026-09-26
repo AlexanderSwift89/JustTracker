@@ -139,7 +139,7 @@ T-50  Повторное тестирование ориентации на эм
 - Gradle 9.6.1 (wrapper), AGP 9.4.1 со встроенным Kotlin (плагин `kotlin-android` не применяется), Kotlin 2.3.21, KSP 2.3.12 для Room.
 - `minSdk 26`, `targetSdk 36`, `compileSdk 37` (актуальные AndroidX-библиотеки требуют compileSdk 37).
 - Release: `isMinifyEnabled = true`, `isShrinkResources = true`, правила для osmdroid/mapsforge/Room; `bundle.language.enableSplit = false` (оба языка в каждой установке).
-- Подпись: `keystore.properties` (в `.gitignore`); если файла нет — release подписывается debug-ключом только для локальной проверки. **Один release-ключ навсегда** — RuStore не переподписывает и не хранит ключ. В CI ключ приходит из секретов `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` (job `release-signed` на тег `v*`).
+- Подпись: `keystore.properties` (в `.gitignore`); если файла нет — release подписывается debug-ключом только для локальной проверки (в RuStore не загружать — так ушла 1.0.0, D-24). **Один release-ключ навсегда** — RuStore не переподписывает и не хранит ключ; с 1.0.2 это `justtracker-release.jks` (SHA-256 `BC:B7:0F:…:87:09`), задача `verifyReleaseKey` сверяет сертификат перед каждой release-сборкой. В CI ключ приходит из секретов `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` (job `release-signed` на тег `v*`).
 - Версия: `-PversionCode=N -PversionName=X.Y.Z` переопределяют значения из `build.gradle.kts`.
 - Зависимости без Google: `play-services-*` запрещены (ADR-14); `androidx.appcompat` нужен для per-app locale.
 - Команды:

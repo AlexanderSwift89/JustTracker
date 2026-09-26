@@ -48,13 +48,18 @@ Privacy policy: https://alexanderswift89.github.io/JustTracker/privacy/
 
 ## What's new (version 1.0.2)
 
-• Realistic elevation gain and loss: GPS altitude glitches no longer count as climbing (older tracks are recomputed when opened).
-• Fixed a freeze after rotating the screen; every screen works in landscape — track map on the left, statistics on the right.
+In RuStore 1.0.2 follows 1.0.0 directly, so the text covers the 1.0.1 changes as well.
+
+• The offline map is smooth and crisp: it renders on several threads, is cached and no longer stays blurry after zooming. Map labels are properly sized.
+• Realistic elevation gain and loss: GPS altitude glitches no longer count as climbing. Older tracks are recomputed when opened.
+• Fixed a freeze and a grey map after rotating the screen. Every screen works in landscape: on the track card the map is on the left, statistics on the right.
+• A track opens from History right away. The statistics panel on the track card can be collapsed so the map fills the screen; the route slider stays.
 • Standards-compliant GPX export: per-point speed for Strava and Garmin Connect, the file is named after the track.
 • A recording no longer stays at 0 m when the first GPS fix lands far from you.
-• Large fonts: values, the track start date and tab labels are shown in full.
+• Large fonts: values and labels are shown in full.
+• Neat placeholders instead of blank screens while loading.
 
-## What's new (version 1.0.1)
+## What's new (version 1.0.1, never released in RuStore)
 
 • A track opens from History right away — no more second attempts.
 • "Hide statistics" button on the track card: the map fills the screen, the route slider stays.

@@ -69,6 +69,18 @@
   fix, "Start" tile).
 - `versionCode` 3, `versionName` 1.0.2; "What's new" in `store/rustore/listing_*.md`.
 
+### Release / signing
+- **New signing key for RuStore** (D-24): 1.0.2 is signed with the release key `justtracker-release.jks`
+  (`CN=JustTracker`, SHA-256 `BC:B7:0F:…:87:09`). 1.0.0 had reached RuStore signed with a developer machine's
+  debug key (`CN=Android Debug`, SHA-256 `DA:F3:A5:1D:…:9E:60`): the uploaded release APK was built before
+  `keystore.properties` existed, and without it the release build falls back to the debug key. RuStore therefore
+  reported that the key does not match 1.0.0. 1.0.0 had no users, so the app moves to the release key instead of
+  keeping the debug one; anyone who installed 1.0.0 has to uninstall it (export tracks to GPX first) and install 1.0.2.
+- Gradle task `verifyReleaseKey` (runs before `preReleaseBuild` when `keystore.properties` exists) fails the build
+  when the key's certificate differs from the published one (`releaseCertSha256`); release procedure in
+  `docs/09_release_rustore.md` §1.1 adds an `apksigner verify --print-certs` check before every upload.
+- "What's new" for the RuStore upload of 1.0.2 includes the 1.0.1 changes: 1.0.1 never reached RuStore.
+
 ## JustTracker [1.0.1] - 2026-09-22 (versionCode 2)
 
 ### Fixed
