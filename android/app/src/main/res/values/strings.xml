@@ -64,6 +64,15 @@
     <string name="record_expand_stats">Show more stats</string>
     <string name="record_collapse_stats">Hide extra stats</string>
     <string name="record_speed_unavailable">—</string>
+    <string name="record_label_acceleration">Acceleration</string>
+    <string name="record_acceleration_state">Acceleration · %1$s</string>
+    <string name="record_accel_accelerating">speeding up</string>
+    <string name="record_accel_decelerating">slowing down</string>
+    <string name="record_accel_steady">steady</string>
+    <string name="record_accel_stationary">standing still</string>
+    <string name="record_show_acceleration">Show acceleration</string>
+    <string name="record_hide_acceleration">Hide acceleration</string>
+    <string name="record_acceleration_hint">Tap the speed to see acceleration</string>
     <string name="map_speed_legend_cd">Line colour: speed from 0 to %1$s</string>
     <string name="map_tap_speed_title">Speed on this section</string>
     <string name="map_tap_speed_detail">%1$s from start · %2$s into the recording</string>
@@ -243,9 +252,15 @@
     <string name="unit_hms">h:mm:ss</string>
     <string name="unit_pace_km">/km</string>
     <string name="unit_pace_mi">/mi</string>
+    <string name="unit_mps2">m/s²</string>
+    <string name="unit_fps2">ft/s²</string>
+    <string name="unit_mps2_spoken">meters per second squared</string>
+    <string name="unit_fps2_spoken">feet per second squared</string>
 
     <!-- Accessibility -->
     <string name="cd_activity_icon">Activity type: %1$s</string>
+    <string name="cd_acceleration">Acceleration %1$s %2$s, %3$s</string>
+    <string name="cd_acceleration_unavailable">Acceleration: no data</string>
     <string name="cd_map">Map</string>
     <string name="cd_loading">Loading…</string>
 </resources>

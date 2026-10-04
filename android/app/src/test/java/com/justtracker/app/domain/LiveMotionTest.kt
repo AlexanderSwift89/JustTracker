@@ -67,6 +67,36 @@ class LiveMotionTest {
     }
 
     @Test
+    fun `acceleration comes from trusted speed and is dropped once the receiver is distrusted`() {
+        val motion = LiveMotion()
+        motion.drive(listOf(5f, 6f, 7f, 8f, 9f))
+        assertEquals(1f, motion.acceleration!!.mps2, 0.05f)
+        motion.onRecorded(4_000, reportedMps = 0.3f, effectiveMps = 9f)
+        assertEquals(null, motion.acceleration)
+    }
+
+    @Test
+    fun `acceleration expires when fixes stop carrying a speed`() {
+        val motion = LiveMotion()
+        motion.drive(listOf(5f, 6f, 7f, 8f))
+        motion.onFix(5_000, null, null, accurate = true)
+        assertEquals(1f, motion.acceleration!!.mps2, 0.05f) // one fix without speed: the estimate still stands
+        motion.onFix(7_000, null, null, accurate = true)
+        assertEquals(null, motion.acceleration)
+    }
+
+    @Test
+    fun `the last minute holds one value per second and empty seconds without speed`() {
+        val motion = LiveMotion()
+        motion.drive(listOf(5f, 6f, 7f, 8f))
+        motion.onFix(4_000, 9f, 0.2f, accurate = false)
+        val trace = motion.trace()
+        assertTrue(trace[trace.size - 1].isNaN())
+        assertEquals(1f, trace[trace.size - 2], 0.05f)
+        assertTrue(trace[trace.size - 5].isNaN()) // the first two fixes give no estimate yet
+    }
+
+    @Test
     fun `smoothing restarts after a gap and after a reset`() {
         val motion = LiveMotion()
         motion.drive(listOf(10f, 10f))

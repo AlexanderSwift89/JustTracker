@@ -74,6 +74,16 @@ object ActivityColors {
     }
 }
 
+/**
+ * Speeding up / slowing down on the acceleration indicator (docs/04_ux_design.md §2.12). Fixed hues rather than
+ * dynamic-color roles, so the meaning never changes with the wallpaper; only icons and chart bars are tinted, which
+ * need 3:1 against the panel — lighter tones on dark surfaces.
+ */
+object AccelerationColors {
+    fun up(dark: Boolean): Color = if (dark) Color(0xFF81C784) else Color(0xFF2E7D32)
+    fun down(dark: Boolean): Color = if (dark) Color(0xFFFFB74D) else Color(0xFFE65100)
+}
+
 @Composable
 fun JustTrackerTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,

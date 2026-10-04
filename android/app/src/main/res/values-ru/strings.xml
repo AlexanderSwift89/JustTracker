@@ -62,6 +62,15 @@
     <string name="map_tap_speed_title">Скорость на участке</string>
     <string name="map_tap_speed_detail">%1$s от старта · %2$s с начала записи</string>
     <string name="record_speed_unavailable">—</string>
+    <string name="record_label_acceleration">Ускорение</string>
+    <string name="record_acceleration_state">Ускорение · %1$s</string>
+    <string name="record_accel_accelerating">разгон</string>
+    <string name="record_accel_decelerating">замедление</string>
+    <string name="record_accel_steady">равномерно</string>
+    <string name="record_accel_stationary">на месте</string>
+    <string name="record_show_acceleration">Показать ускорение</string>
+    <string name="record_hide_acceleration">Скрыть ускорение</string>
+    <string name="record_acceleration_hint">Нажмите на скорость, чтобы видеть ускорение</string>
 
     <string name="notification_channel_name">Запись трека</string>
     <string name="notification_channel_description">Показывается во время записи трека</string>
@@ -234,8 +243,14 @@
     <string name="unit_hms">ч:мм:сс</string>
     <string name="unit_pace_km">/км</string>
     <string name="unit_pace_mi">/миля</string>
+    <string name="unit_mps2">м/с²</string>
+    <string name="unit_fps2">фут/с²</string>
+    <string name="unit_mps2_spoken">метра в секунду в квадрате</string>
+    <string name="unit_fps2_spoken">фута в секунду в квадрате</string>
 
     <string name="cd_activity_icon">Тип движения: %1$s</string>
+    <string name="cd_acceleration">Ускорение %1$s %2$s, %3$s</string>
+    <string name="cd_acceleration_unavailable">Ускорение: нет данных</string>
     <string name="cd_map">Карта</string>
     <string name="cd_loading">Загрузка…</string>
 </resources>

@@ -31,6 +31,8 @@ class SettingsRepository(private val context: Context) {
         val LANGUAGE = stringPreferencesKey("language")
         val MAPS_WIFI_ONLY = booleanPreferencesKey("maps_wifi_only")
         val MAP_MODE = stringPreferencesKey("map_mode")
+        val SHOW_ACCELERATION = booleanPreferencesKey("show_acceleration")
+        val ACCELERATION_HINT_SHOWN = booleanPreferencesKey("acceleration_hint_shown")
     }
 
     val settings: Flow<AppSettings> = context.settingsStore.data.map { p ->
@@ -45,6 +47,8 @@ class SettingsRepository(private val context: Context) {
             language = AppLanguage.fromTag(p[Keys.LANGUAGE]),
             mapsWifiOnly = p[Keys.MAPS_WIFI_ONLY] ?: true,
             mapMode = p[Keys.MAP_MODE]?.let { runCatching { MapMode.valueOf(it) }.getOrNull() } ?: MapMode.ONLINE,
+            showAcceleration = p[Keys.SHOW_ACCELERATION] ?: false,
+            accelerationHintShown = p[Keys.ACCELERATION_HINT_SHOWN] ?: false,
         )
     }
 
@@ -60,4 +64,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setLanguage(language: AppLanguage) = context.settingsStore.edit { it[Keys.LANGUAGE] = language.tag }
     suspend fun setMapsWifiOnly(on: Boolean) = context.settingsStore.edit { it[Keys.MAPS_WIFI_ONLY] = on }
     suspend fun setMapMode(mode: MapMode) = context.settingsStore.edit { it[Keys.MAP_MODE] = mode.name }
+    suspend fun setShowAcceleration(on: Boolean) = context.settingsStore.edit {
+        it[Keys.SHOW_ACCELERATION] = on
+        it[Keys.ACCELERATION_HINT_SHOWN] = true
+    }
+    suspend fun setAccelerationHintShown() = context.settingsStore.edit { it[Keys.ACCELERATION_HINT_SHOWN] = true }
 }

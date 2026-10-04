@@ -3,6 +3,8 @@ package com.justtracker.app.service
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
+import com.justtracker.app.domain.stats.Acceleration
+import com.justtracker.app.domain.stats.AccelerationTrace
 import com.justtracker.app.util.AppLog
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -10,12 +12,18 @@ import kotlinx.coroutines.flow.update
 
 /**
  * Ephemeral, in-memory view of the recording service that the DB cannot provide: instantaneous
- * speed, GPS freshness and whether the service process is alive. Persistent state (track, points,
- * totals) lives in Room and is observed directly by the UI.
+ * speed and acceleration, GPS freshness and whether the service process is alive. Persistent state
+ * (track, points, totals) lives in Room and is observed directly by the UI.
  */
 data class LiveTrackingState(
     val serviceRunning: Boolean = false,
     val currentSpeedMps: Float = 0f,
+    /** Along-track horizontal acceleration (ADR-20); null while there is no estimate. */
+    val acceleration: Acceleration? = null,
+    /** Wall-clock time a fix last confirmed [acceleration], so the UI can tell a stale value like with [lastFixAt]. */
+    val accelerationAt: Long = 0L,
+    /** Acceleration over the last minute, one value per second. */
+    val accelerationTrace: AccelerationTrace = AccelerationTrace.EMPTY,
     val lastFixAt: Long = 0L,
     val lastLat: Double? = null,
     val lastLon: Double? = null,

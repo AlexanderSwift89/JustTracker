@@ -9,6 +9,7 @@ import com.justtracker.app.domain.model.UnitSystem
 import com.justtracker.app.data.poi.PoiResult
 import com.justtracker.app.domain.poi.GeoCell
 import com.justtracker.app.domain.poi.Poi
+import com.justtracker.app.domain.stats.Acceleration
 import com.justtracker.app.service.LiveTrackingState
 import com.justtracker.app.ui.common.PathSegment
 import com.justtracker.app.ui.common.TrackPath
@@ -47,6 +48,10 @@ data class RecordUiState(
     val pois: List<Poi> = emptyList(),
     /** Section of the line the user tapped, if any. */
     val tapped: TrackTapInfo? = null,
+    /** The acceleration indicator is open under the speed (US-23). */
+    val showAcceleration: Boolean = false,
+    /** The one-time hint "tap the speed to see acceleration" is still to be shown. */
+    val accelerationHintPending: Boolean = false,
 ) {
     /** Primary time: from Start until now, pauses included (US-06). */
     val recordingTimeMs: Long
@@ -70,8 +75,13 @@ data class RecordUiState(
     val position: GeoPoint?
         get() = live.lastLat?.let { lat -> live.lastLon?.let { lon -> GeoPoint(lat, lon) } }
 
+    /** Live acceleration while recording; null when unknown, paused or not confirmed by a fix for [ACCELERATION_STALE_MS] (ADR-20). */
+    val acceleration: Acceleration?
+        get() = live.acceleration?.takeIf { status == RecordStatus.RECORDING && nowMs - live.accelerationAt <= ACCELERATION_STALE_MS }
+
     companion object {
         const val GPS_STALE_MS = 10_000L
+        const val ACCELERATION_STALE_MS = 3_000L
     }
 }
 
@@ -129,6 +139,8 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
             pois = src.pois,
             // A tap belongs to the track it was made on; drop it once that track is finished.
             tapped = if (src.track == null) null else src.tapped,
+            showAcceleration = settings.showAcceleration,
+            accelerationHintPending = !settings.accelerationHintShown && !settings.showAcceleration,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RecordUiState())
 
@@ -148,6 +160,16 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun dismissTap() = tapped.update { null }
+
+    /** Tap on the speed: shows or hides the acceleration indicator; the choice is kept between recordings. */
+    fun toggleAcceleration() {
+        val show = !state.value.showAcceleration
+        viewModelScope.launch { container.settingsRepository.setShowAcceleration(show) }
+    }
+
+    fun onAccelerationHintShown() {
+        viewModelScope.launch { container.settingsRepository.setAccelerationHintShown() }
+    }
 
     /** Seeds the position marker from the last known location so the map opens near the user. */
     fun seedLastKnownLocation() {

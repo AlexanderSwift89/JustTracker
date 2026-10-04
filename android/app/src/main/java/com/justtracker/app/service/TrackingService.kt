@@ -25,6 +25,7 @@ import com.justtracker.app.domain.model.ActivityType
 import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.TrackPoint
 import com.justtracker.app.domain.model.TrackStatus
+import com.justtracker.app.domain.stats.AccelerationTrace
 import com.justtracker.app.domain.stats.IncrementalStats
 import com.justtracker.app.domain.stats.LiveMotion
 import com.justtracker.app.util.AppLog
@@ -95,7 +96,9 @@ class TrackingService : Service() {
     override fun onDestroy() {
         locationJob?.cancel()
         scope.cancel()
-        container.trackingController.update { it.copy(serviceRunning = false, currentSpeedMps = 0f) }
+        container.trackingController.update {
+            it.copy(serviceRunning = false, currentSpeedMps = 0f, acceleration = null, accelerationTrace = AccelerationTrace.EMPTY)
+        }
         super.onDestroy()
     }
 
@@ -138,7 +141,7 @@ class TrackingService : Service() {
         scope.launch {
             s.track = s.track.copy(status = TrackStatus.PAUSED)
             container.trackRepository.updateTrack(s.track)
-            container.trackingController.update { it.copy(currentSpeedMps = 0f) }
+            container.trackingController.update { it.copy(currentSpeedMps = 0f, acceleration = null) }
             refreshNotification(force = true)
         }
     }
@@ -252,15 +255,21 @@ class TrackingService : Service() {
             accuracyM = if (loc.hasAccuracy()) loc.accuracy else Float.MAX_VALUE,
             speedMps = if (loc.hasSpeed()) loc.speed else null,
         )
-        // Every usable fix feeds the live speed before the storage rules below drop near-duplicates (OBS-12).
+        // Every usable fix feeds the live speed and acceleration before the storage rules below drop near-duplicates
+        // (OBS-12, ADR-20).
         val fixAt = loc.monotonicMs()
         s.motion.onFix(fixAt, sample.speedMps, if (loc.hasSpeedAccuracy()) loc.speedAccuracyMetersPerSecond else null, filter.isAccurate(sample))
+        val now = System.currentTimeMillis()
+        val acceleration = s.motion.acceleration
         container.trackingController.update {
             it.copy(
-                lastFixAt = System.currentTimeMillis(),
+                lastFixAt = now,
                 lastLat = if (sample.accuracyM <= POSITION_MARKER_ACCURACY_M) sample.lat else it.lastLat,
                 lastLon = if (sample.accuracyM <= POSITION_MARKER_ACCURACY_M) sample.lon else it.lastLon,
                 currentSpeedMps = if (s.motion.hasDopplerSpeed(fixAt)) s.motion.speedMps else it.currentSpeedMps,
+                acceleration = acceleration,
+                accelerationAt = if (acceleration != null) now else it.accelerationAt,
+                accelerationTrace = s.motion.trace(),
             )
         }
         if (s.stats.lastSample == null) {
@@ -349,7 +358,7 @@ class TrackingService : Service() {
         }
         // Doppler speed of every fix when the receiver gives a trustworthy one, the stored points' speed otherwise.
         val liveSpeed = if (s.motion.hasDopplerSpeed(fixAt)) s.motion.speedMps else s.stats.currentSpeedMps
-        container.trackingController.update { it.copy(currentSpeedMps = liveSpeed) }
+        container.trackingController.update { it.copy(currentSpeedMps = liveSpeed, acceleration = s.motion.acceleration) }
         if (s.stats.pointCount >= MAX_POINTS_PER_TRACK) {
             AppLog.w("Max points reached, finishing track")
             handleStop()

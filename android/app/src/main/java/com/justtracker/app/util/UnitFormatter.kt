@@ -4,6 +4,7 @@ import android.content.Context
 import com.justtracker.app.R
 import com.justtracker.app.domain.model.UnitSystem
 import java.util.Locale
+import kotlin.math.abs
 
 /** Converts SI values to user-facing strings. The only place where units are applied (ADR-05). */
 class UnitFormatter(private val context: Context, val units: UnitSystem) {
@@ -71,6 +72,23 @@ class UnitFormatter(private val context: Context, val units: UnitSystem) {
         return String.format(Locale.US, "%d:%02d", m, s) + unit
     }
 
+    /** Signed acceleration without unit, one decimal: "+1,8", "−0,4", "0,0" (US-23). */
+    fun accelerationValue(mps2: Double): String = signedDecimal(accelerationInUnits(mps2, units), locale)
+
+    /** Magnitude only, one decimal — for TalkBack, which gets the direction as a word. */
+    fun accelerationMagnitude(mps2: Double): String = fmt(abs(accelerationInUnits(mps2, units)), 1)
+
+    fun accelerationUnit(): String = when (units) {
+        UnitSystem.METRIC -> context.getString(R.string.unit_mps2)
+        UnitSystem.IMPERIAL -> context.getString(R.string.unit_fps2)
+    }
+
+    /** The unit as TalkBack should say it ("meters per second squared"), not "m slash s two". */
+    fun accelerationUnitSpoken(): String = when (units) {
+        UnitSystem.METRIC -> context.getString(R.string.unit_mps2_spoken)
+        UnitSystem.IMPERIAL -> context.getString(R.string.unit_fps2_spoken)
+    }
+
     private fun speedInUnits(mps: Double) = when (units) {
         UnitSystem.METRIC -> mps * 3.6
         UnitSystem.IMPERIAL -> mps * MPH_PER_MPS
@@ -82,5 +100,24 @@ class UnitFormatter(private val context: Context, val units: UnitSystem) {
         const val METERS_PER_MILE = 1609.344
         const val FEET_PER_METER = 3.28084
         const val MPH_PER_MPS = 2.23694
+
+        /** m/s² in metric, ft/s² in imperial units. */
+        fun accelerationInUnits(mps2: Double, units: UnitSystem): Double = when (units) {
+            UnitSystem.METRIC -> mps2
+            UnitSystem.IMPERIAL -> mps2 * FEET_PER_METER
+        }
+
+        /**
+         * One decimal with an explicit sign; a value that rounds to zero gets none. The minus is U+2212, as wide as
+         * "+" in tabular figures, so the number does not shift when the direction changes.
+         */
+        fun signedDecimal(value: Double, locale: Locale): String {
+            val text = String.format(locale, "%.1f", abs(value))
+            return when {
+                Math.round(abs(value) * 10) == 0L -> text
+                value > 0 -> "+$text"
+                else -> "−$text"
+            }
+        }
     }
 }
