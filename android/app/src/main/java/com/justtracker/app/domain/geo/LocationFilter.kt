@@ -54,8 +54,11 @@ class LocationFilter(
     private val stationaryIntervalMs: Long = 30_000,
     private val maxPlausibleSpeedMps: Double = 70.0,
 ) {
+    /** Rule 1: the fix is accurate enough to be used at all. */
+    fun isAccurate(sample: Sample): Boolean = sample.accuracyM <= maxAccuracyM
+
     fun evaluate(prev: Sample?, next: Sample): FilterResult {
-        if (next.accuracyM > maxAccuracyM) return FilterResult.Rejected(FilterResult.Reason.INACCURATE)
+        if (!isAccurate(next)) return FilterResult.Rejected(FilterResult.Reason.INACCURATE)
         if (prev == null) return FilterResult.Accepted(0.0, next.speedMps ?: 0f)
         if (next.timestamp <= prev.timestamp) return FilterResult.Rejected(FilterResult.Reason.NOT_NEWER)
 

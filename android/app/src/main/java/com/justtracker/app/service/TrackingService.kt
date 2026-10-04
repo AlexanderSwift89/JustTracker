@@ -26,6 +26,7 @@ import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.TrackPoint
 import com.justtracker.app.domain.model.TrackStatus
 import com.justtracker.app.domain.stats.IncrementalStats
+import com.justtracker.app.domain.stats.LiveMotion
 import com.justtracker.app.util.AppLog
 import com.justtracker.app.util.TimeFormat
 import com.justtracker.app.util.AppLocale
@@ -55,6 +56,8 @@ class TrackingService : Service() {
         var pausedAt: Long?,
         /** First fix of the current segment, recorded once the next fix confirms it (LocationFilter.confirmStart). */
         var pendingStart: PendingFix? = null,
+        /** Live speed from every fix, not only the stored ones (OBS-12). */
+        val motion: LiveMotion = LiveMotion(),
     )
 
     private class PendingFix(val sample: Sample, val location: Location)
@@ -129,6 +132,7 @@ class TrackingService : Service() {
         locationJob = null
         s.pausedAt = System.currentTimeMillis()
         s.stats.breakSegment()
+        s.motion.reset()
         s.pendingStart = null
         jumps.reset()
         scope.launch {
@@ -248,11 +252,15 @@ class TrackingService : Service() {
             accuracyM = if (loc.hasAccuracy()) loc.accuracy else Float.MAX_VALUE,
             speedMps = if (loc.hasSpeed()) loc.speed else null,
         )
+        // Every usable fix feeds the live speed before the storage rules below drop near-duplicates (OBS-12).
+        val fixAt = loc.monotonicMs()
+        s.motion.onFix(fixAt, sample.speedMps, if (loc.hasSpeedAccuracy()) loc.speedAccuracyMetersPerSecond else null, filter.isAccurate(sample))
         container.trackingController.update {
             it.copy(
                 lastFixAt = System.currentTimeMillis(),
                 lastLat = if (sample.accuracyM <= POSITION_MARKER_ACCURACY_M) sample.lat else it.lastLat,
                 lastLon = if (sample.accuracyM <= POSITION_MARKER_ACCURACY_M) sample.lon else it.lastLon,
+                currentSpeedMps = if (s.motion.hasDopplerSpeed(fixAt)) s.motion.speedMps else it.currentSpeedMps,
             )
         }
         if (s.stats.lastSample == null) {
@@ -310,6 +318,8 @@ class TrackingService : Service() {
     /** Stores an accepted fix; false when the recording was finished because of it (storage full, point limit). */
     private suspend fun record(s: Session, sample: Sample, loc: Location, distanceM: Double, speedMps: Float): Boolean {
         s.stats.accept(sample, distanceM, speedMps)
+        val fixAt = loc.monotonicMs()
+        s.motion.onRecorded(fixAt, sample.speedMps, speedMps)
         val point = TrackPoint(
             trackId = s.track.id,
             segment = s.segment,
@@ -337,7 +347,9 @@ class TrackingService : Service() {
             handleStop()
             return false
         }
-        container.trackingController.update { it.copy(currentSpeedMps = s.stats.currentSpeedMps) }
+        // Doppler speed of every fix when the receiver gives a trustworthy one, the stored points' speed otherwise.
+        val liveSpeed = if (s.motion.hasDopplerSpeed(fixAt)) s.motion.speedMps else s.stats.currentSpeedMps
+        container.trackingController.update { it.copy(currentSpeedMps = liveSpeed) }
         if (s.stats.pointCount >= MAX_POINTS_PER_TRACK) {
             AppLog.w("Max points reached, finishing track")
             handleStop()
@@ -356,7 +368,7 @@ class TrackingService : Service() {
             paused = paused,
             startedAt = s?.track?.startedAt ?: System.currentTimeMillis(),
             distanceM = s?.stats?.distanceM ?: 0.0,
-            speedMps = s?.stats?.currentSpeedMps?.toDouble() ?: 0.0,
+            speedMps = if (s == null) 0.0 else container.trackingController.live.value.currentSpeedMps.toDouble(),
             formatter = formatter(),
         )
         return try {
@@ -382,7 +394,7 @@ class TrackingService : Service() {
             paused = s.track.status == TrackStatus.PAUSED,
             startedAt = s.track.startedAt,
             distanceM = s.stats.distanceM,
-            speedMps = s.stats.currentSpeedMps.toDouble(),
+            speedMps = container.trackingController.live.value.currentSpeedMps.toDouble(),
             formatter = formatter(),
         )
         try {
@@ -395,6 +407,9 @@ class TrackingService : Service() {
     private var cachedFormatter: UnitFormatter? = null
     private fun formatter(): UnitFormatter =
         cachedFormatter ?: UnitFormatter(localized, container.cachedSettings.units).also { cachedFormatter = it }
+
+    /** Fix time on the monotonic clock: unlike [Location.getTime] (UTC), it never steps when the clock is corrected. */
+    private fun Location.monotonicMs(): Long = elapsedRealtimeNanos / 1_000_000
 
     private fun autoName(type: ActivityType, startedAt: Long): String =
         localized.getString(type.labelRes()) + " · " + TimeFormat.dateShort(startedAt, AppLocale.current(container.cachedSettings))
