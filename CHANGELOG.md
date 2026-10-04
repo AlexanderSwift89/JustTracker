@@ -1,5 +1,29 @@
 # Changelog
 
+## JustTracker [1.1.0] - 2026-10-04 (versionCode 4)
+
+### Added
+- **Acceleration indicator on the recording screen** (US-23, ADR-20): tap the speed to show or hide a row
+  with the current along-track (horizontal) acceleration — an arrow (speeding up / slowing down / steady /
+  standing still), the signed value in m/s² (ft/s² for imperial units) and the last 60 seconds as bars,
+  up while speeding up and down while slowing down. Hidden by default; the choice is remembered. In
+  landscape the row sits beside the speed, so the panel does not grow. A one-time tooltip on the first
+  recording points to it. TalkBack reads the value in words.
+- Acceleration is the slope of a weighted least-squares fit of the receiver's Doppler ground speed over the
+  last 4 s (weights from the reported speed accuracy), with outlier, gap and standstill rules and direction
+  hysteresis — no accelerometer, no new permissions, nothing stored. Without a usable Doppler speed
+  (network fixes, a receiver reporting 0 while moving, pause) it shows "—".
+
+### Fixed
+- **Live speed stuck after a stop** (OBS-12): the speed on the panel and in the notification came only
+  from points stored in the track; the "moved ≥ 2 m or 30 s passed" storage rule skipped every second or
+  third fix at walking pace and kept the last moving value for up to 30 s after stopping. It now follows
+  the Doppler speed of every fix and drops to ~0 within 3–4 s; track statistics are unchanged.
+
+### Tests
+- 32 new unit tests (183 in total): acceleration estimator, last-minute history, live speed and
+  acceleration, sign and units.
+
 ## JustTracker [1.0.2] - 2026-09-23 (versionCode 3)
 
 ### Fixed

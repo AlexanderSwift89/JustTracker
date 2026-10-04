@@ -16,6 +16,7 @@ RECORDING
 • One big button: start, pause, stop.
 • Keeps recording with the screen off or in your pocket — the notification shows recording time, distance and speed.
 • Live map with the route coloured by speed and a stats panel: speed, distance, recording time, average and maximum speed.
+• Acceleration: tap the speed to see whether you are speeding up or slowing down, with a chart of the last minute.
 • A smart GPS filter drops jumps and inaccurate fixes.
 
 OFFLINE MAPS
@@ -45,6 +46,11 @@ SIMPLE AND SELF-CONTAINED
 Map data © OpenStreetMap contributors (ODbL). Offline maps: Mapsforge files. Place descriptions: Wikipedia, CC BY-SA 4.0.
 
 Privacy policy: https://alexanderswift89.github.io/JustTracker/privacy/
+
+## What's new (version 1.1.0)
+
+• Acceleration indicator: tap the speed on the recording screen to see your current acceleration (m/s²), a speeding-up / slowing-down arrow and a chart of the last minute. Tap again to hide it; the choice is remembered.
+• The live speed now updates every second and drops to zero as soon as you stop.
 
 ## What's new (version 1.0.2)
 

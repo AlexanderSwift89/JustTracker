@@ -119,6 +119,12 @@ RuStore принимает и AAB, и APK (на версию — 1 AAB + до 8 
 
 ## 5. Release notes
 
+### 1.1.0 (versionCode 4)
+**RU.** Индикатор ускорения: нажмите на скорость на экране записи — под ней появятся текущее ускорение (м/с²), стрелка «разгон / замедление» и график за последнюю минуту; повторное нажатие скрывает индикатор, выбор запоминается. Скорость на экране записи обновляется каждую секунду и сразу падает до нуля, когда вы остановились. Новых разрешений нет.
+**EN.** Acceleration indicator: tap the speed on the recording screen to see your current acceleration (m/s²), a speeding-up / slowing-down arrow and a chart of the last minute; tap again to hide it, the choice is remembered. The live speed now updates every second and drops to zero as soon as you stop. No new permissions.
+
+Тексты «Что нового» для консоли — `store/rustore/listing_ru.md` / `listing_en.md`. Скриншоты не устаревают: индикатор по умолчанию скрыт.
+
 ### 1.0.0 (JustTracker)
 **RU.** Первый выпуск JustTracker — простого автономного GPS-трекера: запись маршрута одной кнопкой (работает при выключенном экране), карта с линией по скорости, история и статистика, автоопределение типа движения, экспорт GPX. Новое относительно TrekLog 1.2: офлайн-карты регионов (скачайте округ или страну заранее — карта работает без интернета), явный выбор языка (русский/английский), работа без сервисов Google, интерфейс по Material Design 3 (splash, адаптивная навигация, themed icon), «Интересное рядом» с описаниями из Википедии и озвучкой.
 **EN.** First release of JustTracker, a simple self-contained GPS tracker: one-button route recording (keeps working with the screen off), map with a speed-coloured line, history and statistics, automatic activity detection, GPX export. New over TrekLog 1.2: offline map regions (download a district or country in advance and the map works without internet), explicit language choice (Russian/English), no Google services required, Material Design 3 UI (splash, adaptive navigation, themed icon), Places nearby with Wikipedia summaries and read-aloud.
