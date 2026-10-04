@@ -12,6 +12,9 @@ android/.idea/
 android/app/release/
 android/captures/
 
+# Team research notes: local working documents, never committed (decisions land in docs/)
+/research/
+
 # OS / editors
 .DS_Store
 Thumbs.db
