@@ -62,19 +62,28 @@ object TrackStatsCalculator {
         val raw = FloatArray(points.size)
         for (i in points.indices) {
             val p = points[i]
-            val implied = if (i == 0 || points[i - 1].segment != p.segment) {
-                0f
-            } else {
-                val q = points[i - 1]
-                val dt = (p.timestamp - q.timestamp) / 1000.0
-                if (dt <= 0) 0f else (Geo.distanceMeters(q.lat, q.lon, p.lat, p.lon) / dt).toFloat()
-            }
-            raw[i] = effectiveSpeed(p.speedMps, implied, MOVING_THRESHOLD_MPS)
+            val q = points.getOrNull(i - 1)?.takeIf { it.segment == p.segment }
+            raw[i] = rawSpeed(q, p, if (q == null) 0.0 else Geo.distanceMeters(q.lat, q.lon, p.lat, p.lon))
         }
         return List(points.size) { i ->
             if (i == 0 || i == points.lastIndex) raw[i] else median3(raw[i - 1], raw[i], raw[i + 1])
         }
     }
 
-    private fun median3(a: Float, b: Float, c: Float): Float = maxOf(minOf(a, b), minOf(maxOf(a, b), c))
+    /**
+     * Speed of [point] before smoothing: the reported GPS speed or the displacement [distanceM] from [previous] (the
+     * neighbour in the same segment, null at a segment start) over the time between them ([effectiveSpeed]).
+     * Shared with the incremental track line, which must give the very same values.
+     */
+    fun rawSpeed(previous: TrackPoint?, point: TrackPoint, distanceM: Double): Float {
+        val implied = if (previous == null) {
+            0f
+        } else {
+            val dt = (point.timestamp - previous.timestamp) / 1000.0
+            if (dt <= 0) 0f else (distanceM / dt).toFloat()
+        }
+        return effectiveSpeed(point.speedMps, implied, MOVING_THRESHOLD_MPS)
+    }
+
+    fun median3(a: Float, b: Float, c: Float): Float = maxOf(minOf(a, b), minOf(maxOf(a, b), c))
 }
