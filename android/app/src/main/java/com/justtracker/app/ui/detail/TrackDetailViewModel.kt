@@ -24,7 +24,9 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
@@ -41,8 +43,6 @@ data class TrackDetailUiState(
     val line: TrackLine = TrackLine.EMPTY,
     val units: UnitSystem = UnitSystem.METRIC,
     val loaded: Boolean = false,
-    /** Scrubber position on the track (slider / tap / arrows); start of the track by default. */
-    val cursor: TrackCursor? = null,
 )
 
 class TrackDetailViewModel(
@@ -54,11 +54,17 @@ class TrackDetailViewModel(
 
     private class Geometry(val line: TrackLine, val elevation: ElevationResult)
 
-    /** Track line and gain/loss, both derived from the points off the main thread; shared by the state and the write-back. */
-    private val geometry: SharedFlow<Geometry> = repo.observePoints(trackId)
+    /**
+     * Track line and gain/loss, derived from the points off the main thread; shared by the state, the cursor and the
+     * write-back. A finished track's points never change: they are read once per view model. Observing them re-read
+     * and rebuilt up to 100 000 points on every fix a recording stored meanwhile (D-27).
+     */
+    private val geometry: SharedFlow<Geometry> = flow { emit(repo.getPoints(trackId)) }
         .map { points -> Geometry(TrackLine.of(points), ElevationCalculator.gainLoss(points)) }
         .flowOn(Dispatchers.Default)
-        .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), replay = 1)
+        .shareIn(viewModelScope, SharingStarted.Lazily, replay = 1)
+
+    private val track = repo.observeTrack(trackId)
 
     /**
      * Global vertex index the user scrubbed to; 0 (track start) until touched. Saved state, like the
@@ -67,16 +73,25 @@ class TrackDetailViewModel(
     private val cursorIndex = savedState.getMutableStateFlow(KEY_CURSOR, 0)
 
     val state: StateFlow<TrackDetailUiState> = combine(
-        repo.observeTrack(trackId),
+        track,
         geometry,
         container.settingsRepository.settings,
-        cursorIndex,
-    ) { track, geo, settings, idx ->
+    ) { track, geo, settings ->
         // Gain/loss are always shown as computed from the points by the current algorithm, never from a stale row.
         val shown = track?.copy(elevationGainM = geo.elevation.gainM, elevationLossM = geo.elevation.lossM)
-        val cursor = shown?.let { geo.line.cursorAt(idx, it.startedAt) }
-        TrackDetailUiState(shown, geo.line, settings.units, loaded = true, cursor = cursor)
+        TrackDetailUiState(shown, geo.line, settings.units, loaded = true)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrackDetailUiState())
+
+    /**
+     * Scrubber position (slider, tap, arrows); the start of the track until touched. A flow of its own: dragging the
+     * slider redraws the cursor panel and moves the map's ring, not the whole screen.
+     */
+    val cursor: StateFlow<TrackCursor?> = combine(
+        geometry,
+        track.map { it?.startedAt }.distinctUntilChanged(),
+        cursorIndex,
+    ) { geo, startedAt, idx -> startedAt?.let { geo.line.cursorAt(idx, it) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     init {
         // Tracks finished before 1.0.2 stored the gain/loss of the old algorithm (GPS noise counted as

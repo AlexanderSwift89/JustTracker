@@ -76,6 +76,7 @@ import com.justtracker.app.ui.common.SkeletonStatTile
 import com.justtracker.app.ui.common.SpeedLegend
 import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.ui.common.StatTile
+import com.justtracker.app.domain.geo.LatLon
 import com.justtracker.app.domain.track.TrackCursor
 import com.justtracker.app.ui.common.TrackMap
 import com.justtracker.app.ui.common.appViewModelWithState
@@ -151,6 +152,7 @@ private fun DetailMap(
     formatter: UnitFormatter,
     offline: Boolean,
     onTrackTap: (index: Int) -> Unit,
+    highlight: () -> LatLon?,
     modifier: Modifier = Modifier,
 ) {
     val track = state.track ?: return
@@ -160,7 +162,7 @@ private fun DetailMap(
             modifier = Modifier.fillMaxSize(),
             lineColor = ActivityColors.of(track.activityType),
             maxSpeedMps = track.maxSpeedMps,
-            highlight = state.cursor?.point,
+            highlight = highlight(),
             fitToTrack = true,
             showStartFinish = true,
             onTrackTap = onTrackTap,
@@ -278,6 +280,8 @@ fun TrackDetailScreen(
     viewModel: TrackDetailViewModel = appViewModelWithState(key = "detail-$trackId") { c, saved -> TrackDetailViewModel(c, trackId, saved) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // Read only where it is shown (the cursor panel and the map's ring): the slider does not recompose the screen.
+    val cursorState = viewModel.cursor.collectAsStateWithLifecycle()
     val appSettings by LocalAppContainer.current.settingsFlow.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -305,6 +309,7 @@ fun TrackDetailScreen(
                 formatter = f,
                 offline = offline,
                 onTrackTap = viewModel::onTrackTap,
+                highlight = { cursorState.value?.point },
                 modifier = modifier,
             )
         }
@@ -377,7 +382,7 @@ fun TrackDetailScreen(
             val offline = appSettings.mapMode == MapMode.OFFLINE
             val tiles = statTiles(track, formatter)
             val cursorPanel = @Composable {
-                state.cursor?.let { cursor ->
+                cursorState.value?.let { cursor ->
                     TrackCursorPanel(cursor = cursor, formatter = formatter, onFraction = viewModel::scrubToFraction, onStep = viewModel::stepCursor)
                 }
             }
