@@ -9,10 +9,12 @@ plugins {
     alias(libs.plugins.room)
 }
 
-// Release signing is read from keystore.properties (git-ignored). Without it the release
-// build falls back to the debug key so `bundleRelease` still works for local verification —
-// such a build must never be uploaded: 1.0.0 reached RuStore that way (D-24).
+// Release signing is read from keystore.properties (git-ignored). Without it the release build is
+// left unsigned (app-release-unsigned.apk: cannot be installed or uploaded) — a silent fallback to the
+// debug key is how 1.0.0 reached RuStore (D-24, SEC-03). For a local R8 check on a device the debug key
+// can be asked for explicitly: -PallowDebugSignedRelease=true (a warning is printed; never upload it).
 // RuStore does not re-sign uploads: the same release key must be used for every version.
+val allowDebugSignedRelease = providers.gradleProperty("allowDebugSignedRelease").orNull?.toBoolean() == true
 val keystorePropsFile = rootProject.file("keystore.properties")
 val keystoreProps = Properties().apply {
     if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
@@ -61,10 +63,13 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            signingConfig = if (keystoreProps.isNotEmpty()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
+            signingConfig = when {
+                keystoreProps.isNotEmpty() -> signingConfigs.getByName("release")
+                allowDebugSignedRelease -> {
+                    logger.warn("JustTracker: release is signed with the DEBUG key (-PallowDebugSignedRelease) — never upload it (D-24)")
+                    signingConfigs.getByName("debug")
+                }
+                else -> null
             }
         }
     }
