@@ -76,7 +76,7 @@ import com.justtracker.app.ui.common.SkeletonStatTile
 import com.justtracker.app.ui.common.SpeedLegend
 import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.ui.common.StatTile
-import com.justtracker.app.ui.common.TrackCursor
+import com.justtracker.app.domain.track.TrackCursor
 import com.justtracker.app.ui.common.TrackMap
 import com.justtracker.app.ui.common.appViewModelWithState
 import com.justtracker.app.ui.common.FittedText
@@ -150,13 +150,13 @@ private fun DetailMap(
     state: TrackDetailUiState,
     formatter: UnitFormatter,
     offline: Boolean,
-    onTrackTap: (segment: Int, index: Int) -> Unit,
+    onTrackTap: (index: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val track = state.track ?: return
     Box(modifier) {
         TrackMap(
-            segments = state.segments,
+            line = state.line,
             modifier = Modifier.fillMaxSize(),
             lineColor = ActivityColors.of(track.activityType),
             maxSpeedMps = track.maxSpeedMps,

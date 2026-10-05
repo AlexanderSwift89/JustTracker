@@ -34,6 +34,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.justtracker.app.R
 import com.justtracker.app.data.maps.render.HybridTileProvider
 import com.justtracker.app.domain.maps.MapMode
+import com.justtracker.app.domain.geo.LatLon
+import com.justtracker.app.domain.track.TrackLine
 import com.justtracker.app.util.AppLocale
 import com.justtracker.app.util.traced
 import org.osmdroid.events.MapListener
@@ -74,16 +76,19 @@ private class MapCamera(
 
 /** Mutable state the AndroidView keeps between recompositions. */
 private class MapHolder(val map: MapView, val camera: MapCamera) {
-    val polylines = mutableListOf<Polyline>()
-    val mappings = mutableListOf<SpeedMapping>()
+    /** Pieces of the drawn line, in line order; see [syncLine]. */
+    val pieces = mutableListOf<LinePiece>()
+    /** The snapshot the pieces were drawn from. */
+    var line: TrackLine? = null
     var positionMarker: Marker? = null
     var startMarker: Marker? = null
     var finishMarker: Marker? = null
     var highlightMarker: Marker? = null
-    var lastFollowTarget: GeoPoint? = null
+    var lastFollowTarget: LatLon? = null
     var lineColor: Int = 0
     var speedColors = false
-    var onTrackTap: ((segment: Int, index: Int) -> Unit)? = null
+    var maxSpeedMps = 0.0
+    var onTrackTap: ((index: Int) -> Unit)? = null
     var onUserGesture: (() -> Unit)? = null
 
     /** Uptime of the last touch on the map: camera changes right after one are the user's. */
@@ -152,21 +157,23 @@ internal fun fitPadding(width: Int, height: Int, paddingPx: Int, minViewportPx: 
 }
 
 /**
- * Colour per vertex for osmdroid's [PolychromaticPaintList]; the line between vertex i and i+1 is
- * painted with the colour of vertex i. Speeds and the scale top are swapped in place so a growing
- * live track and a rising max speed only need an invalidate, not a rebuild.
+ * Colour per vertex for osmdroid's [PolychromaticPaintList] of one piece of the line: the line between vertex i and
+ * i+1 of the piece is painted with the colour of line vertex [start] + i. The snapshot and the scale top are swapped
+ * in place, so a growing live track (whose last vertex's speed is still provisional) and a rising max speed only
+ * need an invalidate, not a rebuild.
  */
-private class SpeedMapping(var speeds: FloatArray, var maxMps: Double, val fallback: Int) : ColorMapping {
-    override fun getColorForIndex(index: Int): Int {
-        if (speeds.isEmpty()) return fallback
-        return SpeedColorScale.colorForSpeed(speeds[index.coerceIn(0, speeds.size - 1)], maxMps)
-    }
+private class SpeedMapping(var line: TrackLine, val start: Int, val end: Int, var maxMps: Double) : ColorMapping {
+    override fun getColorForIndex(index: Int): Int =
+        SpeedColorScale.colorForSpeed(line.speedMps((start + index).coerceIn(start, minOf(end, line.size - 1))), maxMps)
 }
+
+/** One polyline of the line: vertices [start]..[end] (inclusive) of a [TrackLine], within one segment and chunk. */
+private class LinePiece(val start: Int, val end: Int, val polyline: Polyline, val mapping: SpeedMapping?)
 
 /**
  * Compose wrapper over osmdroid's MapView (docs/05_architecture.md §7).
  *
- * @param segments one polyline per recording segment; gaps between segments are not connected.
+ * @param line the track; recording segments are not connected to each other.
  * @param speedColors colour the line by each vertex's speed relative to [maxSpeedMps]
  *   (see [SpeedColorScale]); when false the line is drawn in [lineColor].
  * @param maxSpeedMps top of the speed colour scale (the track's max speed).
@@ -175,23 +182,23 @@ private class SpeedMapping(var speeds: FloatArray, var maxMps: Double, val fallb
  * @param fitToTrack when true, the camera fits the whole track for every new view size until the
  *   user pans or zooms (detail mode); the camera itself survives activity recreation.
  * @param onUserGesture invoked when the user drags the map (used to disable follow mode).
- * @param onTrackTap invoked with (segment, vertex index) when the user taps the line.
+ * @param onTrackTap invoked with the line vertex index when the user taps the line.
  */
 @SuppressLint("ClickableViewAccessibility")
 @Composable
 fun TrackMap(
-    segments: List<PathSegment>,
+    line: TrackLine,
     modifier: Modifier = Modifier,
     lineColor: Color = MaterialTheme.colorScheme.primary,
     speedColors: Boolean = true,
     maxSpeedMps: Double = 0.0,
-    position: GeoPoint? = null,
-    highlight: GeoPoint? = null,
+    position: LatLon? = null,
+    highlight: LatLon? = null,
     follow: Boolean = false,
     fitToTrack: Boolean = false,
     showStartFinish: Boolean = false,
     onUserGesture: (() -> Unit)? = null,
-    onTrackTap: ((segment: Int, index: Int) -> Unit)? = null,
+    onTrackTap: ((index: Int) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -305,15 +312,15 @@ fun TrackMap(
         update = { map -> traced("map.update") {
             holder.onTrackTap = onTrackTap
             holder.onUserGesture = onUserGesture
-            syncPolylines(holder, segments, lineColor.toArgb(), strokePx, speedColors, maxSpeedMps)
-            syncStartFinish(holder, segments, showStartFinish, startColor, finishColor)
-            syncPosition(holder, position, primaryArgb)
-            syncHighlight(holder, highlight, highlightColor)
+            // Only a real change redraws the map: an unchanged recomposition used to invalidate it as well (D-28).
+            var changed = syncLine(holder, line, lineColor.toArgb(), strokePx, speedColors, maxSpeedMps)
+            changed = syncStartFinish(holder, line, showStartFinish, startColor, finishColor) || changed
+            changed = syncPosition(holder, position, primaryArgb) || changed
+            changed = syncHighlight(holder, highlight, highlightColor) || changed
 
             if (fitToTrack && holder.fitBox == null) {
-                val all = segments.flatMap { it.points }
-                if (all.isNotEmpty()) {
-                    holder.fitBox = BoundingBox.fromGeoPoints(all)
+                line.bounds?.let { b ->
+                    holder.fitBox = BoundingBox(b.maxLat, b.maxLon, b.minLat, b.minLon)
                     holder.fitPaddingPx = paddingPx
                     holder.fitMinViewportPx = minViewportPx
                     // Before the first layout the view has no size; the layout listener fits it then.
@@ -323,74 +330,108 @@ fun TrackMap(
             if (follow && position != null && position != holder.lastFollowTarget) {
                 holder.lastFollowTarget = position
                 if (map.zoomLevelDouble < FOLLOW_MIN_ZOOM) map.controller.setZoom(FOLLOW_ZOOM)
-                followTo(map, position, followSnapPx)
+                followTo(map, GeoPoint(position.lat, position.lon), followSnapPx)
             }
-            map.invalidate()
+            if (changed) map.invalidate()
         } },
     )
     }
 }
 
-private fun syncPolylines(
+/**
+ * Draws [line] as pieces — a segment cut at chunk boundaries, each piece also holding the first vertex of the next
+ * chunk so the line has no gaps. While a recording grows (same generation, more vertices) only the pieces from the
+ * previously last vertex on are rebuilt: O(chunk) per fix instead of the whole track (ADR-25); osmdroid also skips
+ * pieces outside the view. A new generation, colour or colour mode rebuilds everything. Returns whether anything changed.
+ */
+private fun syncLine(
     holder: MapHolder,
-    segments: List<PathSegment>,
+    line: TrackLine,
     color: Int,
     strokePx: Float,
     speedColors: Boolean,
     maxSpeedMps: Double,
-) {
+): Boolean {
+    val previous = holder.line
+    if (previous === line && holder.lineColor == color && holder.speedColors == speedColors && holder.maxSpeedMps == maxSpeedMps) return false
     val map = holder.map
-    // Grow the last polyline in place when only new points were appended (1 Hz live updates).
-    val sameShape = holder.lineColor == color && holder.speedColors == speedColors && holder.polylines.size == segments.size &&
-        holder.polylines.dropLast(1).zip(segments.dropLast(1)).all { (pl, seg) -> pl.actualPoints.size == seg.size }
-    if (sameShape && holder.polylines.isNotEmpty()) {
-        val last = holder.polylines.last()
-        val seg = segments.last()
-        val have = last.actualPoints.size
-        if (seg.size >= have) {
-            if (seg.size > have) last.setPoints(seg.points)
-            // Speeds of already drawn vertices change slightly (median window), max may grow: refresh all.
-            holder.mappings.forEachIndexed { i, m ->
-                m.speeds = segments[i].speedsMps
-                m.maxMps = maxSpeedMps
-            }
-            return
-        }
+    val extends = previous != null && previous.generation == line.generation && line.size >= previous.size &&
+        holder.lineColor == color && holder.speedColors == speedColors
+    // Vertices before the previously last one are final: pieces that end before it are kept as they are.
+    val keepBefore = if (extends) previous!!.size - 1 else 0
+    var kept = 0
+    if (extends) {
+        while (kept < holder.pieces.size && holder.pieces[kept].end < keepBefore) kept++
     }
-    holder.polylines.forEach { map.overlays.remove(it) }
-    holder.polylines.clear()
-    holder.mappings.clear()
+    for (i in holder.pieces.size - 1 downTo kept) map.overlays.remove(holder.pieces.removeAt(i).polyline)
     holder.lineColor = color
     holder.speedColors = speedColors
-    for ((segmentIndex, seg) in segments.withIndex()) {
-        val pl = Polyline(map).apply {
-            outlinePaint.color = color
-            outlinePaint.strokeWidth = strokePx
-            outlinePaint.strokeCap = Paint.Cap.ROUND
-            outlinePaint.strokeJoin = Paint.Join.ROUND
-            if (speedColors) {
-                val mapping = SpeedMapping(seg.speedsMps, maxSpeedMps, color)
-                holder.mappings.add(mapping)
-                // osmdroid picks the draw mode by whichever getter was called LAST: getOutlinePaint()
-                // selects the single-paint path, getOutlinePaintLists() the per-segment one. Copy the
-                // paint first, touch the lists last.
-                val paint = Paint(outlinePaint)
-                outlinePaintLists.add(PolychromaticPaintList(paint, mapping, false))
-            }
-            setPoints(seg.points)
-            isGeodesic = false
-            infoWindow = null
-            setOnClickListener { pl, _, eventPos ->
-                val cb = holder.onTrackTap ?: return@setOnClickListener false
-                // pl.actualPoints, not seg.points: the live polyline grows in place after creation.
-                val idx = nearestIndex(pl.actualPoints, eventPos)
-                if (idx >= 0) cb(segmentIndex, idx)
-                idx >= 0
-            }
-        }
-        holder.polylines.add(pl)
-        map.overlays.add(0, pl)
+    holder.maxSpeedMps = maxSpeedMps
+    holder.line = line
+    for (piece in holder.pieces) piece.mapping?.let {
+        it.line = line
+        it.maxMps = maxSpeedMps
     }
+    val from = holder.pieces.lastOrNull()?.end ?: 0
+    forEachPiece(line) { a, b ->
+        if (b <= from && holder.pieces.isNotEmpty()) return@forEachPiece
+        holder.pieces.add(newPiece(holder, line, a, b, color, strokePx, speedColors, maxSpeedMps))
+    }
+    return true
+}
+
+/** Calls [action] with the first and last vertex of every piece of [line], in order (single-vertex pieces skipped). */
+private inline fun forEachPiece(line: TrackLine, action: (start: Int, end: Int) -> Unit) {
+    val chunk = line.chunkSize
+    for (s in 0 until line.segmentCount) {
+        val segEnd = line.segmentEnd(s)
+        var a = line.segmentStart(s)
+        while (a < segEnd - 1) {
+            val nextChunk = (a / chunk + 1) * chunk
+            val b = minOf(segEnd - 1, nextChunk)
+            action(a, b)
+            a = b
+        }
+    }
+}
+
+private fun newPiece(
+    holder: MapHolder,
+    line: TrackLine,
+    start: Int,
+    end: Int,
+    color: Int,
+    strokePx: Float,
+    speedColors: Boolean,
+    maxSpeedMps: Double,
+): LinePiece {
+    val map = holder.map
+    var mapping: SpeedMapping? = null
+    val pl = Polyline(map).apply {
+        outlinePaint.color = color
+        outlinePaint.strokeWidth = strokePx
+        outlinePaint.strokeCap = Paint.Cap.ROUND
+        outlinePaint.strokeJoin = Paint.Join.ROUND
+        if (speedColors) {
+            mapping = SpeedMapping(line, start, end, maxSpeedMps)
+            // osmdroid picks the draw mode by whichever getter was called LAST: getOutlinePaint()
+            // selects the single-paint path, getOutlinePaintLists() the per-segment one. Copy the
+            // paint first, touch the lists last.
+            val paint = Paint(outlinePaint)
+            outlinePaintLists.add(PolychromaticPaintList(paint, mapping, false))
+        }
+        setPoints((start..end).map { GeoPoint(line.lat(it), line.lon(it)) })
+        isGeodesic = false
+        infoWindow = null
+        setOnClickListener { pl, _, eventPos ->
+            val cb = holder.onTrackTap ?: return@setOnClickListener false
+            val idx = nearestIndex(pl.actualPoints, eventPos)
+            if (idx >= 0) cb(start + idx)
+            idx >= 0
+        }
+    }
+    map.overlays.add(0, pl)
+    return LinePiece(start, end, pl, mapping)
 }
 
 /**
@@ -427,50 +468,64 @@ private fun nearestIndex(points: List<GeoPoint>, target: GeoPoint): Int {
     return best
 }
 
-private fun syncHighlight(holder: MapHolder, highlight: GeoPoint?, color: Int) {
+private fun syncHighlight(holder: MapHolder, highlight: LatLon?, color: Int): Boolean {
     val map = holder.map
     if (highlight == null) {
-        holder.highlightMarker?.let { map.overlays.remove(it) }
+        val marker = holder.highlightMarker ?: return false
+        map.overlays.remove(marker)
         holder.highlightMarker = null
-        return
+        return true
     }
     val marker = holder.highlightMarker ?: ringMarker(map, color, 18f).also {
         holder.highlightMarker = it
         map.overlays.add(it)
     }
-    marker.position = highlight
+    return marker.moveTo(highlight)
 }
 
-private fun syncStartFinish(holder: MapHolder, segments: List<PathSegment>, show: Boolean, startColor: Int, finishColor: Int) {
+private fun syncStartFinish(holder: MapHolder, line: TrackLine, show: Boolean, startColor: Int, finishColor: Int): Boolean {
     val map = holder.map
-    val all = segments.flatMap { it.points }
-    if (!show || all.size < 2) {
+    if (!show || line.size < 2) {
+        if (holder.startMarker == null) return false
         holder.startMarker?.let { map.overlays.remove(it) }
         holder.finishMarker?.let { map.overlays.remove(it) }
         holder.startMarker = null
         holder.finishMarker = null
-        return
+        return true
     }
-    if (holder.startMarker == null) {
-        holder.startMarker = dotMarker(map, startColor, 16f).also { map.overlays.add(it) }
-        holder.finishMarker = dotMarker(map, finishColor, 16f).also { map.overlays.add(it) }
+    val start = holder.startMarker ?: dotMarker(map, startColor, 16f).also {
+        holder.startMarker = it
+        map.overlays.add(it)
     }
-    holder.startMarker?.position = all.first()
-    holder.finishMarker?.position = all.last()
+    val finish = holder.finishMarker ?: dotMarker(map, finishColor, 16f).also {
+        holder.finishMarker = it
+        map.overlays.add(it)
+    }
+    val movedStart = start.moveTo(line.point(0))
+    return finish.moveTo(line.point(line.size - 1)) || movedStart
 }
 
-private fun syncPosition(holder: MapHolder, position: GeoPoint?, color: Int) {
+private fun syncPosition(holder: MapHolder, position: LatLon?, color: Int): Boolean {
     val map = holder.map
     if (position == null) {
-        holder.positionMarker?.let { map.overlays.remove(it) }
+        val marker = holder.positionMarker ?: return false
+        map.overlays.remove(marker)
         holder.positionMarker = null
-        return
+        return true
     }
     val marker = holder.positionMarker ?: dotMarker(map, color, 14f).also {
         holder.positionMarker = it
         map.overlays.add(it)
     }
-    marker.position = position
+    return marker.moveTo(position)
+}
+
+/** Moves the marker to [point]; false when it already stands there. */
+private fun Marker.moveTo(point: LatLon): Boolean {
+    val current = position
+    if (current != null && current.latitude == point.lat && current.longitude == point.lon) return false
+    position = GeoPoint(point.lat, point.lon)
+    return true
 }
 
 private fun dotMarker(map: MapView, color: Int, sizeDp: Float): Marker {

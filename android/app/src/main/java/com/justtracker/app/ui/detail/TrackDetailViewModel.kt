@@ -16,9 +16,8 @@ import com.justtracker.app.domain.model.ActivityType
 import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.TrackStatus
 import com.justtracker.app.domain.model.UnitSystem
-import com.justtracker.app.ui.common.PathSegment
-import com.justtracker.app.ui.common.TrackCursor
-import com.justtracker.app.ui.common.TrackPath
+import com.justtracker.app.domain.track.TrackCursor
+import com.justtracker.app.domain.track.TrackLine
 import com.justtracker.app.util.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharedFlow
@@ -39,7 +38,7 @@ import kotlin.math.abs
 data class TrackDetailUiState(
     val track: Track? = null,
     /** Track line with per-vertex speed, distance and time (docs/06_system_analysis.md §3.6). */
-    val segments: List<PathSegment> = emptyList(),
+    val line: TrackLine = TrackLine.EMPTY,
     val units: UnitSystem = UnitSystem.METRIC,
     val loaded: Boolean = false,
     /** Scrubber position on the track (slider / tap / arrows); start of the track by default. */
@@ -53,11 +52,11 @@ class TrackDetailViewModel(
 ) : ViewModel() {
     private val repo = container.trackRepository
 
-    private class Geometry(val segments: List<PathSegment>, val elevation: ElevationResult)
+    private class Geometry(val line: TrackLine, val elevation: ElevationResult)
 
     /** Track line and gain/loss, both derived from the points off the main thread; shared by the state and the write-back. */
     private val geometry: SharedFlow<Geometry> = repo.observePoints(trackId)
-        .map { points -> Geometry(TrackPath.build(points), ElevationCalculator.gainLoss(points)) }
+        .map { points -> Geometry(TrackLine.of(points), ElevationCalculator.gainLoss(points)) }
         .flowOn(Dispatchers.Default)
         .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), replay = 1)
 
@@ -75,8 +74,8 @@ class TrackDetailViewModel(
     ) { track, geo, settings, idx ->
         // Gain/loss are always shown as computed from the points by the current algorithm, never from a stale row.
         val shown = track?.copy(elevationGainM = geo.elevation.gainM, elevationLossM = geo.elevation.lossM)
-        val cursor = shown?.let { TrackPath.cursorAt(geo.segments, idx, it.startedAt) }
-        TrackDetailUiState(shown, geo.segments, settings.units, loaded = true, cursor = cursor)
+        val cursor = shown?.let { geo.line.cursorAt(idx, it.startedAt) }
+        TrackDetailUiState(shown, geo.line, settings.units, loaded = true, cursor = cursor)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrackDetailUiState())
 
     init {
@@ -93,18 +92,18 @@ class TrackDetailViewModel(
     }
 
     /** Tap on the track line moves the scrubber to that vertex. */
-    fun onTrackTap(segment: Int, index: Int) {
-        cursorIndex.value = TrackPath.globalIndex(state.value.segments, segment, index)
+    fun onTrackTap(index: Int) {
+        cursorIndex.value = index
     }
 
     /** Slider: 0..1 share of the total distance. */
     fun scrubToFraction(fraction: Float) {
-        cursorIndex.value = TrackPath.indexForFraction(state.value.segments, fraction)
+        cursorIndex.value = state.value.line.indexForFraction(fraction)
     }
 
     /** Arrow buttons: move one vertex back or forward. */
     fun stepCursor(delta: Int) {
-        val count = TrackPath.pointCount(state.value.segments)
+        val count = state.value.line.size
         if (count == 0) return
         cursorIndex.update { (it + delta).coerceIn(0, count - 1) }
     }

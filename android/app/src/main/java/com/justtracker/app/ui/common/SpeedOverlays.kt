@@ -30,6 +30,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.justtracker.app.R
+import com.justtracker.app.domain.track.TrackTapInfo
 import com.justtracker.app.util.TimeFormat
 import com.justtracker.app.util.UnitFormatter
 import kotlinx.coroutines.delay

@@ -8,9 +8,9 @@ import com.justtracker.app.domain.model.TrackStatus
 import com.justtracker.app.domain.model.UnitSystem
 import com.justtracker.app.domain.stats.Acceleration
 import com.justtracker.app.service.LiveTrackingState
-import com.justtracker.app.ui.common.PathSegment
-import com.justtracker.app.ui.common.TrackPath
-import com.justtracker.app.ui.common.TrackTapInfo
+import com.justtracker.app.domain.geo.LatLon
+import com.justtracker.app.domain.track.TrackLine
+import com.justtracker.app.domain.track.TrackTapInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -29,15 +29,16 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.justtracker.app.util.traced
-import org.osmdroid.util.GeoPoint
 
 enum class RecordStatus { IDLE, RECORDING, PAUSED }
 
 data class RecordUiState(
     val track: Track? = null,
     /** Track line with per-vertex speed (docs/06_system_analysis.md §3.6). */
-    val segments: List<PathSegment> = emptyList(),
+    val line: TrackLine = TrackLine.EMPTY,
     val live: LiveTrackingState = LiveTrackingState(),
+    /** Last position good enough for the marker; a value, so an unchanged position does not redraw the map (D-28). */
+    val position: LatLon? = null,
     val units: UnitSystem = UnitSystem.METRIC,
     val keepScreenOn: Boolean = false,
     val nowMs: Long = System.currentTimeMillis(),
@@ -66,9 +67,6 @@ data class RecordUiState(
     /** Active track exists in DB but no service is alive in this process → offer recovery (US-04). */
     val needsRecovery: Boolean
         get() = track != null && !live.serviceRunning
-
-    val position: GeoPoint?
-        get() = live.lastLat?.let { lat -> live.lastLon?.let { lon -> GeoPoint(lat, lon) } }
 
     /** Live acceleration while recording; null when unknown, paused or not confirmed by a fix for [ACCELERATION_STALE_MS] (ADR-20). */
     val acceleration: Acceleration?
@@ -107,23 +105,24 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
         }
 
     // Speed smoothing + distances are O(n) per emission (1 Hz): keep them off the main thread.
-    private val segments = activeTrack
+    private val line = activeTrack
         .flatMapLatest { track -> if (track == null) flowOf(emptyList()) else container.trackRepository.observePoints(track.id) }
-        .map { points -> traced("record.trackLine") { TrackPath.build(points) } }
+        .map { points -> traced("record.trackLine") { TrackLine.of(points) } }
         .flowOn(Dispatchers.Default)
 
     private val tapped = MutableStateFlow<TrackTapInfo?>(null)
 
     val state: StateFlow<RecordUiState> = combine(
-        combine(activeTrack, segments, tapped) { t, s, tap -> Sources(t, s, tap) },
+        combine(activeTrack, line, tapped) { t, l, tap -> Sources(t, l, tap) },
         controller.live,
         container.settingsRepository.settings,
         clock,
     ) { src, live, settings, now ->
         RecordUiState(
             track = src.track,
-            segments = src.segments,
+            line = src.line,
             live = live,
+            position = live.lastLat?.let { lat -> live.lastLon?.let { lon -> LatLon(lat, lon) } },
             units = settings.units,
             keepScreenOn = settings.keepScreenOn,
             nowMs = now,
@@ -134,7 +133,7 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RecordUiState())
 
-    private class Sources(val track: Track?, val segments: List<PathSegment>, val tapped: TrackTapInfo?)
+    private class Sources(val track: Track?, val line: TrackLine, val tapped: TrackTapInfo?)
 
     private companion object {
         const val TICK_MS = 1_000L
@@ -147,10 +146,10 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
     fun recover() = controller.recover()
 
     /** Tap on the track line: resolve the vertex to its speed / distance / elapsed time. */
-    fun onTrackTap(segment: Int, index: Int) {
+    fun onTrackTap(index: Int) {
         val s = state.value
         val startedAt = s.track?.startedAt ?: return
-        tapped.value = TrackPath.tapInfo(s.segments, segment, index, startedAt)
+        tapped.value = s.line.tapInfo(index, startedAt)
     }
 
     fun dismissTap() = tapped.update { null }

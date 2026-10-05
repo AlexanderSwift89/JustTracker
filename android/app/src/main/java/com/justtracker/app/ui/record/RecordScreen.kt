@@ -218,7 +218,7 @@ fun RecordScreen(
                 .padding(padding),
         ) {
             TrackMap(
-                segments = state.segments,
+                line = state.line,
                 modifier = Modifier.fillMaxSize(),
                 maxSpeedMps = state.track?.maxSpeedMps ?: 0.0,
                 position = state.position,
@@ -262,7 +262,7 @@ fun RecordScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                if (state.status != RecordStatus.IDLE && state.segments.isNotEmpty()) {
+                if (state.status != RecordStatus.IDLE && !state.line.isEmpty) {
                     SpeedLegend(maxSpeedMps = state.track?.maxSpeedMps ?: 0.0, formatter = formatter)
                 }
                 if (appSettings.mapMode == MapMode.OFFLINE) MapModeBadge()

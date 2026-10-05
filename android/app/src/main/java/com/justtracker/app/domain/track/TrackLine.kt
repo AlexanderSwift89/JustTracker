@@ -5,6 +5,7 @@ import com.justtracker.app.domain.geo.LatLon
 import com.justtracker.app.domain.maps.LatLonBox
 import com.justtracker.app.domain.model.TrackPoint
 import com.justtracker.app.domain.stats.TrackStatsCalculator
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Position of the detail-screen scrubber on the track: a vertex by its index over the whole line, plus everything the
@@ -62,7 +63,8 @@ class LineChunk internal constructor(capacity: Int) {
  * nor connects the line), the time and the altitude. Vertices are addressed by one index over the whole line.
  *
  * Built by [TrackLineBuilder], which extends a recording's line point by point without copying it (ADR-25).
- * [generation] changes only when the line was built anew instead of extended; a consumer that drew vertices
+ * [generation] is unique to a builder and changes when it is reset: a line built anew never shares it with an
+ * earlier one, while one builder's snapshots keep it as the line is extended. A consumer that drew vertices
  * `0 until n` of an earlier snapshot of the same generation may keep them, apart from the last one, whose speed
  * changes when the next vertex arrives.
  */
@@ -181,7 +183,7 @@ class TrackLineBuilder(private val chunkShift: Int = DEFAULT_CHUNK_SHIFT) {
     private val chunks = ArrayList<LineChunk>()
     private var segmentStarts = IntArray(4)
     private var segmentCount = 0
-    private var generation = 0
+    private var generation = nextGeneration()
     private var size = 0
 
     private var previous: TrackPoint? = null
@@ -209,7 +211,7 @@ class TrackLineBuilder(private val chunkShift: Int = DEFAULT_CHUNK_SHIFT) {
         minLon = Double.POSITIVE_INFINITY
         maxLat = Double.NEGATIVE_INFINITY
         maxLon = Double.NEGATIVE_INFINITY
-        generation++
+        generation = nextGeneration()
     }
 
     /** Appends [points] in order (timestamps of a recording, as the database returns them). */
@@ -272,5 +274,10 @@ class TrackLineBuilder(private val chunkShift: Int = DEFAULT_CHUNK_SHIFT) {
     companion object {
         /** 1024 vertices per chunk: about 17 min of a 1 Hz recording, ≈ 45 KB. */
         const val DEFAULT_CHUNK_SHIFT = 10
+
+        // Unique per process: two lines built separately never pass for one extending the other.
+        private val generations = AtomicInteger()
+
+        private fun nextGeneration(): Int = generations.incrementAndGet()
     }
 }
