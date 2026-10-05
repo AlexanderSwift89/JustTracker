@@ -111,7 +111,7 @@ class OfflineRegionStore(
         if (!canDownload) return RegionError.UNKNOWN
         val region = catalog.find(id) ?: return RegionError.UNKNOWN
         val existing = dao.getById(id)
-        val next = RegionTransitions.next(existing?.status?.let { RegionStatus.valueOf(it) }, if (existing == null) RegionEvent.DOWNLOAD else RegionEvent.RETRY)
+        val next = RegionTransitions.next(existing?.regionStatus, if (existing == null) RegionEvent.DOWNLOAD else RegionEvent.RETRY)
             ?: return null // already in progress or ready — nothing to do
         if (freeBytes() < region.sizeBytes + SPACE_MARGIN_BYTES) return RegionError.NO_SPACE
 
@@ -122,30 +122,12 @@ class OfflineRegionStore(
         val title = region.name(current.language ?: AppLanguage.forDevice())
         val downloadId = downloader.enqueue(region.url, fileName, title, wifiOnly = current.mapsWifiOnly)
             ?: return RegionError.UNKNOWN
-        dao.upsert(
-            OfflineRegionEntity(
-                id = id,
-                nameEn = region.nameEn,
-                nameRu = region.nameRu,
-                fileName = fileName,
-                sizeBytes = region.sizeBytes,
-                minLat = region.box.minLat, minLon = region.box.minLon, maxLat = region.box.maxLat, maxLon = region.box.maxLon,
-                source = RegionSource.CATALOG.name,
-                status = next.name,
-                downloadId = downloadId,
-                errorReason = null,
-                updatedAt = now(),
-            ),
-        )
+        dao.upsert(row(id, region.nameEn, region.nameRu, fileName, region.sizeBytes, region.box, RegionSource.CATALOG, next, downloadId))
         return null
     }
 
-    suspend fun cancel(id: String) {
-        val row = dao.getById(id) ?: return
-        row.downloadId?.let(downloader::cancel)
-        File(mapsDir, row.fileName).delete()
-        dao.delete(id)
-    }
+    /** Stops a download in progress: the same as [delete] — the DownloadManager entry, the partial file and the row go. */
+    suspend fun cancel(id: String) = delete(id)
 
     suspend fun delete(id: String) = withContext(Dispatchers.IO) {
         val row = dao.getById(id) ?: return@withContext
@@ -173,13 +155,7 @@ class OfflineRegionStore(
             val final = File(mapsDir, id + MapsDirectory.MAP_SUFFIX)
             if (!part.renameTo(final)) error("Rename failed")
             val name = (displayName ?: final.name).removeSuffix(MapsDirectory.MAP_SUFFIX).ifBlank { id }
-            val row = OfflineRegionEntity(
-                id = id, nameEn = name, nameRu = name, fileName = final.name, sizeBytes = info.sizeBytes,
-                minLat = info.box.minLat, minLon = info.box.minLon, maxLat = info.box.maxLat, maxLon = info.box.maxLon,
-                source = RegionSource.IMPORT.name, status = RegionStatus.READY.name,
-                downloadId = null, errorReason = null, updatedAt = now(),
-            )
-            dao.upsert(row)
+            dao.upsert(row(id, name, name, final.name, info.sizeBytes, info.box, RegionSource.IMPORT, RegionStatus.READY))
         }.fold(
             onSuccess = { null },
             onFailure = {
@@ -200,7 +176,7 @@ class OfflineRegionStore(
     /** Entry point for [DownloadCompleteReceiver] and the poller. */
     suspend fun onDownloadFinished(downloadId: Long) = withContext(Dispatchers.IO) {
         val row = dao.getByDownloadId(downloadId) ?: return@withContext
-        val current = RegionStatus.valueOf(row.status)
+        val current = row.regionStatus
         if (current == RegionStatus.READY || current == RegionStatus.ERROR) return@withContext
         val status = downloader.status(downloadId)
         when {
@@ -222,7 +198,7 @@ class OfflineRegionStore(
         val rows = dao.getAll()
         for (row in rows) {
             runCatching {
-                when (RegionStatus.valueOf(row.status)) {
+                when (row.regionStatus) {
                     RegionStatus.READY -> if (!File(mapsDir, row.fileName).isFile) dao.delete(row.id)
                     RegionStatus.QUEUED, RegionStatus.DOWNLOADING -> {
                         val id = row.downloadId
@@ -279,15 +255,25 @@ class OfflineRegionStore(
         val info = MapFileInspector.inspect(file) ?: return
         val id = "import-" + file.nameWithoutExtension.lowercase().replace(Regex("[^a-z0-9-]"), "-")
         val name = file.nameWithoutExtension
-        dao.upsert(
-            OfflineRegionEntity(
-                id = id, nameEn = name, nameRu = name, fileName = file.name, sizeBytes = info.sizeBytes,
-                minLat = info.box.minLat, minLon = info.box.minLon, maxLat = info.box.maxLat, maxLon = info.box.maxLon,
-                source = RegionSource.IMPORT.name, status = RegionStatus.READY.name,
-                downloadId = null, errorReason = null, updatedAt = now(),
-            ),
-        )
+        dao.upsert(row(id, name, name, file.name, info.sizeBytes, info.box, RegionSource.IMPORT, RegionStatus.READY))
     }
+
+    /** A row of the regions table; every other field of a fresh row is empty (no download, no error). */
+    private fun row(
+        id: String,
+        nameEn: String,
+        nameRu: String,
+        fileName: String,
+        sizeBytes: Long,
+        box: LatLonBox,
+        source: RegionSource,
+        status: RegionStatus,
+        downloadId: Long? = null,
+    ) = OfflineRegionEntity(
+        id = id, nameEn = nameEn, nameRu = nameRu, fileName = fileName, sizeBytes = sizeBytes,
+        minLat = box.minLat, minLon = box.minLon, maxLat = box.maxLat, maxLon = box.maxLon,
+        source = source.name, status = status.name, downloadId = downloadId, errorReason = null, updatedAt = now(),
+    )
 
     private fun now() = System.currentTimeMillis()
 

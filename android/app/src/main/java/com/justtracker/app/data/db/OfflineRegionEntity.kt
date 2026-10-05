@@ -34,8 +34,12 @@ data class OfflineRegionEntity(
     val errorReason: String?,
     val updatedAt: Long,
 ) {
+    /** The stored status; an unknown value (a row of a newer or broken version) reads as ERROR, never throws. */
+    val regionStatus: RegionStatus
+        get() = RegionStatus.entries.firstOrNull { it.name == status } ?: RegionStatus.ERROR
+
     fun toDomain(mapsDir: File, progress: Float? = null, waitingForNetwork: Boolean = false): OfflineRegion {
-        val status = runCatching { RegionStatus.valueOf(this.status) }.getOrDefault(RegionStatus.ERROR)
+        val status = regionStatus
         return OfflineRegion(
             id = id,
             nameEn = nameEn,
