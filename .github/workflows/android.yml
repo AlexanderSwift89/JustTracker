@@ -1,8 +1,11 @@
-# Builds JustTracker on every push / PR: unit tests + lint + debug APK (workflow artifact).
-# On a version tag (v1.0.0) it additionally publishes the debug APK as a GitHub Release asset and,
-# when the signing secrets are configured, builds the signed release AAB + APK for RuStore as a
-# workflow artifact (never attached to the public release — RuStore is the distribution channel).
+# Builds JustTracker on every push / PR: unit tests + lint + debug APK (workflow artifact for developers:
+# debuggable, separate package com.justtracker.app.debug, never for end users).
+# On a version tag (v1.1.1) it additionally creates a GitHub Release with notes only — no binaries: users install
+# from RuStore (docs/07_security.md SEC-01) — and, when the signing secrets are configured, builds the signed
+# release AAB + APK for RuStore as a workflow artifact.
 # Secrets: KEYSTORE_BASE64 (base64 of the .jks), KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD.
+# Third-party actions are pinned by commit SHA (SEC-05); first-party actions/* by tag. To update a pin:
+#   git ls-remote --tags https://github.com/<owner>/<repo> '<tag>*'   (use the ^{} line for annotated tags)
 # See docs/09_release_rustore.md.
 name: Android CI
 
@@ -29,6 +32,8 @@ jobs:
         working-directory: android
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -37,15 +42,18 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
         with:
           # Only the base tools: AGP downloads compileSdk 37 / build-tools itself once licenses are accepted.
           packages: "platform-tools"
 
       - name: Set up Gradle (with build cache)
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          # gradle-wrapper.jar must be a published Gradle wrapper; the distribution itself is pinned by
+          # distributionSha256Sum in gradle-wrapper.properties.
+          validate-wrappers: true
 
       - name: Unit tests
         run: ./gradlew :app:testDebugUnitTest --no-daemon --console=plain
@@ -59,13 +67,22 @@ jobs:
       - name: Rename APK with version
         id: apk
         run: |
-          VERSION=$(grep -oP 'versionName = .*?"\K[^"]+' app/build.gradle.kts | head -1)
+          # The default after the elvis: versionName = (project.findProperty("versionName") as String?) ?: "1.1.1"
+          VERSION=$(grep -oP 'versionName = .*\?: "\K[^"]+' app/build.gradle.kts | head -1)
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Cannot read versionName from app/build.gradle.kts (got '$VERSION')"
+            exit 1
+          fi
+          if [[ "$GITHUB_REF_TYPE" == "tag" && "${GITHUB_REF_NAME#v}" != "$VERSION" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match versionName $VERSION"
+            exit 1
+          fi
           NAME="JustTracker-${VERSION}-debug.apk"
           cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/${NAME}"
           echo "name=${NAME}" >> "$GITHUB_OUTPUT"
           echo "path=android/app/build/outputs/apk/debug/${NAME}" >> "$GITHUB_OUTPUT"
 
-      - name: Upload debug APK
+      - name: Upload debug APK (developers only)
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.apk.outputs.name }}
@@ -84,32 +101,24 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-    outputs:
-      apk_name: ${{ steps.apk.outputs.name }}
-      apk_path: ${{ steps.apk.outputs.path }}
-
   release:
-    name: Publish GitHub Release
+    name: Publish GitHub Release (notes only)
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Download APK artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ needs.build.outputs.apk_name }}
-          path: dist
-
-      - name: Create release with APK
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*.apk
-          generate_release_notes: true
-          body: |
-            Debug-signed APK for sideloading (`adb install -r` or open the file on the phone).
-            Not a store build — the RuStore release is signed locally or by the `release-signed` job.
+      # No APK is attached: the debug build is debuggable (run-as exposes the track database) and logs
+      # coordinates; the store build is distributed through RuStore only (SEC-01). gh is preinstalled on runners.
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" --verify-tag --generate-notes --title "JustTracker ${TAG#v}" \
+            --notes "Установка — из RuStore: https://www.rustore.ru/catalog/app/com.justtracker.app. Файлы к релизам GitHub не прикладываются. / Install from RuStore; no binaries are attached to GitHub releases."
 
   release-signed:
     name: Signed AAB + APK for RuStore
@@ -125,6 +134,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         if: env.HAS_KEYSTORE == 'true'
+        with:
+          persist-credentials: false
 
       - name: Set up JDK
         if: env.HAS_KEYSTORE == 'true'
@@ -135,15 +146,16 @@ jobs:
 
       - name: Set up Android SDK
         if: env.HAS_KEYSTORE == 'true'
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
         with:
           packages: "platform-tools"
 
       - name: Set up Gradle
         if: env.HAS_KEYSTORE == 'true'
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
         with:
           cache-read-only: true
+          validate-wrappers: true
 
       - name: Restore keystore
         if: env.HAS_KEYSTORE == 'true'
