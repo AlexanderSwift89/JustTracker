@@ -35,6 +35,7 @@ import com.justtracker.app.R
 import com.justtracker.app.data.maps.render.HybridTileProvider
 import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.domain.geo.LatLon
+import com.justtracker.app.domain.track.LineSimplifier
 import com.justtracker.app.domain.track.TrackLine
 import com.justtracker.app.util.AppLocale
 import com.justtracker.app.util.traced
@@ -44,6 +45,7 @@ import org.osmdroid.events.ZoomEvent
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
+import org.osmdroid.util.TileSystem
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.CopyrightOverlay
@@ -88,6 +90,8 @@ private class MapHolder(val map: MapView, val camera: MapCamera) {
     var lineColor: Int = 0
     var speedColors = false
     var maxSpeedMps = 0.0
+    /** Detail level the pieces are drawn at ([DETAIL_TOLERANCES_M]). */
+    var level = 0
     var onTrackTap: ((index: Int) -> Unit)? = null
     var onUserGesture: (() -> Unit)? = null
 
@@ -119,6 +123,16 @@ private class MapHolder(val map: MapView, val camera: MapCamera) {
             fittedWidth = map.width
             fittedHeight = map.height
         }
+    }
+
+    /** A zoom changed the detail level: the pieces are redrawn simplified for it (cached per level). */
+    fun relevel() {
+        val l = detailLevel(map)
+        if (l == level) return
+        level = l
+        val current = line ?: return
+        for (piece in pieces) piece.show(current, l)
+        map.invalidate()
     }
 
     fun rememberCamera() {
@@ -163,12 +177,76 @@ internal fun fitPadding(width: Int, height: Int, paddingPx: Int, minViewportPx: 
  * need an invalidate, not a rebuild.
  */
 private class SpeedMapping(var line: TrackLine, val start: Int, val end: Int, var maxMps: Double) : ColorMapping {
-    override fun getColorForIndex(index: Int): Int =
-        SpeedColorScale.colorForSpeed(line.speedMps((start + index).coerceIn(start, minOf(end, line.size - 1))), maxMps)
+    /** Mean speed per drawn segment when the piece is simplified; null: one segment per vertex. */
+    var simplifiedSpeeds: FloatArray? = null
+
+    override fun getColorForIndex(index: Int): Int {
+        val simplified = simplifiedSpeeds
+        val speed = if (simplified != null && simplified.isNotEmpty()) {
+            simplified[index.coerceIn(0, simplified.size - 1)]
+        } else {
+            line.speedMps((start + index).coerceIn(start, minOf(end, line.size - 1)))
+        }
+        return SpeedColorScale.colorForSpeed(speed, maxMps)
+    }
 }
 
-/** One polyline of the line: vertices [start]..[end] (inclusive) of a [TrackLine], within one segment and chunk. */
-private class LinePiece(val start: Int, val end: Int, val polyline: Polyline, val mapping: SpeedMapping?)
+/**
+ * One polyline of the line: vertices [start]..[end] (inclusive) of a [TrackLine], within one segment and chunk. Drawn
+ * at the detail [level] the zoom asks for; simplifications are cached per level (a finished piece never changes).
+ */
+private class LinePiece(val start: Int, val end: Int, val polyline: Polyline, val mapping: SpeedMapping?) {
+    var level = -1
+    /** Line indices of the drawn vertices; null at full detail. */
+    var kept: IntArray? = null
+    private val cache = HashMap<Int, LineSimplifier.Simplified>()
+
+    /** Sets the polyline to [line] at [level] (an index into [DETAIL_TOLERANCES_M]). */
+    fun show(line: TrackLine, level: Int) {
+        if (level == this.level) return
+        this.level = level
+        if (level == 0) {
+            kept = null
+            mapping?.simplifiedSpeeds = null
+            polyline.setPoints((start..end).map { GeoPoint(line.lat(it), line.lon(it)) })
+        } else {
+            val s = cache.getOrPut(level) { LineSimplifier.simplify(line, start, end, DETAIL_TOLERANCES_M[level]) }
+            kept = s.kept
+            mapping?.simplifiedSpeeds = s.segmentSpeedsMps
+            polyline.setPoints(s.kept.map { GeoPoint(line.lat(it), line.lon(it)) })
+        }
+    }
+
+    /** Line index of the vertex nearest to a tap on drawn vertex [drawn]: refined to full detail around it. */
+    fun lineIndexNear(line: TrackLine, drawn: Int, target: GeoPoint): Int {
+        val k = kept ?: return start + drawn
+        val from = k[(drawn - 1).coerceAtLeast(0)]
+        val to = k[(drawn + 1).coerceAtMost(k.size - 1)]
+        val i = nearestIndex((from..to).map { GeoPoint(line.lat(it), line.lon(it)) }, target)
+        return if (i < 0) k[drawn] else from + i
+    }
+}
+
+/**
+ * Simplification tolerances by detail level, metres (ADR-26). The map uses the coarsest one below
+ * [DETAIL_PIXEL_SHARE] of a screen pixel: the line looks the same, while a 100 000-point track seen whole draws a few
+ * thousand segments instead of all of them on every frame.
+ */
+private val DETAIL_TOLERANCES_M = doubleArrayOf(0.0, 1.0, 4.0, 16.0, 64.0, 256.0)
+private const val DETAIL_PIXEL_SHARE = 0.4
+
+/**
+ * Detail level for the map's zoom at its centre. From the zoom value itself, not the projection: inside a zoom
+ * listener the projection still describes the previous frame.
+ */
+private fun detailLevel(map: MapView): Int {
+    val metersPerPixel = TileSystem.GroundResolution(map.mapCenter.latitude, map.zoomLevelDouble)
+    if (metersPerPixel.isNaN() || metersPerPixel <= 0.0) return 0
+    val allowedM = DETAIL_PIXEL_SHARE * metersPerPixel
+    var level = 0
+    for (i in DETAIL_TOLERANCES_M.indices) if (DETAIL_TOLERANCES_M[i] <= allowedM) level = i
+    return level
+}
 
 /**
  * Compose wrapper over osmdroid's MapView (docs/05_architecture.md §7).
@@ -253,6 +331,7 @@ fun TrackMap(
 
                 override fun onZoom(event: ZoomEvent?): Boolean {
                     h.rememberCamera()
+                    h.relevel()
                     return false
                 }
             })
@@ -372,11 +451,13 @@ private fun syncLine(
         it.line = line
         it.maxMps = maxSpeedMps
     }
+    holder.level = detailLevel(map)
     val from = holder.pieces.lastOrNull()?.end ?: 0
     forEachPiece(line) { a, b ->
         if (b <= from && holder.pieces.isNotEmpty()) return@forEachPiece
         holder.pieces.add(newPiece(holder, line, a, b, color, strokePx, speedColors, maxSpeedMps))
     }
+    for (piece in holder.pieces) piece.show(line, holder.level)
     return true
 }
 
@@ -420,18 +501,19 @@ private fun newPiece(
             val paint = Paint(outlinePaint)
             outlinePaintLists.add(PolychromaticPaintList(paint, mapping, false))
         }
-        setPoints((start..end).map { GeoPoint(line.lat(it), line.lon(it)) })
         isGeodesic = false
         infoWindow = null
-        setOnClickListener { pl, _, eventPos ->
-            val cb = holder.onTrackTap ?: return@setOnClickListener false
-            val idx = nearestIndex(pl.actualPoints, eventPos)
-            if (idx >= 0) cb(start + idx)
-            idx >= 0
-        }
+    }
+    val piece = LinePiece(start, end, pl, mapping)
+    pl.setOnClickListener { p, _, eventPos ->
+        val cb = holder.onTrackTap ?: return@setOnClickListener false
+        val drawn = nearestIndex(p.actualPoints, eventPos)
+        val current = holder.line
+        if (drawn >= 0 && current != null) cb(piece.lineIndexNear(current, drawn, eventPos))
+        drawn >= 0
     }
     map.overlays.add(0, pl)
-    return LinePiece(start, end, pl, mapping)
+    return piece
 }
 
 /**
