@@ -78,8 +78,8 @@ class OfflineMapsViewModel(private val container: AppContainer) : ViewModel() {
 
     fun import(uri: Uri, displayName: String?) = viewModelScope.launch {
         transient.value = transient.value.copy(importing = true)
-        val result = store.import(uri, displayName)
-        transient.value = transient.value.copy(importing = false, error = if (result.isFailure) RegionError.CORRUPT else null)
+        val error = store.import(uri, displayName)
+        transient.value = transient.value.copy(importing = false, error = error)
     }
 
     fun consumeError() {

@@ -162,6 +162,13 @@ class RegionCatalogParserTest {
     }
 
     @Test
+    fun `rejects credentials and explicit ports on the allowed host`() {
+        assertTrue(RegionCatalogParser.parse(catalog(entry(url = "https://user@download.mapsforge.org/maps/v5/europe/malta.map"))).isEmpty())
+        assertTrue(RegionCatalogParser.parse(catalog(entry(url = "https://download.mapsforge.org:8443/maps/v5/europe/malta.map"))).isEmpty())
+        assertTrue(RegionCatalogParser.parse(catalog(entry(url = "https://download.mapsforge.org:443/maps/v5/europe/malta.map"))).isEmpty())
+    }
+
+    @Test
     fun `skips malformed entries but keeps the good ones`() {
         val regions = RegionCatalogParser.parse(
             catalog(entry(), entry(id = "bad-bbox", bbox = "[1,2,3]"), entry(id = "no-size", size = 0), entry(id = "dup"), entry(id = "dup")),

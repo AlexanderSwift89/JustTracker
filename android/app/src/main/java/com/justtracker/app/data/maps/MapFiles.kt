@@ -6,6 +6,9 @@ import com.justtracker.app.domain.maps.LatLonBox
 import com.justtracker.app.util.AppLog
 import org.mapsforge.map.reader.MapFile
 import java.io.File
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
 
 /**
  * Where region files live. `DownloadManager` can only write to external storage, so the app-specific
@@ -51,11 +54,39 @@ object MapFileInspector {
                 languages = info.languagesPreference,
             )
         } catch (e: Exception) {
-            AppLog.d("Not a Mapsforge map: ${file.name}")
-            AppLog.w("Not a Mapsforge map", e)
-            null
+            notAMap(file, e)
+        } catch (e: OutOfMemoryError) {
+            // A forged header can ask for a huge buffer or nest deeply: the file is rejected, the app keeps running (SEC-18).
+            notAMap(file, e)
+        } catch (e: StackOverflowError) {
+            notAMap(file, e)
         } finally {
             runCatching { map?.close() }
         }
+    }
+
+    private fun notAMap(file: File, e: Throwable): MapFileInfo? {
+        AppLog.d("Not a Mapsforge map: ${file.name}")
+        AppLog.w("Not a Mapsforge map", e)
+        return null
+    }
+}
+
+/** The picked file is bigger than the space the import may use. */
+class ImportTooLargeException : IOException("Import exceeds the free-space budget")
+
+/**
+ * Copies [input] to [output] but never more than [limit] bytes: a document provider may stream without end or
+ * report a wrong size, and a full disk would end a running recording (SEC-16). Returns the bytes copied.
+ */
+fun copyAtMost(input: InputStream, output: OutputStream, limit: Long, bufferSize: Int = 64 * 1024): Long {
+    val buffer = ByteArray(bufferSize)
+    var copied = 0L
+    while (true) {
+        val n = input.read(buffer)
+        if (n < 0) return copied
+        if (copied + n > limit) throw ImportTooLargeException()
+        output.write(buffer, 0, n)
+        copied += n
     }
 }

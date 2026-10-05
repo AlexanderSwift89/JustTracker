@@ -66,7 +66,9 @@ object RegionCatalogParser {
 
     fun isAllowedUrl(url: String): Boolean {
         val uri = runCatching { URI(url) }.getOrNull() ?: return false
-        return uri.scheme == "https" && uri.host in ALLOWED_HOSTS && uri.path.endsWith(".map")
+        // No credentials and no explicit port either: a bundled URL only ever names the plain HTTPS host (SEC-18).
+        return uri.scheme == "https" && uri.host in ALLOWED_HOSTS && uri.rawUserInfo == null && uri.port == -1 &&
+            uri.path.orEmpty().endsWith(".map")
     }
 }
 

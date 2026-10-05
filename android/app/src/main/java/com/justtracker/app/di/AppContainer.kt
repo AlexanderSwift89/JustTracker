@@ -16,6 +16,8 @@ import com.justtracker.app.data.repo.TrackRepository
 import com.justtracker.app.domain.model.AppSettings
 import com.justtracker.app.service.TrackingController
 import com.justtracker.app.util.AppLocale
+import com.justtracker.app.util.AppLog
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,7 +31,14 @@ import kotlinx.coroutines.flow.stateIn
 /** Manual dependency graph (ADR-03). One instance per process, owned by [com.justtracker.app.JustTrackerApplication]. */
 class AppContainer(context: Context) {
     private val appContext = context.applicationContext
-    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    /**
+     * Process-wide background work (region reconcile on start, download completion, settings mirror). A failure is
+     * logged instead of crashing the process: reconcile runs on every launch and must not turn one bad file into a
+     * crash loop (SEC-18).
+     */
+    val appScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, e -> AppLog.e("Background task failed", e) },
+    )
 
     val database: JustTrackerDatabase by lazy { JustTrackerDatabase.build(appContext) }
     val trackRepository: TrackRepository by lazy { TrackRepository(database.trackDao(), ExportFiles.dir(appContext.cacheDir)) }

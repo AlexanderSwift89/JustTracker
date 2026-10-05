@@ -2,6 +2,7 @@ package com.justtracker.app.data.maps
 
 import android.content.Context
 import android.net.Uri
+import android.provider.OpenableColumns
 import com.justtracker.app.data.db.OfflineRegionDao
 import com.justtracker.app.data.db.OfflineRegionEntity
 import com.justtracker.app.data.repo.SettingsRepository
@@ -153,13 +154,20 @@ class OfflineRegionStore(
         dao.delete(id)
     }
 
-    /** Copies a user-picked `.map` into the maps dir, verifies its header and registers it. */
-    suspend fun import(uri: Uri, displayName: String?): Result<OfflineRegion> = withContext(Dispatchers.IO) {
+    /**
+     * Copies a user-picked `.map` into the maps dir, verifies its header and registers it; returns the error that
+     * prevented it, or null. Like a download, the import needs its size plus [SPACE_MARGIN_BYTES] free, and the copy
+     * stops at that budget whatever size the provider reported (SEC-16).
+     */
+    suspend fun import(uri: Uri, displayName: String?): RegionError? = withContext(Dispatchers.IO) {
         val id = "import-" + UUID.randomUUID().toString().take(8)
         val part = File(mapsDir, id + MapsDirectory.PART_SUFFIX)
+        val budget = freeBytes() - SPACE_MARGIN_BYTES
+        val declared = declaredSize(uri)
+        if (budget <= 0 || (declared != null && declared > budget)) return@withContext RegionError.NO_SPACE
         runCatching {
             appContext.contentResolver.openInputStream(uri)?.use { input ->
-                part.outputStream().use { output -> input.copyTo(output, COPY_BUFFER) }
+                part.outputStream().use { output -> copyAtMost(input, output, budget, COPY_BUFFER) }
             } ?: error("Cannot open the picked file") // no URI: it would end up in the log
             val info = MapFileInspector.inspect(part) ?: error("Not a Mapsforge map")
             val final = File(mapsDir, id + MapsDirectory.MAP_SUFFIX)
@@ -172,12 +180,22 @@ class OfflineRegionStore(
                 downloadId = null, errorReason = null, updatedAt = now(),
             )
             dao.upsert(row)
-            row.toDomain(mapsDir)
-        }.onFailure {
-            AppLog.w("Map import failed", it)
-            part.delete()
-        }
+        }.fold(
+            onSuccess = { null },
+            onFailure = {
+                AppLog.w("Map import failed", it)
+                part.delete()
+                if (it is ImportTooLargeException) RegionError.NO_SPACE else RegionError.CORRUPT
+            },
+        )
     }
+
+    /** Size the document provider reports for [uri]; null when it does not know. */
+    private fun declaredSize(uri: Uri): Long? = runCatching {
+        appContext.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c ->
+            if (c.moveToFirst() && !c.isNull(0)) c.getLong(0).takeIf { it > 0 } else null
+        }
+    }.getOrNull()
 
     /** Entry point for [DownloadCompleteReceiver] and the poller. */
     suspend fun onDownloadFinished(downloadId: Long) = withContext(Dispatchers.IO) {
@@ -196,28 +214,35 @@ class OfflineRegionStore(
         }
     }
 
-    /** Called on app start: reconciles rows with files on disk and with DownloadManager. */
+    /**
+     * Called on app start: reconciles rows with files on disk and with DownloadManager. It runs on every launch, so a
+     * bad row or file is logged and skipped instead of failing every start (SEC-18).
+     */
     suspend fun reconcile() = withContext(Dispatchers.IO) {
         val rows = dao.getAll()
         for (row in rows) {
-            when (RegionStatus.valueOf(row.status)) {
-                RegionStatus.READY -> if (!File(mapsDir, row.fileName).isFile) dao.delete(row.id)
-                RegionStatus.QUEUED, RegionStatus.DOWNLOADING -> {
-                    val id = row.downloadId
-                    val s = id?.let(downloader::status)
-                    if (s == null) markLost(row) else if (s.successful || s.failed) onDownloadFinished(id)
+            runCatching {
+                when (RegionStatus.valueOf(row.status)) {
+                    RegionStatus.READY -> if (!File(mapsDir, row.fileName).isFile) dao.delete(row.id)
+                    RegionStatus.QUEUED, RegionStatus.DOWNLOADING -> {
+                        val id = row.downloadId
+                        val s = id?.let(downloader::status)
+                        if (s == null) markLost(row) else if (s.successful || s.failed) onDownloadFinished(id)
+                    }
+                    RegionStatus.VERIFYING -> verify(row)
+                    RegionStatus.ERROR -> Unit
                 }
-                RegionStatus.VERIFYING -> verify(row)
-                RegionStatus.ERROR -> Unit
-            }
+            }.onFailure { AppLog.e("Region reconcile failed", it) }
         }
         val known = dao.getAll().map { it.fileName }.toSet()
         mapsDir.listFiles()?.forEach { f ->
-            when {
-                f.name in known -> Unit
-                f.name.endsWith(MapsDirectory.PART_SUFFIX) -> f.delete()
-                f.name.endsWith(MapsDirectory.MAP_SUFFIX) -> adoptFile(f)
-            }
+            runCatching {
+                when {
+                    f.name in known -> Unit
+                    f.name.endsWith(MapsDirectory.PART_SUFFIX) -> f.delete()
+                    f.name.endsWith(MapsDirectory.MAP_SUFFIX) -> adoptFile(f)
+                }
+            }.onFailure { AppLog.e("Region file reconcile failed", it) }
         }
     }
 
