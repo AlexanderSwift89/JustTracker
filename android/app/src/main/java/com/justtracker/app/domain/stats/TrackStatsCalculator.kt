@@ -14,12 +14,18 @@ object TrackStatsCalculator {
     /** Below this speed the user is considered standing still. */
     const val MOVING_THRESHOLD_MPS = 0.5f
 
-    fun calculate(points: List<TrackPoint>, pausedTimeMs: Long, startedAt: Long, finishedAt: Long?): TrackStats {
+    /** @param speeds [smoothedSpeeds] of [points], when the caller already has them. */
+    fun calculate(
+        points: List<TrackPoint>,
+        pausedTimeMs: Long,
+        startedAt: Long,
+        finishedAt: Long?,
+        speeds: List<Float> = smoothedSpeeds(points),
+    ): TrackStats {
         if (points.isEmpty()) return TrackStats.EMPTY
         var distance = 0.0
         var movingMs = 0L
         var maxSpeed = 0.0
-        val speeds = smoothedSpeeds(points)
         for (i in 1 until points.size) {
             val a = points[i - 1]
             val b = points[i]

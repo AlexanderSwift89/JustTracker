@@ -35,6 +35,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.window.core.layout.WindowSizeClass
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import com.justtracker.app.R
 import com.justtracker.app.domain.model.AppSettings
@@ -81,7 +83,11 @@ fun JustTrackerApp(settings: AppSettings) {
     val backStack by navController.currentBackStackEntryAsState()
     val currentDestination = backStack?.destination
     val showNavigation = tabs.any { tab -> currentDestination?.hierarchy?.any { it.route == tab.route } == true }
-    val activeTrack by container.trackRepository.observeActiveTrack().collectAsStateWithLifecycle(initialValue = null)
+    // One flow for the whole app (not a new Room query per recomposition), emitting only when a recording starts or ends:
+    // the active track's row changes every second.
+    val recording by remember(container) {
+        container.trackRepository.observeActiveTrack().map { it != null }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = false)
     // Fixed once per composition: changing startDestination later would rebuild the nav graph mid-flow.
     val startDestination = remember { if (settings.onboardingDone) Routes.RECORD else Routes.ONBOARDING }
     // Connectivity changed: ask before switching the map source (US-22); never during onboarding.
@@ -125,7 +131,7 @@ fun JustTrackerApp(settings: AppSettings) {
                         }
                     },
                     icon = {
-                        if (tab.route == Routes.RECORD && activeTrack != null) {
+                        if (tab.route == Routes.RECORD && recording) {
                             BadgedBox(badge = { PulsingBadge() }) { Icon(tab.icon, contentDescription = null) }
                         } else {
                             Icon(tab.icon, contentDescription = null)

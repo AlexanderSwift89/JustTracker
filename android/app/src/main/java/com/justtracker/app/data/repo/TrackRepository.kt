@@ -15,6 +15,7 @@ import com.justtracker.app.domain.stats.TrackStatsCalculator
 import com.justtracker.app.util.traced
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -29,14 +30,16 @@ class TrackRepository(private val dao: TrackDao, private val exportsDir: File? =
     fun observeActiveTrack(): Flow<Track?> = dao.observeActiveTrack().map { it?.toDomain() }
     suspend fun getActiveTrack(): Track? = dao.getActiveTrack()?.toDomain()
 
-    fun observeTrack(id: Long): Flow<Track?> = dao.observeTrack(id).map { it?.toDomain() }
+    // Room re-runs a query on every write to its table — a recording writes `tracks` once a second. Equal results are
+    // dropped here, so screens that show other tracks do not recompose for nothing (D-27).
+    fun observeTrack(id: Long): Flow<Track?> = dao.observeTrack(id).distinctUntilChanged().map { it?.toDomain() }
     suspend fun getTrack(id: Long): Track? = dao.getTrack(id)?.toDomain()
 
-    fun observeFinishedTracks(): Flow<List<Track>> = dao.observeFinishedTracks().map { l -> l.map { it.toDomain() } }
+    fun observeFinishedTracks(): Flow<List<Track>> = dao.observeFinishedTracks().distinctUntilChanged().map { l -> l.map { it.toDomain() } }
     fun observeFinishedTracksSince(since: Long): Flow<List<Track>> =
         dao.observeFinishedTracksSince(since).map { l -> l.map { it.toDomain() } }
 
-    fun observeActivityAggregates(): Flow<List<ActivityAggregate>> = dao.observeActivityAggregates()
+    fun observeActivityAggregates(): Flow<List<ActivityAggregate>> = dao.observeActivityAggregates().distinctUntilChanged()
 
     fun observePoints(trackId: Long): Flow<List<TrackPoint>> = dao.observePoints(trackId).map { l -> l.map { it.toDomain() } }
     suspend fun getPoints(trackId: Long): List<TrackPoint> = dao.getPoints(trackId).map { it.toDomain() }
@@ -102,9 +105,14 @@ class TrackRepository(private val dao: TrackDao, private val exportsDir: File? =
             delete(trackId)
             return null
         }
-        val (stats, type) = traced("track.finish") {
-            val stats = TrackStatsCalculator.calculate(points, track.pausedTimeMs, track.startedAt, finishedAt)
-            stats to if (track.activityManual) track.activityType else ActivityClassifier.classify(TrackStatsCalculator.smoothedSpeeds(points))
+        // Up to 100 000 points: the full pass runs off the caller's thread (the service calls this on the main thread
+        // right when the user taps Stop), and the smoothed speeds are computed once for statistics and classification.
+        val (stats, type) = withContext(Dispatchers.Default) {
+            traced("track.finish") {
+                val speeds = TrackStatsCalculator.smoothedSpeeds(points)
+                val stats = TrackStatsCalculator.calculate(points, track.pausedTimeMs, track.startedAt, finishedAt, speeds)
+                stats to if (track.activityManual) track.activityType else ActivityClassifier.classify(speeds)
+            }
         }
         val finished = track.copy(
             status = TrackStatus.FINISHED,
