@@ -3,7 +3,11 @@ package com.justtracker.app.util
 import android.util.Log
 import com.justtracker.app.BuildConfig
 
-/** Thin logging facade. Geo-data is only ever logged in debug builds (docs/07_security.md). */
+/**
+ * Thin logging facade (docs/07_security.md SEC-12). Geo-data is only ever logged in debug builds. In release,
+ * warnings and errors name the exception class only: a message may carry a file path with a track name, a
+ * document URI or a quoted server answer. Class names are R8-obfuscated; `mapping.txt` decodes them.
+ */
 object AppLog {
     private const val TAG = "JustTracker"
 
@@ -11,12 +15,19 @@ object AppLog {
         if (BuildConfig.DEBUG) Log.d(TAG, msg)
     }
 
-    fun w(msg: String, t: Throwable? = null) = Log.w(TAG, msg, t)
+    fun w(msg: String, t: Throwable? = null) {
+        if (BuildConfig.DEBUG) Log.w(TAG, msg, t) else Log.w(TAG, releaseLine(msg, t))
+    }
 
-    fun e(msg: String, t: Throwable? = null) = Log.e(TAG, msg, t)
+    fun e(msg: String, t: Throwable? = null) {
+        if (BuildConfig.DEBUG) Log.e(TAG, msg, t) else Log.e(TAG, releaseLine(msg, t))
+    }
 
     /** Log that may contain coordinates: compiled to a no-op in release. */
     fun geo(msg: () -> String) {
         if (BuildConfig.DEBUG) Log.d(TAG, "[geo] " + msg())
     }
+
+    /** What a release build writes: the message and the exception class — no exception message, no stack trace. */
+    internal fun releaseLine(msg: String, t: Throwable?): String = if (t == null) msg else "$msg [${t.javaClass.name}]"
 }

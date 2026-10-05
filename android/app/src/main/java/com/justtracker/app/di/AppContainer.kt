@@ -2,6 +2,7 @@ package com.justtracker.app.di
 
 import android.content.Context
 import com.justtracker.app.data.db.JustTrackerDatabase
+import com.justtracker.app.data.export.ExportFiles
 import com.justtracker.app.data.location.PlatformLocationSource
 import com.justtracker.app.data.maps.MapModeController
 import com.justtracker.app.data.maps.OfflineRegionStore
@@ -34,7 +35,7 @@ class AppContainer(context: Context) {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     val database: JustTrackerDatabase by lazy { JustTrackerDatabase.build(appContext) }
-    val trackRepository: TrackRepository by lazy { TrackRepository(database.trackDao()) }
+    val trackRepository: TrackRepository by lazy { TrackRepository(database.trackDao(), ExportFiles.dir(appContext.cacheDir)) }
     val settingsRepository: SettingsRepository by lazy { SettingsRepository(appContext) }
     val locationSource: LocationSource by lazy { PlatformLocationSource(appContext) }
     val trackingController: TrackingController by lazy { TrackingController(appContext) }

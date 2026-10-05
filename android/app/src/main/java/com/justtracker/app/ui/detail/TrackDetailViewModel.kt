@@ -6,6 +6,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.justtracker.app.data.export.ExportFiles
 import com.justtracker.app.di.AppContainer
 import com.justtracker.app.domain.geo.ElevationCalculator
 import com.justtracker.app.domain.geo.ElevationResult
@@ -149,15 +150,17 @@ class TrackDetailViewModel(
 
     /**
      * Writes the GPX into cacheDir/exports and returns a share intent, or null on failure.
-     * Files older than 24 h are purged on every export (docs/06_system_analysis.md UC-04).
+     * Files older than 24 h are purged on every export and on app start; a deleted track takes its copies
+     * with it ([ExportFiles], docs/06_system_analysis.md UC-04).
      */
     suspend fun buildShareIntent(context: Context): Intent? = withContext(Dispatchers.IO) {
         val track = repo.getTrack(trackId) ?: return@withContext null
         val points = repo.getPoints(trackId)
         try {
-            val dir = File(context.cacheDir, "exports").apply { mkdirs() }
-            val cutoff = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
-            dir.listFiles()?.filter { it.lastModified() < cutoff }?.forEach { it.delete() }
+            val dir = ExportFiles.dir(context.cacheDir).apply { mkdirs() }
+            ExportFiles.purgeOlderThan(dir, System.currentTimeMillis())
+            // A renamed track would otherwise leave its previous copy behind.
+            ExportFiles.deleteForTrack(dir, trackId)
             val file = File(dir, GpxWriter.fileName(track))
             file.bufferedWriter().use { GpxWriter.write(track, points, it) }
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)

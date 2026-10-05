@@ -1,16 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Location data must never leave the device via cloud/device-to-device transfer (docs/07_security.md) -->
+<!-- Location data must never leave the device via cloud backup or device-to-device transfer
+     (docs/07_security.md SEC-10). With targetSdk 31+ android:allowBackup="false" does not stop
+     device-to-device transfer on every device, so every domain is excluded explicitly: tracks (database),
+     settings (datastore in files), offline maps (external/maps, files/maps), caches and anything a library adds. -->
 <data-extraction-rules>
     <cloud-backup>
-        <exclude domain="database" />
-        <exclude domain="file" path="datastore" />
-        <exclude domain="sharedpref" />
-        <exclude domain="external" path="maps" />
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+        <exclude domain="device_root" path="." />
+        <exclude domain="device_file" path="." />
+        <exclude domain="device_database" path="." />
+        <exclude domain="device_sharedpref" path="." />
     </cloud-backup>
     <device-transfer>
-        <exclude domain="database" />
-        <exclude domain="file" path="datastore" />
-        <exclude domain="sharedpref" />
-        <exclude domain="external" path="maps" />
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+        <exclude domain="device_root" path="." />
+        <exclude domain="device_file" path="." />
+        <exclude domain="device_database" path="." />
+        <exclude domain="device_sharedpref" path="." />
     </device-transfer>
 </data-extraction-rules>

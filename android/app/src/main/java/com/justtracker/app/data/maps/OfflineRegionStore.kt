@@ -158,7 +158,7 @@ class OfflineRegionStore(
         runCatching {
             appContext.contentResolver.openInputStream(uri)?.use { input ->
                 part.outputStream().use { output -> input.copyTo(output, COPY_BUFFER) }
-            } ?: error("Cannot open $uri")
+            } ?: error("Cannot open the picked file") // no URI: it would end up in the log
             val info = MapFileInspector.inspect(part) ?: error("Not a Mapsforge map")
             val final = File(mapsDir, id + MapsDirectory.MAP_SUFFIX)
             if (!part.renameTo(final)) error("Rename failed")

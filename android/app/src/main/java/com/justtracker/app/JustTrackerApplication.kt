@@ -1,8 +1,10 @@
 package com.justtracker.app
 
 import android.app.Application
+import com.justtracker.app.data.export.ExportFiles
 import com.justtracker.app.di.AppContainer
 import com.justtracker.app.util.AppUserAgent
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 import org.osmdroid.config.Configuration
@@ -20,6 +22,8 @@ class JustTrackerApplication : Application() {
         AndroidGraphicFactory.createInstance(this)
         // Internet reachability feeds the "switch map mode?" prompt (US-22).
         container.connectivity.start()
+        // Shared GPX copies older than a day go even if the user never exports again (SEC-11).
+        container.appScope.launch(Dispatchers.IO) { ExportFiles.purgeOlderThan(ExportFiles.dir(cacheDir), System.currentTimeMillis()) }
         // Rows vs files vs DownloadManager may have drifted while the process was dead.
         container.appScope.launch { container.offlineRegionStore.reconcile() }
         // Idle until the user enables auto-announcements and a recording is running.

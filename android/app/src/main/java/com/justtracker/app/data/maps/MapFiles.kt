@@ -48,7 +48,8 @@ object MapFileInspector {
                 languages = info.languagesPreference,
             )
         } catch (e: Exception) {
-            AppLog.w("Not a Mapsforge map: ${file.name}", e)
+            AppLog.d("Not a Mapsforge map: ${file.name}")
+            AppLog.w("Not a Mapsforge map", e)
             null
         } finally {
             runCatching { map?.close() }

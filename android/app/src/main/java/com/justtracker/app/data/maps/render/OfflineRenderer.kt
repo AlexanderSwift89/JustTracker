@@ -163,7 +163,10 @@ class OfflineRenderer(
         val store = MultiMapDataStore(MultiMapDataStore.DataPolicy.RETURN_ALL)
         for (file in files) {
             runCatching { store.addMapDataStore(MapFile(file, language), false, false) }
-                .onFailure { AppLog.w("Cannot open region file ${file.name}", it) }
+                .onFailure {
+                    AppLog.d("Cannot open region file ${file.name}")
+                    AppLog.w("Cannot open region file", it)
+                }
         }
         return store
     }

@@ -2,6 +2,7 @@ package com.justtracker.app.data.repo
 
 import com.justtracker.app.data.db.ActivityAggregate
 import com.justtracker.app.data.db.TrackDao
+import com.justtracker.app.data.export.ExportFiles
 import com.justtracker.app.data.db.toDomain
 import com.justtracker.app.data.db.toEntity
 import com.justtracker.app.domain.activity.ActivityClassifier
@@ -11,13 +12,18 @@ import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.TrackPoint
 import com.justtracker.app.domain.model.TrackStatus
 import com.justtracker.app.domain.stats.TrackStatsCalculator
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+import java.io.File
 
 /**
  * Single source of truth for tracks. The recording service writes here; every screen reads here.
+ *
+ * @param exportsDir folder of shared GPX copies ([ExportFiles]); a deleted track takes its copies with it.
  */
-class TrackRepository(private val dao: TrackDao) {
+class TrackRepository(private val dao: TrackDao, private val exportsDir: File? = null) {
 
     fun observeActiveTrack(): Flow<Track?> = dao.observeActiveTrack().map { it?.toDomain() }
     suspend fun getActiveTrack(): Track? = dao.getActiveTrack()?.toDomain()
@@ -72,7 +78,16 @@ class TrackRepository(private val dao: TrackDao) {
     /** Stores gain/loss recomputed from the points (tracks finished before the 1.0.2 algorithm). */
     suspend fun setElevation(id: Long, elevation: ElevationResult) = dao.setElevation(id, elevation.gainM, elevation.lossM)
 
-    suspend fun delete(id: Long) = dao.deleteTrack(id)
+    /** Deletes the track, its points (foreign key CASCADE) and any GPX copy shared from it (SEC-11). */
+    suspend fun delete(id: Long) {
+        dao.deleteTrack(id)
+        deleteExports(id)
+    }
+
+    private suspend fun deleteExports(id: Long) {
+        val dir = exportsDir ?: return
+        withContext(Dispatchers.IO) { ExportFiles.deleteForTrack(dir, id) }
+    }
 
     /**
      * Finalises a recording: recomputes statistics from all points, classifies the activity
@@ -83,7 +98,7 @@ class TrackRepository(private val dao: TrackDao) {
         val track = getTrack(trackId) ?: return null
         val points = getPoints(trackId)
         if (points.size < MIN_POINTS) {
-            dao.deleteTrack(trackId)
+            delete(trackId)
             return null
         }
         val stats = TrackStatsCalculator.calculate(points, track.pausedTimeMs, track.startedAt, finishedAt)
