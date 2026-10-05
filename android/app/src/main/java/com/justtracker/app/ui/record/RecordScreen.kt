@@ -89,7 +89,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.justtracker.app.R
 import com.justtracker.app.ui.common.ActivityBadge
 import com.justtracker.app.ui.common.FittedText
-import com.justtracker.app.ui.common.Permissions
+import com.justtracker.app.util.Permissions
 import com.justtracker.app.ui.common.LocalAppContainer
 import com.justtracker.app.ui.common.MapModeBadge
 import com.justtracker.app.ui.common.SpeedLegend

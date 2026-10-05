@@ -52,7 +52,7 @@ import androidx.compose.ui.unit.dp
 import com.justtracker.app.R
 import com.justtracker.app.domain.model.AppLanguage
 import com.justtracker.app.ui.common.appViewModel
-import com.justtracker.app.ui.common.Permissions
+import com.justtracker.app.util.Permissions
 import com.justtracker.app.util.labelRes
 
 private enum class Step { LANGUAGE, PERMISSIONS }

@@ -1,37 +1,33 @@
 package com.justtracker.app.service
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.database.sqlite.SQLiteFullException
 import android.location.Location
-import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
-import androidx.core.content.ContextCompat
 import com.justtracker.app.JustTrackerApplication
 import com.justtracker.app.di.AppContainer
-import com.justtracker.app.domain.geo.FilterResult
-import com.justtracker.app.domain.geo.JumpStreak
-import com.justtracker.app.domain.geo.LocationFilter
 import com.justtracker.app.domain.geo.Sample
-import com.justtracker.app.domain.geo.StartCheck
 import com.justtracker.app.domain.model.ActivityType
 import com.justtracker.app.domain.model.AppSettings
 import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.TrackPoint
 import com.justtracker.app.domain.model.TrackStatus
+import com.justtracker.app.domain.recording.Fix
+import com.justtracker.app.domain.recording.RecorderStore
+import com.justtracker.app.domain.recording.StopReason
+import com.justtracker.app.domain.recording.TrackRecorder
+import com.justtracker.app.domain.recording.TrackTotals
 import com.justtracker.app.domain.stats.AccelerationTrace
-import com.justtracker.app.domain.stats.IncrementalStats
-import com.justtracker.app.domain.stats.LiveMotion
 import com.justtracker.app.util.AppLog
 import com.justtracker.app.util.TimeFormat
 import com.justtracker.app.util.AppLocale
+import com.justtracker.app.util.Permissions
 import com.justtracker.app.util.UnitFormatter
 import com.justtracker.app.util.labelRes
 import kotlinx.coroutines.CoroutineScope
@@ -53,18 +49,32 @@ import kotlinx.coroutines.launch
  */
 class TrackingService : Service() {
 
-    private class Session(
-        var track: Track,
-        val stats: IncrementalStats,
-        var segment: Int,
-        var pausedAt: Long?,
-        /** First fix of the current segment, recorded once the next fix confirms it (LocationFilter.confirmStart). */
-        var pendingStart: PendingFix? = null,
-        /** Live speed from every fix, not only the stored ones (OBS-12). */
-        val motion: LiveMotion = LiveMotion(),
-    )
+    /** The active recording: its track row as last written and the recorder that applies the recording rules. */
+    private class Session(var track: Track, val recorder: TrackRecorder, var pausedAt: Long?)
 
-    private class PendingFix(val sample: Sample, val location: Location)
+    /** Room behind the recorder: a point and the track's running totals in one transaction. */
+    private inner class Store : RecorderStore {
+        override suspend fun insert(point: TrackPoint, totals: TrackTotals): Boolean {
+            val s = session ?: return true
+            s.track = s.track.copy(
+                distanceM = totals.distanceM,
+                movingTimeMs = totals.movingTimeMs,
+                maxSpeedMps = totals.maxSpeedMps,
+                avgSpeedMps = totals.avgSpeedMps,
+                pointCount = totals.pointCount,
+            )
+            return try {
+                container.trackRepository.addPoint(point, s.track)
+                true
+            } catch (e: SQLiteFullException) {
+                AppLog.e("Storage full, finishing track", e)
+                false
+            }
+        }
+
+        override suspend fun deleteSegmentIfShort(trackId: Long, segment: Int, maxPoints: Int): Int =
+            container.trackRepository.deleteSegmentIfShort(trackId, segment, maxPoints)
+    }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var container: AppContainer
@@ -75,8 +85,6 @@ class TrackingService : Service() {
     private var session: Session? = null
     private var locationJob: Job? = null
     private var lastNotificationUpdate = 0L
-    private var filter = LocationFilter()
-    private var jumps = JumpStreak(filter)
 
     override fun onCreate() {
         super.onCreate()
@@ -138,11 +146,9 @@ class TrackingService : Service() {
                 return@launch
             }
             val settings = container.settingsRepository.current()
-            filter = LocationFilter(maxAccuracyM = settings.maxAccuracyM.toFloat())
-            jumps = JumpStreak(filter)
             val now = System.currentTimeMillis()
             val track = container.trackRepository.createTrack(autoName(ActivityType.UNKNOWN, now), now)
-            session = Session(track, IncrementalStats(), segment = 0, pausedAt = null)
+            session = Session(track, recorder(track.id, startSegment = 0, TrackTotals(), settings.maxAccuracyM), pausedAt = null)
             startLocationUpdates()
         }
     }
@@ -153,10 +159,7 @@ class TrackingService : Service() {
         locationJob?.cancel()
         locationJob = null
         s.pausedAt = System.currentTimeMillis()
-        s.stats.breakSegment()
-        s.motion.reset()
-        s.pendingStart = null
-        jumps.reset()
+        s.recorder.pause()
         scope.launch {
             s.track = s.track.copy(status = TrackStatus.PAUSED)
             container.trackRepository.updateTrack(s.track)
@@ -177,7 +180,7 @@ class TrackingService : Service() {
             val now = System.currentTimeMillis()
             val pausedFor = s.pausedAt?.let { now - it } ?: 0L
             s.pausedAt = null
-            s.segment += 1
+            s.recorder.resume()
             s.track = s.track.copy(status = TrackStatus.RECORDING, pausedTimeMs = s.track.pausedTimeMs + pausedFor)
             container.trackRepository.updateTrack(s.track)
             startLocationUpdates()
@@ -230,18 +233,11 @@ class TrackingService : Service() {
 
     private suspend fun attach(track: Track) {
         val settings = container.settingsRepository.current()
-        filter = LocationFilter(maxAccuracyM = settings.maxAccuracyM.toFloat())
-        jumps = JumpStreak(filter)
-        val stats = IncrementalStats(
-            distanceM = track.distanceM,
-            movingTimeMs = track.movingTimeMs,
-            maxSpeedMps = track.maxSpeedMps,
-            pointCount = track.pointCount,
-        )
+        val totals = TrackTotals(track.distanceM, track.movingTimeMs, track.maxSpeedMps, track.avgSpeedMps, track.pointCount)
         // Continue in a fresh segment so the gap during downtime is not drawn as a straight line.
         val segment = container.trackRepository.maxSegment(track.id) + 1
-        val s = Session(track, stats, segment, pausedAt = if (track.status == TrackStatus.PAUSED) System.currentTimeMillis() else null)
-        session = s
+        val pausedAt = if (track.status == TrackStatus.PAUSED) System.currentTimeMillis() else null
+        session = Session(track, recorder(track.id, segment, totals, settings.maxAccuracyM), pausedAt)
         if (track.status == TrackStatus.RECORDING) startLocationUpdates()
         refreshNotification(force = true)
     }
@@ -265,127 +261,50 @@ class TrackingService : Service() {
         }
     }
 
+    private fun recorder(trackId: Long, startSegment: Int, totals: TrackTotals, maxAccuracyM: Int) =
+        TrackRecorder(trackId, startSegment, totals, maxAccuracyM.toFloat(), Store(), log = AppLog::geo)
+
+    /** One fix through the recording rules ([TrackRecorder]), then one update of the live state. */
     private suspend fun onLocation(loc: Location) {
         val s = session ?: return
-        val sample = Sample(
-            timestamp = loc.time,
-            lat = loc.latitude,
-            lon = loc.longitude,
-            accuracyM = if (loc.hasAccuracy()) loc.accuracy else Float.MAX_VALUE,
-            speedMps = if (loc.hasSpeed()) loc.speed else null,
-        )
-        // Every usable fix feeds the live speed and acceleration before the storage rules below drop near-duplicates
-        // (OBS-12, ADR-20).
-        val fixAt = loc.monotonicMs()
-        s.motion.onFix(fixAt, sample.speedMps, if (loc.hasSpeedAccuracy()) loc.speedAccuracyMetersPerSecond else null, filter.isAccurate(sample))
+        val outcome = s.recorder.onFix(loc.toFix())
         val now = System.currentTimeMillis()
-        val acceleration = s.motion.acceleration
         container.trackingController.update {
             it.copy(
                 lastFixAt = now,
-                lastLat = if (sample.accuracyM <= POSITION_MARKER_ACCURACY_M) sample.lat else it.lastLat,
-                lastLon = if (sample.accuracyM <= POSITION_MARKER_ACCURACY_M) sample.lon else it.lastLon,
-                currentSpeedMps = if (s.motion.hasDopplerSpeed(fixAt)) s.motion.speedMps else it.currentSpeedMps,
-                acceleration = acceleration,
-                accelerationAt = if (acceleration != null) now else it.accelerationAt,
-                accelerationTrace = s.motion.trace(),
+                lastLat = outcome.marker?.lat ?: it.lastLat,
+                lastLon = outcome.marker?.lon ?: it.lastLon,
+                currentSpeedMps = outcome.speedMps ?: it.currentSpeedMps,
+                acceleration = outcome.acceleration,
+                accelerationAt = if (outcome.acceleration != null) now else it.accelerationAt,
+                accelerationTrace = outcome.accelerationTrace,
             )
         }
-        if (s.stats.lastSample == null) {
-            // First fix of a segment (start, resume, recovery): nothing to check it against, so it waits for the
-            // next fix (docs/06_system_analysis.md §3.1 rule 6) instead of becoming the reference unchecked.
-            val pending = s.pendingStart
-            if (pending == null) {
-                if (filter.evaluate(null, sample) is FilterResult.Accepted) s.pendingStart = PendingFix(sample, loc)
-                return
+        when (outcome.stop) {
+            StopReason.POINT_LIMIT -> {
+                AppLog.w("Max points reached, finishing track")
+                handleStop()
             }
-            when (filter.confirmStart(pending.sample, sample)) {
-                StartCheck.IGNORE -> return
-                StartCheck.REPLACE -> {
-                    AppLog.geo { "segment start replaced: lat=${pending.sample.lat} lon=${pending.sample.lon} -> lat=${sample.lat} lon=${sample.lon}" }
-                    s.pendingStart = PendingFix(sample, loc)
-                    return
-                }
-                StartCheck.CONFIRMED -> {
-                    s.pendingStart = null
-                    if (!record(s, pending.sample, pending.location, distanceM = 0.0, speedMps = pending.sample.speedMps ?: 0f)) return
-                }
-            }
-        }
-        when (val result = filter.evaluate(s.stats.lastSample, sample)) {
-            is FilterResult.Accepted -> {
-                jumps.reset()
-                record(s, sample, loc, result.distanceM, result.speedMps)
-            }
-            is FilterResult.Rejected -> {
-                AppLog.geo { "rejected ${result.reason} acc=${sample.accuracyM} t=${sample.timestamp} lat=${sample.lat} lon=${sample.lon} prev=${s.stats.lastSample?.lat}" }
-                when (result.reason) {
-                    FilterResult.Reason.IMPLAUSIBLE_SPEED -> if (jumps.onImplausible(sample)) reanchor(s, sample, loc)
-                    FilterResult.Reason.TOO_CLOSE -> jumps.reset()
-                    FilterResult.Reason.INACCURATE, FilterResult.Reason.NOT_NEWER -> Unit
-                }
-            }
+            StopReason.STORAGE_FULL -> handleStop()
+            null -> if (outcome.stored > 0) refreshNotification(force = false)
         }
     }
 
-    /**
-     * Consistent fixes keep arriving far from the last recorded one (LocationFilter rule 7): that one was the
-     * outlier. The track continues from [sample] in a new segment, so no line joins the two places; a stray
-     * start of a few points is deleted instead, so it neither shows on the map nor widens the fit.
-     */
-    private suspend fun reanchor(s: Session, sample: Sample, loc: Location) {
-        AppLog.geo { "re-anchored at lat=${sample.lat} lon=${sample.lon}" }
-        val deleted = container.trackRepository.deleteSegmentIfShort(s.track.id, s.segment, STRAY_SEGMENT_MAX_POINTS)
-        if (deleted == 0) s.segment += 1
-        s.stats.pointCount -= deleted
-        s.stats.breakSegment()
-        s.pendingStart = null
-        record(s, sample, loc, distanceM = 0.0, speedMps = sample.speedMps ?: 0f)
-    }
-
-    /** Stores an accepted fix; false when the recording was finished because of it (storage full, point limit). */
-    private suspend fun record(s: Session, sample: Sample, loc: Location, distanceM: Double, speedMps: Float): Boolean {
-        s.stats.accept(sample, distanceM, speedMps)
-        val fixAt = loc.monotonicMs()
-        s.motion.onRecorded(fixAt, sample.speedMps, speedMps)
-        val point = TrackPoint(
-            trackId = s.track.id,
-            segment = s.segment,
-            timestamp = sample.timestamp,
-            lat = sample.lat,
-            lon = sample.lon,
-            altitudeM = if (loc.hasAltitude()) loc.altitude else null,
-            accuracyM = sample.accuracyM,
-            speedMps = speedMps,
-            bearingDeg = if (loc.hasBearing()) loc.bearing else null,
-            // Quality gate input for elevation gain/loss (docs/06_system_analysis.md §3.4).
-            verticalAccuracyM = if (loc.hasAltitude() && loc.hasVerticalAccuracy()) loc.verticalAccuracyMeters else null,
-        )
-        s.track = s.track.copy(
-            distanceM = s.stats.distanceM,
-            movingTimeMs = s.stats.movingTimeMs,
-            maxSpeedMps = s.stats.maxSpeedMps,
-            avgSpeedMps = s.stats.avgSpeedMps,
-            pointCount = s.stats.pointCount,
-        )
-        try {
-            container.trackRepository.addPoint(point, s.track)
-        } catch (e: SQLiteFullException) {
-            AppLog.e("Storage full, finishing track", e)
-            handleStop()
-            return false
-        }
-        // Doppler speed of every fix when the receiver gives a trustworthy one, the stored points' speed otherwise.
-        val liveSpeed = if (s.motion.hasDopplerSpeed(fixAt)) s.motion.speedMps else s.stats.currentSpeedMps
-        container.trackingController.update { it.copy(currentSpeedMps = liveSpeed, acceleration = s.motion.acceleration) }
-        if (s.stats.pointCount >= MAX_POINTS_PER_TRACK) {
-            AppLog.w("Max points reached, finishing track")
-            handleStop()
-            return false
-        }
-        refreshNotification(force = false)
-        return true
-    }
+    private fun Location.toFix() = Fix(
+        sample = Sample(
+            timestamp = time,
+            lat = latitude,
+            lon = longitude,
+            accuracyM = if (hasAccuracy()) accuracy else Float.MAX_VALUE,
+            speedMps = if (hasSpeed()) speed else null,
+        ),
+        // Monotonic: unlike the UTC time it never steps when the clock is corrected.
+        monotonicMs = elapsedRealtimeNanos / 1_000_000,
+        speedAccuracyMps = if (hasSpeedAccuracy()) speedAccuracyMetersPerSecond else null,
+        altitudeM = if (hasAltitude()) altitude else null,
+        verticalAccuracyM = if (hasAltitude() && hasVerticalAccuracy()) verticalAccuracyMeters else null,
+        bearingDeg = if (hasBearing()) bearing else null,
+    )
 
     // ---------------------------------------------------------------- helpers
 
@@ -395,7 +314,7 @@ class TrackingService : Service() {
         val n = notification.build(
             paused = paused,
             startedAt = s?.track?.startedAt ?: System.currentTimeMillis(),
-            distanceM = s?.stats?.distanceM ?: 0.0,
+            distanceM = s?.recorder?.totals?.distanceM ?: 0.0,
             speedMps = if (s == null) 0.0 else container.trackingController.live.value.currentSpeedMps.toDouble(),
             formatter = formatter,
         )
@@ -421,7 +340,7 @@ class TrackingService : Service() {
         val n = notification.build(
             paused = s.track.status == TrackStatus.PAUSED,
             startedAt = s.track.startedAt,
-            distanceM = s.stats.distanceM,
+            distanceM = s.recorder.totals.distanceM,
             speedMps = container.trackingController.live.value.currentSpeedMps.toDouble(),
             formatter = formatter,
         )
@@ -432,18 +351,12 @@ class TrackingService : Service() {
         }
     }
 
-    /** Fix time on the monotonic clock: unlike [Location.getTime] (UTC), it never steps when the clock is corrected. */
-    private fun Location.monotonicMs(): Long = elapsedRealtimeNanos / 1_000_000
-
     private fun autoName(type: ActivityType, startedAt: Long): String =
         localized.getString(type.labelRes()) + " · " + TimeFormat.dateShort(startedAt, AppLocale.current(container.cachedSettings))
 
-    private fun hasLocationPermission() =
-        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    private fun hasLocationPermission() = Permissions.hasLocation(this)
 
-    private fun hasNotificationPermission() =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    private fun hasNotificationPermission() = Permissions.hasNotifications(this)
 
     companion object {
         const val ACTION_START = "com.justtracker.app.action.START"
@@ -454,10 +367,5 @@ class TrackingService : Service() {
 
         const val LOCATION_INTERVAL_MS = 1000L
         const val NOTIFICATION_THROTTLE_MS = 3000L
-        const val MAX_POINTS_PER_TRACK = 100_000
-        const val POSITION_MARKER_ACCURACY_M = 100f
-
-        /** A segment this short that the track moved away from is a stray start, not a part of the route. */
-        const val STRAY_SEGMENT_MAX_POINTS = 3
     }
 }

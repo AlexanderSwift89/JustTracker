@@ -1,4 +1,4 @@
-package com.justtracker.app.ui.common
+package com.justtracker.app.util
 
 import android.Manifest
 import android.app.Activity
