@@ -45,7 +45,7 @@ class LiveMotion {
             history.record(timeMs, null)
             return
         }
-        smoothedSpeed = if (hasDopplerSpeed(timeMs)) 0.5f * smoothedSpeed + 0.5f * speed else speed
+        smoothedSpeed = if (hasDopplerSpeed(timeMs)) SpeedMath.smooth(smoothedSpeed, speed) else speed
         lastDopplerAt = timeMs
         val estimate = estimator.offer(timeMs, speed, speedAccuracyMps ?: DEFAULT_SPEED_ACCURACY_MPS)
         history.record(timeMs, estimate?.mps2)

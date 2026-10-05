@@ -34,13 +34,13 @@ object TrackStatsCalculator {
             distance += d
             val dt = b.timestamp - a.timestamp
             // Moving time is based on actual displacement so a receiver reporting speed=0 cannot zero it out.
-            if (dt > 0 && d / (dt / 1000.0) > MOVING_THRESHOLD_MPS) movingMs += dt
+            if (SpeedMath.isMoving(d, dt)) movingMs += dt
             val v = speeds[i]
             if (v > maxSpeed) maxSpeed = v.toDouble()
         }
         val end = finishedAt ?: points.last().timestamp
         val total = (end - startedAt - pausedTimeMs).coerceAtLeast(0)
-        val avg = if (movingMs > 0) distance / (movingMs / 1000.0) else 0.0
+        val avg = SpeedMath.average(distance, movingMs)
         val elevation = ElevationCalculator.gainLoss(points)
         return TrackStats(
             distanceM = distance,

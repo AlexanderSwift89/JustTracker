@@ -20,16 +20,16 @@ class IncrementalStats(
     /** Exponentially smoothed instantaneous speed (alpha 0.5). */
     val currentSpeedMps: Float get() = smoothedSpeed
 
-    val avgSpeedMps: Double get() = if (movingTimeMs > 0) distanceM / (movingTimeMs / 1000.0) else 0.0
+    val avgSpeedMps: Double get() = SpeedMath.average(distanceM, movingTimeMs)
 
     fun accept(sample: Sample, distanceFromPrevM: Double, speedMps: Float) {
         val prev = lastSample
         if (prev != null) {
             distanceM += distanceFromPrevM
             val dt = sample.timestamp - prev.timestamp
-            if (dt > 0 && distanceFromPrevM / (dt / 1000.0) > TrackStatsCalculator.MOVING_THRESHOLD_MPS) movingTimeMs += dt
+            if (SpeedMath.isMoving(distanceFromPrevM, dt)) movingTimeMs += dt
         }
-        smoothedSpeed = if (prev == null) speedMps else 0.5f * smoothedSpeed + 0.5f * speedMps
+        smoothedSpeed = if (prev == null) speedMps else SpeedMath.smooth(smoothedSpeed, speedMps)
         if (smoothedSpeed > maxSpeedMps) maxSpeedMps = smoothedSpeed.toDouble()
         pointCount++
         lastSample = sample
