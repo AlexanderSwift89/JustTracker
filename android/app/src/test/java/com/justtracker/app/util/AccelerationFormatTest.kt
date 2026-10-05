@@ -1,7 +1,6 @@
-package com.justtracker.app.domain
+package com.justtracker.app.util
 
 import com.justtracker.app.domain.model.UnitSystem
-import com.justtracker.app.util.UnitFormatter
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.util.Locale
