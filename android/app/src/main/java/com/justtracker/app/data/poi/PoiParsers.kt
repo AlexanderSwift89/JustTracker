@@ -7,10 +7,22 @@ import com.justtracker.app.domain.poi.WikipediaRef
 import org.json.JSONException
 import org.json.JSONObject
 
+/**
+ * Android's org.json parses recursively: a deeply nested answer (`[[[[…` within the 2 MB body limit) overflows the
+ * stack. The Error becomes a [JSONException], so callers handle it like any malformed payload (SEC-08).
+ */
+internal inline fun <T> parseGuarded(block: () -> T): T = try {
+    block()
+} catch (e: StackOverflowError) {
+    throw JSONException("Nesting too deep")
+}
+
 /** Overpass `[out:json]` → list of [Poi]. Malformed elements are skipped, never thrown. */
 object OverpassParser {
     @Throws(JSONException::class)
-    fun parse(json: String, preferredLang: String): List<Poi> {
+    fun parse(json: String, preferredLang: String): List<Poi> = parseGuarded { parseElements(json, preferredLang) }
+
+    private fun parseElements(json: String, preferredLang: String): List<Poi> {
         val elements = JSONObject(json).optJSONArray("elements") ?: return emptyList()
         val result = ArrayList<Poi>(elements.length())
         val seenKeys = HashSet<String>()
@@ -44,7 +56,9 @@ object OverpassParser {
 /** Wikipedia REST `page/summary` → [PoiSummary]; null for disambiguation pages or missing extract. */
 object WikiSummaryParser {
     @Throws(JSONException::class)
-    fun parse(json: String, ref: WikipediaRef): PoiSummary? {
+    fun parse(json: String, ref: WikipediaRef): PoiSummary? = parseGuarded { parseSummary(json, ref) }
+
+    private fun parseSummary(json: String, ref: WikipediaRef): PoiSummary? {
         val obj = JSONObject(json)
         if (obj.optString("type") == "disambiguation") return null
         val extract = obj.optString("extract").trim()
@@ -52,7 +66,7 @@ object WikiSummaryParser {
         val title = obj.optString("title").ifBlank { ref.title }
         val lang = obj.optString("lang").takeIf { WikipediaRef.LANG_PATTERN.matches(it) } ?: ref.lang
         val url = obj.optJSONObject("content_urls")?.optJSONObject("mobile")?.optString("page")
-            ?.takeIf { it.startsWith("https://") && it.contains(".wikipedia.org/") }
+            ?.takeIf { WikipediaRef.isWikipediaPageUrl(it) }
             ?: ref.pageUrl
         return PoiSummary(title = title, extract = extract, lang = lang, pageUrl = url)
     }

@@ -51,6 +51,34 @@ class WikipediaRefTest {
     }
 
     @Test
+    fun `accepts wikipedia page urls`() {
+        listOf(
+            "https://en.m.wikipedia.org/wiki/Red_Square",
+            "https://ru.wikipedia.org/wiki/%D0%9A%D1%80%D0%B5%D0%BC%D0%BB%D1%8C",
+            "https://wikipedia.org/",
+            "HTTPS://EN.WIKIPEDIA.ORG/wiki/X",
+        ).forEach { assertTrue(it, WikipediaRef.isWikipediaPageUrl(it)) }
+    }
+
+    @Test
+    fun `rejects look-alike, userinfo, port, fragment-host and non-https urls`() {
+        listOf(
+            "https://evil.com/.wikipedia.org/x",
+            "https://evil.com?.wikipedia.org/",
+            "https://evil.com#.wikipedia.org/",
+            "https://en.wikipedia.org.evil.com/wiki/X",
+            "https://u@en.wikipedia.org/wiki/X",
+            "https://en.wikipedia.org:8443/wiki/X",
+            "https://en.wikipedia.org./wiki/X",
+            "http://en.wikipedia.org/wiki/X",
+            "javascript:alert(1)",
+            "intent://en.wikipedia.org/#Intent;end",
+            "",
+            null,
+        ).forEach { assertFalse(it.toString(), WikipediaRef.isWikipediaPageUrl(it)) }
+    }
+
+    @Test
     fun `urls encode the title as a single path segment`() {
         val ref = WikipediaRef("en", "AC/DC (band)")
         assertEquals("https://en.wikipedia.org/api/rest_v1/page/summary/AC%2FDC_(band)", ref.summaryUrl)

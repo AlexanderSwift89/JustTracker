@@ -2,6 +2,7 @@ package com.justtracker.app
 
 import android.app.Application
 import com.justtracker.app.di.AppContainer
+import com.justtracker.app.util.AppUserAgent
 import kotlinx.coroutines.launch
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 import org.osmdroid.config.Configuration
@@ -27,12 +28,13 @@ class JustTrackerApplication : Application() {
 
     /**
      * osmdroid keeps its tile cache inside the app's private cache dir (no storage permission) and
-     * identifies itself with the package name as required by the OSM tile usage policy. The cache is
+     * identifies itself with the app name, version and contact as required by the OSM tile usage policy
+     * ([AppUserAgent], ADR-22). The cache is
      * shared by downloaded online tiles and tiles rendered from offline regions (ADR-17).
      */
     private fun configureOsmdroid() {
         Configuration.getInstance().apply {
-            userAgentValue = BuildConfig.APPLICATION_ID
+            userAgentValue = AppUserAgent.value
             osmdroidBasePath = File(cacheDir, "osmdroid").also { it.mkdirs() }
             osmdroidTileCache = File(osmdroidBasePath, "tiles").also { it.mkdirs() }
             tileFileSystemCacheMaxBytes = 300L * 1024 * 1024

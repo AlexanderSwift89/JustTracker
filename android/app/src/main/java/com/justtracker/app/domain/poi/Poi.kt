@@ -1,5 +1,7 @@
 package com.justtracker.app.domain.poi
 
+import java.net.URI
+
 /** Coarse category derived from OSM tags; drives the label in the card (docs/06_system_analysis.md §3.7). */
 enum class PoiKind { MUSEUM, ATTRACTION, HISTORIC, WORSHIP, NATURE, PLACE }
 
@@ -31,6 +33,23 @@ data class WikipediaRef(val lang: String, val title: String) {
             if (!LANG_PATTERN.matches(lang) || title.isEmpty() || title.length > 255) return null
             if (title.any { it == '#' || it == '?' || it < ' ' }) return null
             return WikipediaRef(lang, title)
+        }
+
+        /** `wikipedia.org` or one of its subdomains (`en.m.wikipedia.org`); case-insensitive, no trailing dot. */
+        fun isWikipediaHost(host: String?): Boolean {
+            val h = host?.lowercase() ?: return false
+            return h == "wikipedia.org" || h.endsWith(".wikipedia.org")
+        }
+
+        /**
+         * An `https` Wikipedia URL on the default port without credentials — the only kind of link from a
+         * Wikipedia answer the app opens (SEC-06: a substring check let `https://evil.example/.wikipedia.org/` through).
+         */
+        fun isWikipediaPageUrl(url: String?): Boolean {
+            if (url.isNullOrBlank()) return false
+            val uri = runCatching { URI(url) }.getOrNull() ?: return false
+            return uri.scheme.equals("https", ignoreCase = true) && uri.rawUserInfo == null && uri.port == -1 &&
+                isWikipediaHost(uri.host)
         }
 
         /** Percent-encodes a title as a single path segment; spaces become underscores as Wikipedia expects. */

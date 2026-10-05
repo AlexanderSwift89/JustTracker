@@ -1,6 +1,5 @@
 package com.justtracker.app.ui.poi
 
-import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,11 +30,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import com.justtracker.app.R
 import com.justtracker.app.domain.poi.PoiKind
+import com.justtracker.app.domain.poi.WikipediaRef
 import com.justtracker.app.ui.common.SkeletonGroup
 import com.justtracker.app.ui.common.SkeletonParagraph
+import com.justtracker.app.ui.common.openInBrowser
 import com.justtracker.app.util.UnitFormatter
 
 /**
@@ -110,7 +110,7 @@ fun PoiCard(
                     }
                 }
                 TextButton(
-                    onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, pageUrl.toUri())) } },
+                    onClick = { if (WikipediaRef.isWikipediaPageUrl(pageUrl)) context.openInBrowser(pageUrl) },
                     modifier = Modifier.height(48.dp),
                 ) {
                     Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))

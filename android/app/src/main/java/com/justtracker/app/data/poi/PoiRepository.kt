@@ -30,7 +30,7 @@ sealed class PoiResult {
  * - Overpass calls are serialized and spaced by at least [MIN_GAP_MS]; after a failure nothing is
  *   sent for [BACKOFF_MS] (the public instance answers 429/504 under load).
  * - Results are cached per [GeoCell] / per track for [CELL_TTL_MS]; summaries for the process lifetime.
- * - No coordinates are logged (AppLog.geo is debug-only).
+ * - No coordinates are logged (AppLog.geo is debug-only); JSON is parsed off the main thread.
  */
 class PoiRepository(
     private val http: Http = Http(),
@@ -73,7 +73,8 @@ class PoiRepository(
     suspend fun summary(ref: WikipediaRef): PoiSummary? {
         synchronized(summaryCache) { if (summaryCache.containsKey(ref.key)) return summaryCache[ref.key] }
         val summary = try {
-            WikiSummaryParser.parse(http.get(ref.summaryUrl), ref)
+            val json = http.get(ref.summaryUrl)
+            withContext(Dispatchers.Default) { WikiSummaryParser.parse(json, ref) }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -95,11 +96,13 @@ class PoiRepository(
         try {
             val body = "data=" + URLEncoder.encode(query, "UTF-8")
             val json = http.postForm(overpassUrl, body)
-            OverpassParser.parse(json, preferredLang()).also { AppLog.d("Overpass: ${it.size} places") }
+            withContext(Dispatchers.Default) { OverpassParser.parse(json, preferredLang()) }
+                .also { AppLog.d("Overpass: ${it.size} places") }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            AppLog.w("Overpass failed: ${e.javaClass.simpleName} ${e.message}")
+            // Class and HTTP status only: a parser message may quote the response body.
+            AppLog.w("Overpass failed: ${e.javaClass.simpleName}" + ((e as? Http.HttpException)?.let { " HTTP ${it.code}" } ?: ""))
             failedUntil = SystemClock.elapsedRealtime() + BACKOFF_MS
             null
         }

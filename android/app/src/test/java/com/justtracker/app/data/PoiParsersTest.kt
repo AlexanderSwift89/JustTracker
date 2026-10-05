@@ -2,12 +2,15 @@ package com.justtracker.app.data
 
 import com.justtracker.app.data.poi.OverpassParser
 import com.justtracker.app.data.poi.WikiSummaryParser
+import com.justtracker.app.data.poi.parseGuarded
 import com.justtracker.app.domain.poi.PoiKind
 import com.justtracker.app.domain.poi.WikipediaRef
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.json.JSONException
 
 class OverpassParserTest {
     private val json = """
@@ -91,5 +94,30 @@ class WikiSummaryParserTest {
         val s = WikiSummaryParser.parse(json, ref)!!
         assertEquals("en", s.lang)
         assertEquals(ref.pageUrl, s.pageUrl)
+    }
+
+    @Test
+    fun `look-alike content url falls back to the reference`() {
+        listOf("https://phish.example/.wikipedia.org/wiki", "https://en.wikipedia.org.phish.example/wiki/X").forEach { url ->
+            val json = """{"type":"standard","extract":"Text","content_urls":{"mobile":{"page":"$url"}}}"""
+            assertEquals(ref.pageUrl, WikiSummaryParser.parse(json, ref)!!.pageUrl)
+        }
+    }
+}
+
+class ParseGuardTest {
+    @Test
+    fun `stack overflow while parsing becomes JSONException`() {
+        val e = assertThrows(JSONException::class.java) { parseGuarded<Unit> { throw StackOverflowError() } }
+        assertEquals("Nesting too deep", e.message)
+        assertEquals(42, parseGuarded { 42 })
+    }
+
+    @Test
+    fun `deeply nested overpass payload fails without crashing`() {
+        // Android's org.json recurses (StackOverflowError, guarded); the JVM one stops at its depth limit.
+        val nested = "{\"elements\":" + "[".repeat(200_000)
+        assertThrows(JSONException::class.java) { OverpassParser.parse(nested, "en") }
+        assertThrows(JSONException::class.java) { WikiSummaryParser.parse("{\"x\":" + "{\"y\":".repeat(100_000), WikipediaRef("en", "X")) }
     }
 }

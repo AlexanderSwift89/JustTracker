@@ -7,6 +7,7 @@ import android.content.Intent
 import androidx.core.net.toUri
 import com.justtracker.app.JustTrackerApplication
 import com.justtracker.app.domain.maps.RegionError
+import com.justtracker.app.util.AppUserAgent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -39,6 +40,8 @@ class RegionDownloader(private val context: Context) {
         val dm = manager ?: return null
         val request = DownloadManager.Request(url.toUri())
             .setTitle(title)
+            // Without it the system downloader sends its own agent with the Android release and device model.
+            .addRequestHeader("User-Agent", AppUserAgent.value)
             .setDestinationInExternalFilesDir(context, MapsDirectory.DIR_NAME, fileName)
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
             .setAllowedOverRoaming(false)

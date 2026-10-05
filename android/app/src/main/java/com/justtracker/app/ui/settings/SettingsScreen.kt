@@ -1,6 +1,5 @@
 package com.justtracker.app.ui.settings
 
-import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,7 +37,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -54,6 +52,7 @@ import com.justtracker.app.domain.model.AppSettings
 import com.justtracker.app.domain.model.ThemeMode
 import com.justtracker.app.domain.model.UnitSystem
 import com.justtracker.app.ui.common.appViewModel
+import com.justtracker.app.ui.common.openInBrowser
 import com.justtracker.app.util.AppLocale
 import com.justtracker.app.util.labelRes
 import kotlinx.coroutines.flow.SharingStarted
@@ -218,7 +217,7 @@ fun SettingsScreen(
                 headlineContent = { Text(stringResource(R.string.settings_privacy)) },
                 supportingContent = { Text(privacyUrl) },
                 modifier = Modifier.clickable {
-                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, privacyUrl.toUri())) }
+                    context.openInBrowser(privacyUrl)
                 },
             )
             // Third-party notices (Mapsforge is LGPL-3.0 — the user must be told; docs/07_security.md §7).
@@ -226,7 +225,7 @@ fun SettingsScreen(
                 headlineContent = { Text(stringResource(R.string.settings_licenses)) },
                 supportingContent = { Text(licensesUrl) },
                 modifier = Modifier.clickable {
-                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, licensesUrl.toUri())) }
+                    context.openInBrowser(licensesUrl)
                 },
             )
             ListItem(
