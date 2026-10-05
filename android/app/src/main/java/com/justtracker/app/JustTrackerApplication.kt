@@ -9,13 +9,23 @@ import kotlinx.coroutines.launch
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
 import org.osmdroid.config.Configuration
 import java.io.File
+import java.util.logging.Level
+import java.util.logging.Logger
 
 class JustTrackerApplication : Application() {
     lateinit var container: AppContainer
         private set
 
+    /**
+     * Mapsforge logs through java.util.logging (file names, header problems); release builds keep it silent like
+     * android.util.Log (SEC-15). Held in a field: LogManager keeps loggers only weakly, and a collected parent would
+     * take its level with it.
+     */
+    private val mapsforgeLogger: Logger = Logger.getLogger("org.mapsforge")
+
     override fun onCreate() {
         super.onCreate()
+        if (!BuildConfig.DEBUG) mapsforgeLogger.level = Level.OFF
         container = AppContainer(this)
         configureOsmdroid()
         // Mapsforge needs its Android graphics factory once per process before any region renders (ADR-17).

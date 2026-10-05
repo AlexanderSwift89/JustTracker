@@ -1,7 +1,14 @@
-# --- Logging: strip verbose/debug logs in release (security requirement, see docs/07_security.md)
+# --- Logging: no android.util.Log calls survive in release (docs/07_security.md SEC-12, SEC-15).
+# Libraries log too: osmdroid's tile downloader writes "/z/x/y" tile indexes of the viewed area with
+# Log.w/i/e on network errors. Stripping every level removes those; the app's own release lines (AppLog,
+# message + exception class only) go through Log.println, which is not listed here and therefore stays.
 -assumenosideeffects class android.util.Log {
     public static int v(...);
     public static int d(...);
+    public static int i(...);
+    public static int w(...);
+    public static int e(...);
+    public static int wtf(...);
 }
 
 # --- osmdroid
