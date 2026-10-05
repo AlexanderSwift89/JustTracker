@@ -11,6 +11,7 @@ JustTracker — ответвление [TrekLog 1.2.0](https://github.com/Alexan
 - **Без Google Play Services**: геолокация через платформенный `LocationManager` (ADR-14) — приложение работает на Huawei/Honor и AOSP-прошивках.
 - **Material Design 3**: явные Typography/Shapes, splash screen, predictive back, адаптивная навигация (`NavigationSuiteScaffold`: bar в портрете, rail в landscape), edge-to-edge, themed icon. С 1.0.2 все экраны работают в landscape и при шрифте до 200 %, поворот не пересоздаёт activity (ADR-18).
 - **1.0.2**: правдоподобный набор/сброс высоты (сглаживание вдоль пути, удаление сбоев GPS-высоты — ADR-19), GPX, проходящий проверку по схеме GPX 1.1 (скорость и курс — в расширении Garmin); запись больше не «застревает» на 0 м, если первая точка пришла издалека.
+- **1.1.1**: аудит безопасности (`docs/07_security.md` §8, OWASP MASVS v2) — по сохранённому треку на сервер уходят только ячейки ≈ 500 м без начала и конца маршрута (ADR-21); белый список хостов с проверкой редиректов, единый User-Agent без данных устройства (ADR-22); копии GPX удаляются вместе с треком, данные не попадают в бэкап и перенос; релизы GitHub без файлов, release без ключа не подписывается, wrapper и Actions закреплены (ADR-23).
 - **1.1.0**: индикатор горизонтального ускорения — нажатие на скорость на экране записи показывает разгон / замедление в м/с² и график за минуту (производная доплеровской скорости GNSS по окну 4 с, ADR-20; без новых разрешений и датчиков); мгновенная скорость обновляется по каждому фиксу GPS и падает до нуля сразу после остановки (OBS-12).
 - **RuStore**: подпись собственным ключом, декларации разрешений и данных, возраст 12+ (436-ФЗ), политика конфиденциальности на GitHub Pages, материалы карточки в `store/rustore/`.
 
@@ -44,17 +45,17 @@ CHANGELOG.md
 - Gradle 9.6 (wrapper скачает сам), AGP 9.4, Kotlin 2.3 (встроенный в AGP)
 - Python 3 + Pillow — только для генерации иконки магазина (`store/rustore/make_icon.py`) и подгонки скриншотов
 
-## Скачать APK (без сборки)
+## Установка
 
-- **Релизы:** [github.com/AlexanderSwift89/JustTracker/releases](https://github.com/AlexanderSwift89/JustTracker/releases) — `JustTracker-<версия>-debug.apk` для установки вручную (`adb install -r`). Магазинная сборка — в RuStore.
-- **Последний коммит в `main`:** вкладка Actions → нужный запуск → Artifacts (нужен вход в GitHub; хранится 30 дней).
+- **Пользователям — только RuStore** ([карточка приложения](https://www.rustore.ru/catalog/app/com.justtracker.app)). С 1.1.1 к [релизам GitHub](https://github.com/AlexanderSwift89/JustTracker/releases) файлы не прикладываются — там только заметки (`docs/07_security.md` SEC-01).
+- **Разработчикам:** debug-APK последнего коммита в `main` — вкладка Actions → нужный запуск → Artifacts (нужен вход в GitHub; хранится 30 дней). Это отдельный пакет `com.justtracker.app.debug`, сборка **debuggable** (через `run-as` читается база треков, координаты пишутся в logcat) — для тестов на своём устройстве, не для повседневной записи.
 
 ### CI
 
-`.github/workflows/android.yml`: на каждый push/PR в `main` — unit-тесты, lint, `assembleDebug`, APK и отчёты как артефакты. На тег `v*` дополнительно — GitHub Release с debug-APK и job `release-signed` (подписанные AAB + APK + `mapping.txt`, если заданы секреты `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`). `.github/workflows/pages.yml` публикует `site/` на GitHub Pages (Pages включается самим workflow через `configure-pages` + `enablement: true`).
+`.github/workflows/android.yml`: на каждый push/PR в `main` — unit-тесты, lint, `assembleDebug`, APK и отчёты как артефакты. На тег `v*` дополнительно — GitHub Release только с заметками (без файлов) и job `release-signed` (подписанные AAB + APK + `mapping.txt`, если заданы секреты `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`). Сторонние Actions закреплены по SHA коммита, Gradle wrapper — с `distributionSha256Sum` (ADR-23). `.github/workflows/pages.yml` публикует `site/` на GitHub Pages (Pages включается самим workflow через `configure-pages` + `enablement: true`).
 
 ```bash
-git tag v1.0.0 && git push origin v1.0.0
+git tag v1.1.1 && git push origin v1.1.1
 ```
 
 ## Сборка
@@ -68,7 +69,7 @@ cd android
 .\gradlew.bat :app:assembleRelease      # release APK (~3 МБ)
 ```
 
-Release подписывается ключом из `android/keystore.properties` (см. `docs/09_release_rustore.md` §1.1; сертификат сверяет задача `verifyReleaseKey`); без файла — debug-ключом только для локальной проверки, в RuStore такую сборку не загружать (D-24). Версию можно задать снаружи: `-PversionCode=4 -PversionName=1.0.3`.
+Release подписывается ключом из `android/keystore.properties` (см. `docs/09_release_rustore.md` §1.1; сертификат сверяет задача `verifyReleaseKey`); без файла release не подписывается (`app-release-unsigned.apk`); для локальной проверки R8 на устройстве — `-PallowDebugSignedRelease=true` (debug-ключ, в RuStore такую сборку не загружать — D-24). Версию можно задать снаружи: `-PversionCode=6 -PversionName=1.1.2`.
 
 ## Запуск на эмуляторе и симуляция GPS
 
@@ -92,6 +93,7 @@ adb emu geo fix 37.6173 55.7558 150 8 19.4   # + спутники и скоро�
 - Время записи — производная от `startedAt`/`finishedAt` (ADR-11); окраска линии — `PolychromaticPaintList`, одна полилиния на сегмент (ADR-12).
 - Поворот экрана без пересоздания activity, защищённое вписывание трека в карту (ADR-18); набор высоты — сглаживание вдоль пути, удаление «залипаний» GPS-высоты, гистерезис по точкам разворота (ADR-19).
 - Ускорение — производная доплеровской скорости GNSS (взвешенная регрессия по окну 4 с), а не акселерометр; живая скорость и ускорение считаются по каждому фиксу, до правил хранения точек (ADR-20).
+- Запрос мест вдоль трека — только центры ячеек сетки без первых и последних 300 м, фильтр по реальной линии на устройстве (ADR-21); сетевой периметр — `HostPolicy`, ручные проверяемые редиректы, `AppUserAgent`, без certificate pinning (своих серверов нет, ADR-22); распространение — только RuStore, целостность сборки (ADR-23).
 
 ## Лицензии
 

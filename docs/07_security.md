@@ -6,7 +6,7 @@
 |-------|------------------|--------|
 | Треки (координаты + время) | **Высокая** | Раскрывают дом, работу, распорядок дня, маршруты детей |
 | Настройки | Низкая | Единицы, тема |
-| Экспортированные GPX в cache | Высокая (временно) | Копия трека, доступная через FileProvider |
+| Экспортированные GPX в cache | Высокая (временно) | Копия трека, доступная через FileProvider; с 1.1.1 удаляется вместе с треком и не позже 24 ч после экспорта (SEC-11) |
 | Кэш тайлов карты (`cache/osmdroid/tiles/cache.db`: онлайн-тайлы и с 1.0.1 отрендеренные фрагменты офлайн-регионов) | Средняя | Косвенно показывает районы, где бывал пользователь; закрытый каталог приложения, `allowBackup=false`, очищается системой при нехватке места |
 | Запросы «Интересное рядом» (1.1) | Средняя | Overpass получает район ≈ 500 м, Wikipedia — название открытой статьи; вместе с IP это профиль перемещений |
 | Файлы офлайн-регионов (JustTracker) | Средняя | Набор скачанных регионов косвенно раскрывает регион проживания/поездок; сам факт загрузки (имя файла + IP) виден серверу download.mapsforge.org |
@@ -17,53 +17,68 @@
 | Угроза | Категория | Вектор | Риск | Контрмера |
 |--------|-----------|--------|------|-----------|
 | Другое приложение читает БД | Information disclosure | Общее хранилище | Низкий (песочница) | БД только в `filesDir`; никаких `WRITE_EXTERNAL_STORAGE`; `exported=false` у всех компонентов кроме launcher-Activity |
-| Утечка через облачный бэкап Google | Information disclosure | Auto Backup | Средний | `android:allowBackup="false"` + `dataExtractionRules` исключают БД (решение: геоданные не бэкапятся, пользователь экспортирует GPX сам) |
-| Утечка через логи | Information disclosure | `adb logcat`, crash-репорты | Средний | `AppLog` не пишет координаты в release; в debug — с пометкой; R8 удаляет `Log.d/v` |
+| Утечка через облачный бэкап Google и перенос на новое устройство | Information disclosure | Auto Backup, device-to-device transfer | Средний | `android:allowBackup="false"` + `dataExtractionRules`: с 1.1.1 **все** домены (`root`, `file`, `database`, `sharedpref`, `external`, `device_*`) исключены и из `cloud-backup`, и из `device-transfer` — при targetSdk 31+ `allowBackup=false` перенос между устройствами останавливает не везде (SEC-10). Геоданные не бэкапятся, пользователь экспортирует GPX сам |
+| Утечка через логи | Information disclosure | `adb logcat`, отчёты об ошибках | Средний | `AppLog.geo/d` — только debug; с 1.1.1 `AppLog.w/e` в release пишут сообщение и класс исключения, без текста и стека (там бывали путь GPX с именем трека, URI документа, тело ответа — SEC-08, SEC-12); R8 удаляет `Log.d/v` |
 | Перехват тайлов карты | Information disclosure (MITM) | Сеть | Низкий | Только HTTPS-тайлы (`tile.openstreetmap.org`), `usesCleartextTraffic=false`, network security config без user-CA |
 | Подмена Intent к сервису (START/STOP от другого приложения) | Tampering / DoS | `startService` извне | Низкий | `TrackingService exported=false`; действия принимаются только из своего пакета |
-| Экспортированный GPX доступен дольше нужного | Information disclosure | FileProvider URI | Низкий | `cache-path` с ограниченным подкаталогом, `FLAG_GRANT_READ_URI_PERMISSION` только на конкретный URI, очистка файлов старше 24 ч |
+| Экспортированный GPX доступен дольше нужного | Information disclosure | FileProvider URI, файл в кэше | Низкий | `cache-path` с ограниченным подкаталогом, `FLAG_GRANT_READ_URI_PERMISSION` только на конкретный URI; с 1.1.1 `ExportFiles` удаляет копии вместе с треком, при каждом экспорте и при старте — всё старше 24 ч (SEC-11) |
 | Физический доступ к разблокированному устройству | Information disclosure | Прямой | Вне модели | Экранная блокировка — ответственность пользователя; в 1.x — опция PIN на приложение |
 | Отказ в обслуживании: переполнение диска | DoS | Длинная запись | Низкий | Ограничение 100 000 точек/трек с автозавершением; обработка `SQLiteFullException` |
-| Fingerprinting через User-Agent к OSM | Privacy | Сеть | Низкий | User-Agent = имя пакета без идентификаторов устройства/пользователя |
-| Передача точного положения на Overpass (1.1) | Information disclosure | Сеть | **Средний** | Запрос строится вокруг центра ячейки сетки 0.005° (`GeoCell`, ADR-09), а не точного фикса; в деталях трека — полилиния, округлённая до 4 знаков (≈ 11 м) и упрощённая до 80 вершин, но это **уже сохранённый трек, который пользователь сам открыл**; функция отключается в настройках; HTTPS; описано в privacy policy |
-| Утечка интереса к объекту на Wikipedia (1.1) | Privacy | Сеть | Низкий | Запрос описания только по явному тапу на метку или при авто-озвучке (opt-in); идентификаторов нет; HTTPS |
-| Подмена хоста через OSM-тег `wikipedia` (SSRF/фишинг) (1.1) | Tampering | Данные OSM (UGC) | Средний | `WikipediaRef.parse`: язык — только `^[a-z]{2,3}(-[a-z]{2,10})?$`, заголовок — один path-сегмент с percent-encoding; URL из ответа Wikipedia принимается только `https://*.wikipedia.org/`; unit-тесты на инъекции |
-| Вредоносный/огромный ответ сервера (1.1) | DoS | Сеть | Низкий | Лимит тела 2 МБ, таймауты 10/25 с, `org.json` без рефлексии, парсер пропускает некорректные элементы; ошибки не крэшат UI |
+| Fingerprinting через User-Agent | Privacy | Сеть | Низкий | С 1.1.1 единый `AppUserAgent` = `JustTracker/<версия> (<сайт>)` на всех хостах, включая тайлы osmdroid и DownloadManager (до этого тайлы — имя пакета, DownloadManager — системный UA с версией Android и моделью устройства, SEC-04); идентификаторов устройства и пользователя нет |
+| Передача точного положения на Overpass (1.1) | Information disclosure | Сеть | **Средний** → Низкий | Экран записи — центр ячейки сетки 0.005° (`GeoCell`, ADR-09). Детали трека: с 1.1.1 — только центры ячеек трека без первых и последних 300 м пути и без точек ближе 300 м к старту и финишу (`TrackQuery`, ADR-21); до 1.1.1 уходила линия трека с точностью ≈ 11 м вместе с точными стартом и финишем (SEC-02). Ответ фильтруется на устройстве; функция отключается в настройках; HTTPS; описано в privacy policy. Остаток: ячейка старта записи при живом поиске (OBS-14) |
+| Утечка интереса к объекту на Wikipedia (1.1) | Privacy | Сеть | Низкий | Запрос описания только по явному тапу на метку или при авто-озвучке (opt-in) — тогда Wikimedia видит, что IP был в ≤ 150 м от объекта (описано в политике 1.1); идентификаторов нет; HTTPS |
+| Подмена хоста через OSM-тег `wikipedia` или ответ API (SSRF/фишинг) (1.1) | Tampering | Данные OSM (UGC), ответ Wikipedia | Средний | `WikipediaRef.parse`: язык — только `^[a-z]{2,3}(-[a-z]{2,10})?$`, заголовок — один path-сегмент с percent-encoding; URL из ответа Wikipedia — с 1.1.1 разбор `java.net.URI`: https, хост `(*.)wikipedia.org`, без userinfo и порта (до этого — проверка подстрокой, пропускавшая `https://evil.example/.wikipedia.org/`, SEC-06); открытие с `CATEGORY_BROWSABLE`; unit-тесты на инъекции |
+| Вредоносный/огромный ответ сервера (1.1) | DoS | Сеть | Низкий | Лимит тела 2 МБ, таймауты 10/25 с, `org.json` без рефлексии, парсер пропускает некорректные элементы; с 1.1.1 разбор вне главного потока, `StackOverflowError` рекурсивного парсера → `JSONException` (SEC-08); ошибки не крэшат UI |
 | Перегрузка публичных серверов приложением (1.1) | Abuse (наша сторона) | Сеть | Средний | Кэш по ячейке/треку, интервал ≥ 15 с, backoff 60 с после ошибки, `out center 200`, UA с контактом (политики Overpass и Wikimedia) |
 | Чужое приложение читает вслух через наш TTS | Spoofing | Intent | Нет | TTS вызывается только из процесса приложения; нет exported-компонентов |
 | Подмена URL каталога регионов → загрузка вредоносного файла (JustTracker) | Tampering | Каталог в assets (в APK) | Низкий | Каталог — часть подписанного APK; `RegionCatalogParser` принимает только `https://` и хост из белого списка (`download.mapsforge.org`), путь `.map`; unit-тесты на http/чужой хост/не-`.map` |
-| Повреждённый/подменённый файл региона (JustTracker) | Tampering / DoS | Сеть, импорт из SAF | Низкий | `MapFileInspector` читает только заголовок Mapsforge; исключение → ERROR(CORRUPT), файл удалён; mapsforge читает файл в режиме read-only; ошибки рендера ловятся внутри `DirectRenderer.executeJob` (тайл пропускается), файл, который не открылся, исключается из набора (`OfflineRenderer.open`) |
-| Спуфинг `ACTION_DOWNLOAD_COMPLETE` в exported-receiver (JustTracker) | Spoofing | Broadcast от другого приложения | Низкий | Receiver проверяет action и берёт только `EXTRA_DOWNLOAD_ID`; id сверяется с DownloadManager (возвращает только загрузки нашего пакета) и с нашей таблицей; чужой id — no-op |
+| Повреждённый/подменённый файл региона (JustTracker) | Tampering / DoS | Сеть, импорт из SAF, другое приложение (Android ≤ 10) | Низкий | `MapFileInspector` читает только заголовок Mapsforge; исключение → ERROR(CORRUPT), файл удалён; с 1.1.1 bbox заголовка сверяется с каталогом (`RegionPlausibility`, SEC-13); mapsforge читает файл в режиме read-only; ошибки рендера ловятся внутри `DirectRenderer.executeJob` (тайл пропускается), файл, который не открылся, исключается из набора (`OfflineRenderer.open`) |
+| Спуфинг `ACTION_DOWNLOAD_COMPLETE` в exported-receiver (JustTracker) | Spoofing | Broadcast от другого приложения | Низкий | С 1.1.1 receiver защищён `android:permission="android.permission.SEND_DOWNLOAD_COMPLETED_INTENTS"` — отправить может только системный загрузчик (SEC-09); кроме того, проверяется action, берётся только `EXTRA_DOWNLOAD_ID`, id сверяется с DownloadManager (возвращает только загрузки нашего пакета) и с нашей таблицей; чужой id — no-op |
 | Загрузка региона по мобильной сети / переполнение диска (JustTracker) | DoS / расход средств пользователя | DownloadManager | Средний | Wi-Fi only по умолчанию, размер в диалоге подтверждения, проверка `free ≥ size + 200 МБ`, файлы в app-specific external (удаляются с приложением) |
 | Утечка факта загрузки региона (JustTracker) | Privacy | Сеть | Низкий | Только имя файла региона + IP (HTTPS); описано в privacy policy; альтернатива — импорт файла, скачанного иным путём |
 | Зависимость от Google Play Services как канал данных | Privacy | GMS | Нет | GMS-библиотек в приложении нет (ADR-14) — на устройстве приложение не инициирует обмен с сервисами Google |
 | Скрытый сетевой трафик карты в «офлайн»-режиме (JustTracker) | Privacy / расход трафика | Сеть | Низкий | В `MapMode.OFFLINE` провайдер строится с `setUseDataConnection(false)` — загрузчик тайлов исключается из цепочки; смена режима только по явному действию пользователя (ADR-16); `ConnectivityObserver` лишь читает состояние сети (`ACCESS_NETWORK_STATE`) |
+| Пользователь ставит debuggable-сборку из GitHub Releases (до 1.1.1) | Information disclosure | Публичный релиз с debug-APK | **Высокий** → закрыт | С 1.1.1 к GitHub Release файлы не прикладываются; debug-APK — артефакт CI для разработчиков (отдельный пакет `.debug`); README и `09_release_rustore.md` — установка только из RuStore (SEC-01, ADR-23). В debuggable-сборке `run-as` открывает БД треков, `AppLog.geo` пишет координаты в logcat |
+| Release, подписанный debug-ключом | Spoofing / Tampering | Сборка без `keystore.properties` | Средний → закрыт | С 1.1.1 такой release не подписывается (`app-release-unsigned.apk`); debug-ключ — только явно, `-PallowDebugSignedRelease=true` с предупреждением; `verifyReleaseKey` сверяет сертификат при наличии ключа (D-24, SEC-03) |
+| Подмена инструментов сборки | Tampering (supply chain) | Gradle wrapper, GitHub Actions | Средний | С 1.1.1 wrapper с `distributionSha256Sum`, `validate-wrappers`; сторонние Actions закреплены по SHA коммита, сторонний action с `contents: write` удалён (SEC-05, ADR-23). Рекомендации: Environment `release` с ревьюером для секретов подписи, Gradle dependency verification |
+| Редирект на чужой хост | Information disclosure / Tampering | Ответ Overpass/Wikipedia | Низкий | С 1.1.1 `HostPolicy` проверяет каждый переход, GET — до 3 редиректов, POST — без редиректов: тело запроса другому хосту не уходит (SEC-07, ADR-22) |
+| Перехват задачи (StrandHogg) | Spoofing | Вредоносное приложение на Android ≤ 10 | Низкий (принят) | В приложении нет учётных данных и платежей — подделке нечего выманить; StrandHogg 2 закрывается только ОС (исправлено в Android 11+), повышать `minSdk` до 30 нельзя из-за аудитории |
+| Уведомление записи на экране блокировки | Information disclosure / Tampering | Физический доступ к заблокированному телефону | Низкий (принят) | Видны время, дистанция и скорость, координат нет; «Пауза/Стоп» работают без разблокировки — это сценарий бега, а «Стоп» сохраняет трек |
 
 ## 3. Требования безопасности (обязательные для 1.0)
 
-- [ ] Разрешения только: `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_LOCATION`, `POST_NOTIFICATIONS`, `INTERNET`, `ACCESS_NETWORK_STATE`. **Без** `ACCESS_BACKGROUND_LOCATION`, без storage-разрешений.
-- [ ] Все компоненты `android:exported="false"`, кроме `MainActivity` и `DownloadCompleteReceiver` (системный broadcast `DOWNLOAD_COMPLETE` требует exported; валидация id — см. §2).
-- [ ] `android:allowBackup="false"`, `android:dataExtractionRules` с исключением `database/`, `datastore/`, `sharedpref` и `external/maps`.
-- [ ] `android:usesCleartextTraffic="false"`; `network_security_config.xml` без `user` trust anchors.
-- [ ] Сетевые хосты — только `tile.openstreetmap.org`, `download.mapsforge.org` (регионы, по явной команде пользователя), `overpass-api.de`, `*.wikipedia.org`; `Http` и `RegionCatalogParser` принимают исключительно `https://`. Любой новый хост — через ревью безопасности и обновление privacy policy.
-- [ ] (1.1) Точные координаты не покидают устройство при поиске объектов: только центр ячейки `GeoCell` (проверяется unit-тестом `OverpassQlTest`).
-- [ ] (1.1) Функция «Интересное рядом» отключаема в настройках; авто-озвучка — opt-in (по умолчанию выключена).
-- [ ] (1.1) `<queries>` в манифесте содержит только `android.intent.action.TTS_SERVICE`.
-- [ ] Никаких SDK аналитики/рекламы/крэшлитики с передачей данных и никаких `com.google.android.gms:*` (ADR-14). Крэши — по отзывам RuStore + `mapping.txt`.
-- [ ] `FileProvider` только с `cache-path name="exports" path="exports/"`.
-- [ ] Логирование координат — только в debug через `AppLog.geo()`; в release функция — no-op; R8 `-assumenosideeffects` для `android.util.Log.d/v`.
-- [ ] R8 включён, `isDebuggable=false` в release, отдельный keystore, пароль в `keystore.properties` (в `.gitignore`); release-APK подписан release-ключом (`CN=JustTracker`, SHA-256 `BC:B7:0F:…:87:09`), а не debug-ключом — сертификат сверяет `verifyReleaseKey` (D-24).
-- [ ] Ограничение на длину имени трека (100 символов), санитизация имени файла GPX (1.0.2: `[^\p{L}\p{M}\p{N}_-]+` → `_`, до 60 символов + `_<id>.gpx` — буквы любого алфавита остаются, разделители пути, `..`, управляющие и bidi-символы (подмена расширения через U+202E) — нет).
-- [ ] Экспорт GPX через XML-writer с экранированием, чтобы имя трека не ломало XML; символы, недопустимые в XML 1.0, удаляются (1.0.2); документ валиден по схеме GPX 1.1 (unit-тест).
-- [ ] (JustTracker) Импортируемый `.map` копируется в папку приложения (без сохранения URI-прав), проверяется заголовок; имя из `DISPLAY_NAME` используется только как подпись.
-- [ ] (JustTracker) `AppLocalesMetadataHolderService` — `enabled=false`, `exported=false` (только meta-data для AppCompat).
+Отметка `[x]` — требование проверено аудитом 1.1.1 по коду и unit-тестам (05.10.2026, §8); проверки на устройстве — TC-115…TC-130 и TC-41 в `08_test_plan.md`.
+
+
+- [x] Разрешения только: `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_LOCATION`, `POST_NOTIFICATIONS`, `INTERNET`, `ACCESS_NETWORK_STATE`. **Без** `ACCESS_BACKGROUND_LOCATION`, без storage-разрешений.
+- [x] Все компоненты `android:exported="false"`, кроме `MainActivity` и `DownloadCompleteReceiver` (системный broadcast `DOWNLOAD_COMPLETE` требует exported; с 1.1.1 — `android:permission="android.permission.SEND_DOWNLOAD_COMPLETED_INTENTS"`, валидация id — см. §2).
+- [x] `android:allowBackup="false"`, `android:dataExtractionRules`: с 1.1.1 исключены все домены (`root`, `file`, `database`, `sharedpref`, `external`, `device_*`) и в `cloud-backup`, и в `device-transfer`.
+- [x] `android:usesCleartextTraffic="false"`; `network_security_config.xml` без `user` trust anchors.
+- [x] Сетевые хосты — только `tile.openstreetmap.org`, `download.mapsforge.org` (регионы, по явной команде пользователя), `overpass-api.de`, `*.wikipedia.org`; `Http` с 1.1.1 принимает только хосты `HostPolicy` по HTTPS — и для каждого редиректа; `RegionCatalogParser` — только `https://` и `download.mapsforge.org`. Любой новый хост — через ревью безопасности и обновление privacy policy.
+- [x] (1.1, 1.1.1) Точные координаты не покидают устройство при поиске объектов: только центры ячеек `GeoCell`; по треку — без первых и последних 300 м (`OverpassQlTest`, `TrackQueryTest`).
+- [x] (1.1) Функция «Интересное рядом» отключаема в настройках; авто-озвучка — opt-in (по умолчанию выключена).
+- [x] (1.1) `<queries>` в манифесте содержит только `android.intent.action.TTS_SERVICE`.
+- [x] Никаких SDK аналитики/рекламы/крэшлитики с передачей данных и никаких `com.google.android.gms:*` (ADR-14). Крэши — по отзывам RuStore + `mapping.txt`.
+- [x] `FileProvider` только с `cache-path name="exports" path="exports/"`; копии удаляются вместе с треком и не позже 24 ч (1.1.1).
+- [x] Логирование координат — только в debug через `AppLog.geo()`; в release функция — no-op; R8 `-assumenosideeffects` для `android.util.Log.d/v`; с 1.1.1 `AppLog.w/e` в release — без текста исключений.
+- [x] R8 включён, `isDebuggable=false` в release, отдельный keystore, пароль в `keystore.properties` (в `.gitignore`); release-APK подписан release-ключом (`CN=JustTracker`, SHA-256 `BC:B7:0F:…:87:09`), а не debug-ключом — сертификат сверяет `verifyReleaseKey` (D-24); с 1.1.1 без ключа release не подписывается вовсе (SEC-03).
+- [x] Ограничение на длину имени трека (100 символов), санитизация имени файла GPX (1.0.2: `[^\p{L}\p{M}\p{N}_-]+` → `_`, до 60 символов + `_<id>.gpx` — буквы любого алфавита остаются, разделители пути, `..`, управляющие и bidi-символы (подмена расширения через U+202E) — нет).
+- [x] Экспорт GPX через XML-writer с экранированием, чтобы имя трека не ломало XML; символы, недопустимые в XML 1.0, удаляются (1.0.2); документ валиден по схеме GPX 1.1 (unit-тест).
+- [x] (JustTracker) Импортируемый `.map` копируется в папку приложения (без сохранения URI-прав), проверяется заголовок; имя из `DISPLAY_NAME` используется только как подпись; скачанный регион с 1.1.1 сверяется с каталогом (`RegionPlausibility`).
+- [x] (JustTracker) `AppLocalesMetadataHolderService` — `enabled=false`, `exported=false` (только meta-data для AppCompat).
 - [x] (JustTracker) Уведомления о стороннем ПО доступны конечному пользователю: `THIRD_PARTY_NOTICES.md` → `site/licenses/` (RU/EN), открывается из Настроек → «Лицензии открытого ПО» (LGPL-3.0 Mapsforge требует уведомления и текста лицензии; см. §7).
 - [x] (1.1.0) Индикатор ускорения и живая скорость (US-23, OBS-12) не добавляют разрешений, датчиков, `uses-feature`, сетевых обращений и хранимых данных: используются уже получаемые во время записи `Location.speed` / `speedAccuracyMetersPerSecond`; значения живут только в памяти процесса (`LiveTrackingState`), не попадают в БД, GPX, бэкап и логи; два новых ключа DataStore (`show_acceleration`, `acceleration_hint_shown`) — настройки интерфейса. Декларации RuStore и политика конфиденциальности не меняются. Безопасность пользователя: индикатор скрыт по умолчанию, в руководстве — предупреждение водителю не смотреть на экран в движении. Если в будущем подключать акселерометр (ADR-20, вариант слияния) — без разрешения (≤ 200 Гц), `uses-feature … sensor.accelerometer required="false"`, строка в политике конфиденциальности, регистрация слушателя только при видимом индикаторе.
 - [ ] (JustTracker) Один release-ключ на всё время жизни приложения (RuStore не переподписывает); резервная копия ключа и паролей вне репозитория; секреты CI — только в GitHub Secrets.
+- [x] (1.1.1) К GitHub Release файлы не прикладываются; debug-APK — только артефакт CI для разработчиков (SEC-01).
+- [x] (1.1.1) Единый User-Agent `AppUserAgent` без идентификаторов устройства на всех хостах, включая тайлы и DownloadManager (SEC-04).
+- [x] (1.1.1) Внешние ссылки открываются с `CATEGORY_BROWSABLE`; ссылка из ответа Wikipedia проверяется разбором URI (SEC-06).
+- [x] (1.1.1) Gradle wrapper с `distributionSha256Sum`; сторонние Actions закреплены по SHA (SEC-05).
 
 ## 4. Шифрование БД — решение
 
 **Не внедряем в MVP.** Основания: данные в приватном каталоге приложения; ключ шифрования всё равно хранился бы на том же устройстве (Keystore-обёртка защищает лишь от чтения дампа без разблокировки); SQLCipher +5–7 МБ и снижение производительности Room-запросов. Пересмотреть при появлении бэкапа в файл (там шифрование обязательно, ключ — из пользовательского пароля).
+
+Аудит 1.1.1 решение подтверждает. Удаление трека — `DELETE` с CASCADE по точкам; системный SQLite Android собран с `-DSQLITE_SECURE_DELETE` (удалённые записи затираются нулями) и `SQLITE_DEFAULT_JOURNAL_SIZE_LIMIT=1048576` (журнал WAL после checkpoint усекается до 1 МБ) — отдельный `PRAGMA secure_delete` не нужен.
 
 ## 5. Чек-лист RuStore
 
@@ -74,7 +89,7 @@
 | Опасные разрешения (декларация с назначением) | `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION` — запись маршрута только между «Старт» и «Стоп», данные не покидают устройство; `POST_NOTIFICATIONS` — уведомление о записи. `ACCESS_BACKGROUND_LOCATION` не запрашивается. |
 | Foreground service `location` | «Пользователь явно запускает запись GPS-маршрута кнопкой; служба работает, пока пользователь не остановит запись; уведомление всегда видно». |
 | Безопасность данных → точное местоположение | Собирается только во время записи; хранится на устройстве; третьим лицам не передаётся; удаляется пользователем. |
-| Безопасность данных → приблизительное местоположение | При включённой «Интересное рядом» — район ≈ 500 м → Overpass API / Wikimedia (HTTPS, эфемерно); функция отключаема. |
+| Безопасность данных → приблизительное местоположение | При включённой «Интересное рядом» — ячейки ≈ 500 м (вокруг положения; для сохранённого трека — вдоль маршрута без первых и последних 300 м) → Overpass API; Wikimedia — название статьи (по тапу или при авто-озвучке); HTTPS, эфемерно; функция отключаема. |
 | Безопасность данных → сетевые хосты | `tile.openstreetmap.org` (тайлы), `download.mapsforge.org` (файл региона по команде пользователя), `overpass-api.de`, `*.wikipedia.org`; во всех случаях сервер видит IP. Персональные данные, идентификаторы, аналитика — нет. |
 | 152-ФЗ | Персональные данные разработчику не передаются; оператора ПДн нет; геоданные обрабатываются локально. |
 | Без Google-сервисов | Приложение не зависит от GMS и работает на устройствах без них (проверено на образе AOSP). |
@@ -86,7 +101,7 @@
 
 ## 6. Текст политики конфиденциальности (RU; EN — в `site/privacy/index.html` `#en`)
 
-Составлена с учётом 152-ФЗ (разработчик — не оператор ПДн: обработка ведётся пользователем на своём устройстве для личных нужд, п. 1 ч. 2 ст. 1), 436-ФЗ (рейтинг 0+) и GDPR (разработчик — не контролёр/процессор). Порог «13 лет» из шаблонов COPPA убран: он не совпадает ни с 152-ФЗ/ГК РФ (14 лет), ни с GDPR (16), ни с рейтингом 0+; вместо него — «данные не собираются ни от кого, включая детей» плюс отсылка к согласию родителей по применимому праву.
+Составлена с учётом 152-ФЗ (разработчик — не оператор ПДн: обработка ведётся пользователем на своём устройстве для личных нужд, п. 1 ч. 2 ст. 1), 436-ФЗ (рейтинг 12+) и GDPR (разработчик — не контролёр/процессор). Порог «13 лет» из шаблонов COPPA убран: он не совпадает ни с 152-ФЗ/ГК РФ (14 лет), ни с GDPR (16), ни с рейтингом 12+; вместо него — «данные не собираются ни от кого, включая детей» плюс отсылка к согласию родителей по применимому праву.
 
 > **Политика конфиденциальности JustTracker**
 > Версия 1.0 · Дата вступления в силу: 1 октября 2026 г.
@@ -132,3 +147,69 @@
 | LGPL-3.0 (Mapsforge) | ✅ | Библиотека используется без модификаций (с 1.0.1 подключена напрямую, без адаптера osmdroid-mapsforge; собственный рендер вызывает её публичный API). Уведомление и текст лицензии: `site/licenses/` (RU/EN, из `THIRD_PARTY_NOTICES.md`), пункт Настройки → «Лицензии открытого ПО» (`settings_licenses_url`), ссылка на лендинге. §4 LGPL (замена библиотеки, обратная разработка для отладки): оговорка в `LICENSE` п. 4 + письменное предложение предоставить Minimal Corresponding Source по запросу (≥ 3 лет). |
 | Лицензия самого проекта | ✅ | Проприетарная (решение владельца 21.09.2026) — `LICENSE` (EN/RU): все права защищены, просмотр и сборка для личного ознакомления, приоритет лицензий сторонних компонентов, оговорка о совместимости с LGPL §4, отказ от гарантий, право РФ. |
 | RuStore: идентификация разработчика, e-mail | ⚠️ отложено | В политике разработчик обозначен обезличенно («Разработчик»); контакт — GitHub Issues. Модератор может запросить ФИО/наименование и e-mail — добавить в раздел 9 политики и в `contact.md` (заполняет владелец аккаунта). |
+
+## 8. Аудит безопасности 1.1.1 (05.10.2026)
+
+**Объём.** Код `android/app` (компоненты, сеть, хранение, логи, экспорт GPX, офлайн-карты, «Интересное рядом»), манифест и XML-конфигурации, итоговый манифест release-APK, сборка (`build.gradle.kts`, R8, Gradle wrapper), CI (`.github/workflows`), документация, политика конфиденциальности и декларации RuStore — заявления сверены с кодом. Ориентир — OWASP MASVS v2 / MASTG, модель угроз — §2. Участники: архитектор, инженер по безопасности, системный аналитик, разработчик, тестировщик, технический писатель.
+
+**Итог.** Критичных уязвимостей нет. Найдено 13 проблем — 1 высокого, 4 среднего и 8 низкого риска; все исправлены в 1.1.1, кроме перечисленных ниже принятых рисков. Попутно исправлен D-25 (CI называл артефакт `JustTracker-versionName-debug.apk`).
+
+| ID | Уровень | Находка | Исправление (1.1.1) | MASVS v2 | Проверка |
+|---|---|---|---|---|---|
+| SEC-01 | Высокий | К публичному GitHub Release прикладывалась debug-APK: debuggable (`run-as` открывает БД треков), координаты в logcat, ключ одноразовый (раннер CI); README предлагал её ставить | Релиз GitHub — только заметки (`gh release create`); debug-APK — артефакт CI для разработчиков; установка — только RuStore (ADR-23) | RESILIENCE-4, STORAGE-2 | TC-119, TC-121 |
+| SEC-02 | Средний | В Overpass уходила линия трека — 80 вершин с точностью ≈ 11 м, точные старт и финиш | `TrackQuery`: центры ячеек без 300 м у концов, R = 800 м, фильтр на устройстве ≤ 400 м (ADR-21) | PRIVACY-1, PRIVACY-2 | `TrackQueryTest`, `OverpassQlTest`, TC-115…TC-118 |
+| SEC-03 | Средний | Без `keystore.properties` release молча подписывался debug-ключом, `verifyReleaseKey` не запускался (D-24) | Release без ключа не подписывается; debug-ключ — только `-PallowDebugSignedRelease=true` с предупреждением | RESILIENCE-2 | TC-120 |
+| SEC-04 | Средний | DownloadManager отправлял системный User-Agent (версия Android, модель); тайлы — имя пакета; в политике неточности про офлайн-режим и Wikipedia при авто-озвучке; в §6 «рейтинг 0+» | `AppUserAgent` на всех хостах; политика 1.1; §2 и §6 исправлены | PRIVACY-2, PRIVACY-3 | `AppUserAgentTest`, TC-122 |
+| SEC-05 | Средний | У Gradle wrapper не было `distributionSha256Sum`; сторонние Actions — по тегу, в том числе рядом с секретами подписи и `contents: write` | Wrapper 9.6.1 с контрольной суммой и `validate-wrappers`; `setup-android`, `setup-gradle` — по SHA; `softprops/action-gh-release` удалён | CODE-3 (цепочка поставки — за рамками MASVS) | TC-121 |
+| SEC-06 | Низкий | Ссылка Wikipedia из ответа API проверялась подстрокой (`https://evil.example/.wikipedia.org/` проходила); интенты `ACTION_VIEW` без `CATEGORY_BROWSABLE` | `WikipediaRef.isWikipediaPageUrl` (`java.net.URI`); `Context.openInBrowser` | CODE-4, PLATFORM-1 | `WikipediaRefTest`, `WikiSummaryParserTest`, TC-124 |
+| SEC-07 | Низкий | `Http` без белого списка хостов (вопреки §3), редиректы на любой хост | `HostPolicy` для первого URL и каждого перехода; GET — ≤ 3 редиректа, POST — без (ADR-22) | NETWORK-1, CODE-4 | `HostPolicyTest`, TC-123 |
+| SEC-08 | Низкий | Глубоко вложенный JSON → `StackOverflowError` (рекурсивный org.json) → падение на главном потоке; в лог шёл `e.message` с возможным телом ответа | `parseGuarded`, разбор на `Dispatchers.Default`; в лог — класс и HTTP-код | CODE-4, STORAGE-2 | `ParseGuardTest` |
+| SEC-09 | Низкий | `DownloadCompleteReceiver` экспортирован без разрешения отправителя | `android:permission="android.permission.SEND_DOWNLOAD_COMPLETED_INTENTS"` | PLATFORM-1 | TC-125, TC-126 |
+| SEC-10 | Низкий | При targetSdk 31+ `allowBackup=false` не везде останавливает перенос между устройствами; правила не исключали `root`, `files/maps`, `device_*` | Все домены исключены в `cloud-backup` и `device-transfer` | STORAGE-2 | TC-127 |
+| SEC-11 | Низкий | Копии GPX не удалялись вместе с треком; старше 24 ч чистились только при следующем экспорте | `ExportFiles`: удаление с треком (все пути), при экспорте и при старте | STORAGE-2, PRIVACY-4 | `ExportFilesTest`, TC-128 |
+| SEC-12 | Низкий | Release-логи `w/e` с текстом исключений: URI документа, путь GPX с именем трека, имена файлов регионов | `AppLog.releaseLine`: сообщение и класс, без текста и стека | STORAGE-2 | `AppLogTest`, TC-129 |
+| SEC-13 | Низкий | Скачанный `.map` проверялся только разбором заголовка (поддельный bbox «весь мир» обнулял офлайн-карту); на Android ≤ 10 папка карт доступна приложениям с правом на память | `RegionPlausibility`: пересечение с каталогом и площадь в пределах 20× (реальные заголовки — до 8,9×); KDoc и документация; доступ к папке на ≤ 10 — принятый риск | CODE-4 | `RegionPlausibilityTest`, TC-130 |
+
+**Проверено, изменений не требует.**
+- Разрешения — ровно семь из §3, без фоновой геолокации и хранилища; библиотеки не добавляют опасных разрешений, экспортированный `ProfileInstallReceiver` требует `android.permission.DUMP`.
+- `TrackingService` не экспортирован и принимает 5 действий без extras; все `PendingIntent` явные и `FLAG_IMMUTABLE`; `MainActivity` не читает extras и не имеет deep links.
+- SQL — только `@Query` с параметрами; `PRAGMA foreign_keys=ON` + CASCADE удаляют точки вместе с треком; системный SQLite собран с `SQLITE_SECURE_DELETE` (§4).
+- `FileProvider` не экспортирован, только `cache-path exports/`, только `FLAG_GRANT_READ_URI_PERMISSION`.
+- Сеть: `usesCleartextTraffic=false`, только системные CA, нет своих `TrustManager`/`HostnameVerifier`; лимит тела 2 МБ, таймауты.
+- Нет WebView, `fromHtml`, `Linkify`, динамической загрузки кода, `Runtime.exec`; нет GMS, аналитики, рекламы.
+- GPX: экранирование XML, санитизация имени файла (тесты на `../`, bidi-символы).
+- Каталог регионов — в APK, только `https://download.mapsforge.org`; имена файлов генерирует приложение.
+- В репозитории нет ключей и паролей; `keystore.properties` и `*.jks` в `.gitignore` и никогда не коммитились; CI не выводит секреты и удаляет keystore после сборки.
+
+**Покрытие OWASP MASVS v2.**
+
+| Группа | Статус | Комментарий |
+|---|---|---|
+| MASVS-STORAGE | ✅ | STORAGE-1: данные в песочнице, без шифрования БД — принятый риск (§4); STORAGE-2: бэкап и перенос, логи, копии GPX — SEC-08, SEC-10…SEC-12 |
+| MASVS-CRYPTO | н/п | Приложение не использует криптографию и не хранит секретов |
+| MASVS-AUTH | н/п | Аккаунтов и аутентификации нет |
+| MASVS-NETWORK | ✅ | NETWORK-1: только HTTPS, системные CA, белый список хостов (SEC-07); NETWORK-2 (pinning) не применим — у приложения нет своих серверов (ADR-22) |
+| MASVS-PLATFORM | ✅ | PLATFORM-1: IPC — SEC-06, SEC-09; PLATFORM-2: WebView нет; PLATFORM-3: принятые риски ниже |
+| MASVS-CODE | ✅ | CODE-1: targetSdk 36; CODE-2: обновления — через RuStore; CODE-3: зависимости актуальны (lint `GradleDependency`), сборка — SEC-05; CODE-4: проверка входных данных — SEC-06…SEC-08, SEC-13 |
+| MASVS-RESILIENCE | частично | R8-обфускация, release не debuggable (SEC-01), подпись под контролем (SEC-03); root/emulator-детект и anti-tamper не внедряются — в приложении нет секретов и платных функций |
+| MASVS-PRIVACY | ✅ | PRIVACY-1/2: `GeoCell`, обрезка концов трека, UA без идентификаторов (SEC-02, SEC-04); PRIVACY-3: политика 1.1; PRIVACY-4: отключаемые функции, удаление трека вместе с копиями |
+
+**Принятые риски.**
+
+| Риск | MASVS v2 | Обоснование | Пересмотреть, если |
+|---|---|---|---|
+| БД без шифрования | STORAGE-1 | §4: песочница ОС, ключ всё равно хранился бы на устройстве | появится бэкап в файл или облако |
+| Уведомление записи `VISIBILITY_PUBLIC` с «Пауза/Стоп» | PLATFORM-3 | координат нет; управление с экрана блокировки — сценарий бега; «Стоп» сохраняет трек | в уведомлении появятся чувствительные данные |
+| Нет `FLAG_SECURE` | PLATFORM-3 | пользователи делятся скриншотами треков; превью в «Недавних» видит только владелец устройства | — |
+| StrandHogg на Android ≤ 10 | PLATFORM-3 | нет учётных данных и платежей; вторая версия атаки закрывается только ОС; `minSdk 26` нужен аудитории | `minSdk` ≥ 30 или появится ввод данных |
+| Нет certificate pinning | NETWORK-2 | своих серверов нет; сертификаты OSMF, FOSSGIS, Wikimedia меняются без уведомления (ADR-22) | появится собственный бэкенд |
+| Нет root/emulator-детекта и anti-tamper | RESILIENCE-1/2 | нет секретов и монетизации | — |
+| Папка карт доступна другим приложениям на Android ≤ 10; автоподхват `.map` | CODE-4 | публичные данные; Java-парсер, ошибки рендера ловятся; скачанные регионы сверяются с каталогом; регион виден в списке и удаляется | — |
+| `mapping.txt` в артефактах CI | RESILIENCE-3 | исходники и так видны в репозитории | репозиторий станет закрытым |
+| Живой поиск сообщает ячейку старта записи (OBS-14) | PRIVACY-1 | «примерный район» по ADR-09, функция отключаема | — |
+| Нет GitHub Environment с одобрением и Gradle dependency verification | CODE-3 | **рекомендация**: Environment `release` с обязательным ревьюером для секретов подписи; `gradlew --write-verification-metadata sha256` при следующем обновлении зависимостей | при появлении второго участника с правом записи |
+
+**Действия владельца (вне кода).**
+1. Удалить debug-APK из уже опубликованных GitHub Releases (`gh release delete-asset <тег> <файл>`) — необратимо, поэтому вручную.
+2. Подтвердить адрес карточки RuStore `https://www.rustore.ru/catalog/app/com.justtracker.app` в заметках релиза (CI) и README.
+3. По желанию — Environment `release` с ревьюером и перенос туда секретов подписи.

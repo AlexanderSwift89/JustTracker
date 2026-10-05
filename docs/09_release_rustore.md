@@ -11,7 +11,7 @@ RuStore **не переподписывает** загруженные сбор�
 
 Версия 1.0.0 ушла в RuStore подписанной **debug-ключом** компьютера разработчика (`CN=Android Debug`, SHA-256 `DA:F3:A5:1D:…:9E:60`, проверено по APK из RuStore): загрузили release-APK, собранный до появления `keystore.properties`, а без него сборка подписывает release debug-ключом (D-24). Пользователей у 1.0.0 не было, поэтому с 1.0.2 приложение перешло на release-ключ: при загрузке 1.0.2 RuStore предупреждает, что ключ не совпадает с 1.0.0, — это ожидаемо, дополнительный APK со старой подписью не загружаем; установившим 1.0.0 — удалить её (сначала экспортировать треки в GPX) и поставить заново.
 
-Защита от повторения: задача Gradle `verifyReleaseKey` (запускается перед `preReleaseBuild`, если есть `keystore.properties`) сверяет сертификат ключа с `releaseCertSha256` в `app/build.gradle.kts` и останавливает сборку при несовпадении. Без `keystore.properties` release по-прежнему подписывается debug-ключом — **такой APK/AAB в RuStore не загружать**. Перед каждой загрузкой проверить файл — SHA-256 должен быть `bcb70f4e…ef8709`:
+Защита от повторения: задача Gradle `verifyReleaseKey` (запускается перед `preReleaseBuild`, если есть `keystore.properties`) сверяет сертификат ключа с `releaseCertSha256` в `app/build.gradle.kts` и останавливает сборку при несовпадении. С 1.1.1 без `keystore.properties` release **не подписывается** вовсе — получается `app-release-unsigned.apk`, который нельзя ни установить, ни загрузить (SEC-03). Для локальной проверки R8 на устройстве debug-ключ включается явно: `-PallowDebugSignedRelease=true` (сборка выводит предупреждение) — **такой APK/AAB в RuStore не загружать**. Перед каждой загрузкой проверить файл — SHA-256 должен быть `bcb70f4e…ef8709`:
 ```powershell
 & "D:\Android_sdk\build-tools\37.0.0\apksigner.bat" verify --print-certs android\app\build\outputs\apk\release\app-release.apk
 ```
@@ -34,7 +34,7 @@ keyPassword=********
 Резервные копии `.jks` и паролей — в менеджере паролей/офлайн-носителе. Для CI ключ кладётся в секреты репозитория (§1.4). Тот же ключ использовать, если приложение когда-нибудь появится в других магазинах.
 
 ### 1.2. Версия
-`android/app/build.gradle.kts`: `versionCode` +1 на каждую загрузку в консоль (RuStore требует строго возрастающий), `versionName` — семантическая (текущая — `1.0.2`, `versionCode` 3). Оба значения можно переопределить в командной строке: `-PversionCode=4 -PversionName=1.0.3`.
+`android/app/build.gradle.kts`: `versionCode` +1 на каждую загрузку в консоль (RuStore требует строго возрастающий), `versionName` — семантическая (текущая — `1.1.1`, `versionCode` 5). Оба значения можно переопределить в командной строке: `-PversionCode=6 -PversionName=1.1.2`; CI проверяет, что тег `vX.Y.Z` совпадает с `versionName` по умолчанию.
 
 ### 1.3. Сборка
 ```bash
@@ -46,8 +46,9 @@ RuStore принимает и AAB, и APK (на версию — 1 AAB + до 8 
 
 ### 1.4. CI
 `.github/workflows/android.yml`:
-- каждый push/PR в `main` — unit-тесты, lint, `JustTracker-<versionName>-debug.apk` (артефакт 30 дней);
-- тег `vX.Y.Z` — GitHub Release с debug-APK (для тестировщиков) и job **`release-signed`**: если в секретах репозитория заданы `KEYSTORE_BASE64` (base64 файла `.jks`), `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`, собираются подписанные AAB + APK + `mapping.txt` как артефакт `JustTracker-release-signed` (90 дней). Без секретов job — no-op. В секретах должен лежать тот же ключ, что в §1.1: иначе `verifyReleaseKey` остановит job.
+- каждый push/PR в `main` — unit-тесты, lint, `JustTracker-<versionName>-debug.apk` (артефакт 30 дней, **только для разработчиков**: сборка debuggable — `run-as` открывает базу треков, в logcat пишутся координаты; отдельный пакет `com.justtracker.app.debug`);
+- тег `vX.Y.Z` — GitHub Release **только с заметками** (`gh release create`; файлы не прикладываются, заметки ведут в RuStore — SEC-01) и job **`release-signed`**: если в секретах репозитория заданы `KEYSTORE_BASE64` (base64 файла `.jks`), `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`, собираются подписанные AAB + APK + `mapping.txt` как артефакт `JustTracker-release-signed` (90 дней). Без секретов job — no-op. В секретах должен лежать тот же ключ, что в §1.1: иначе `verifyReleaseKey` остановит job.
+- Цепочка поставки (SEC-05): у Gradle wrapper — `distributionSha256Sum`, CI проверяет `gradle-wrapper.jar` (`validate-wrappers`); сторонние Actions (`android-actions/setup-android`, `gradle/actions/setup-gradle`) закреплены по SHA коммита с версией в комментарии — обновлять осознанно: `git ls-remote --tags https://github.com/<владелец>/<репозиторий> '<тег>*'` (для аннотированного тега — строка `^{}`). Рекомендация: GitHub Environment `release` с обязательным ревьюером и перенос туда секретов подписи (`07_security.md` §8).
 
 `.github/workflows/pages.yml` публикует `site/` (лендинг, политика конфиденциальности, лицензии — RU/EN) на GitHub Pages при push в `main`, затрагивающем `site/`. Шаг `actions/configure-pages` с `enablement: true` сам включает Pages с источником *GitHub Actions* при первом запуске (без этого первый деплой падал: «Get Pages site failed … Not Found»); если в организации это запрещено — включить вручную: Settings → Pages → Source: *GitHub Actions*. URL политики: https://alexanderswift89.github.io/JustTracker/privacy/, лицензий: https://alexanderswift89.github.io/JustTracker/licenses/.
 
@@ -61,7 +62,7 @@ RuStore принимает и AAB, и APK (на версию — 1 AAB + до 8 
    ```powershell
    .\gradlew.bat :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
    ```
-   Тесты и lint — зелёные. Ключ с другим сертификатом остановит сборку на `verifyReleaseKey`; без `keystore.properties` сборка пройдёт, но с debug-подписью — это покажет шаг 3. APK из CI (`JustTracker-release-signed`) проходит те же шаги 3–6.
+   Тесты и lint — зелёные. Ключ с другим сертификатом остановит сборку на `verifyReleaseKey`; без `keystore.properties` получится только `app-release-unsigned.apk` (§1.1) — загружать нечего. APK из CI (`JustTracker-release-signed`) проходит те же шаги 3–6.
 3. **Проверка файла** — там же:
    ```powershell
    $apk = "app\build\outputs\apk\release\app-release.apk"
@@ -86,7 +87,7 @@ RuStore принимает и AAB, и APK (на версию — 1 AAB + до 8 
    Пройти онбординг → запись 30 с → стоп → карточка трека → экспорт GPX → «История», «Статистика», «Настройки» → офлайн-регион в авиарежиме; `& $adb logcat -d -b crash` — пусто. **Обновление поверх опубликованной версии** (начиная с 1.0.3): на устройстве стоит версия из RuStore или APK из архива релизов (шаг 5) с записанными треками → `adb install -r` нового APK → `Success`, треки и настройки на месте (TC-104); `INSTALL_FAILED_UPDATE_INCOMPATIBLE` — другой ключ, не загружать. Исключение — 1.0.2: поверх 1.0.0 она не встанет (другой ключ, D-24), 1.0.0 сначала удалить, экспортировав треки в GPX. Полная регрессия — `08_test_plan.md` §6, в том числе образ без Google-сервисов (TC-65).
 5. **Архив релиза** вне репозитория: APK с номером версии и `mapping.txt` — по нему расшифровываются стек-трейсы из отзывов, а следующая сборка его перезапишет. Путь — например, `D:\releases\JustTracker\<версия>`:
    ```powershell
-   $v = "1.0.2"; $dst = "D:\releases\JustTracker\$v"
+   $v = "1.1.1"; $dst = "D:\releases\JustTracker\$v"
    New-Item -ItemType Directory -Force $dst | Out-Null
    Copy-Item $apk "$dst\JustTracker-$v.apk"
    Copy-Item app\build\outputs\mapping\release\mapping.txt $dst
@@ -118,6 +119,12 @@ RuStore принимает и AAB, и APK (на версию — 1 AAB + до 8 
 Структура политики (9 разделов: общие положения и правовой статус разработчика, данные на устройстве, сетевые запросы, разрешения, озвучивание, безопасность, права пользователя, дети, изменения/контакты) составлена под 152-ФЗ и GDPR одновременно; правовая проверка и открытые пункты — `07_security.md` §7. Возрастной порог для детей в политике намеренно не задан (см. `category_age.md`). Ссылки на исходный код в материалах карточки и на лендинге не публикуются (проект проприетарный — `LICENSE`); уведомления о стороннем ПО — `THIRD_PARTY_NOTICES.md`, опубликованы на `site/licenses/` и открываются из Настроек → «Лицензии открытого ПО».
 
 ## 5. Release notes
+
+### 1.1.1 (versionCode 5)
+**RU.** Обновление безопасности и конфиденциальности. Для меток «Интересное рядом» вдоль сохранённого трека на сервер теперь уходят только районы ≈ 500 м вдоль маршрута, без начала и конца трека. Копия GPX для «Поделиться» удаляется вместе с треком и не позже чем через сутки. Данные приложения не попадают в облачные копии и не переносятся на новый телефон. Сетевые запросы — только по HTTPS к OpenStreetMap и Википедии, с проверкой ссылок и перенаправлений; при загрузке офлайн-карт приложение больше не сообщает модель телефона. Скачанная офлайн-карта проверяется перед использованием. Новых разрешений нет.
+**EN.** Security and privacy update. For "Places nearby" along a saved track the server now receives only ~500 m areas along the route, without the start and the end of the track. The GPX copy made for sharing is deleted together with the track and within a day at the latest. App data is excluded from cloud backups and device-to-device transfer. Network requests go only over HTTPS to OpenStreetMap and Wikipedia, with links and redirects checked; offline map downloads no longer reveal the phone model. A downloaded offline map is checked before use. No new permissions.
+
+Политика конфиденциальности — версия 1.1 (`site/privacy/index.html`); декларация «Безопасность данных» — `store/rustore/permissions_data_safety.md` (уточнены формулировки, категории данных не меняются). Скриншоты не устаревают.
 
 ### 1.1.0 (versionCode 4)
 **RU.** Индикатор ускорения: нажмите на скорость на экране записи — под ней появятся текущее ускорение (м/с²), стрелка «разгон / замедление» и график за последнюю минуту; повторное нажатие скрывает индикатор, выбор запоминается. Скорость на экране записи обновляется каждую секунду и сразу падает до нуля, когда вы остановились. Новых разрешений нет.
