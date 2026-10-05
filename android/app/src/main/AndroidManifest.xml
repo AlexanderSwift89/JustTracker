@@ -8,7 +8,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- Network: map tiles, Overpass API (places nearby) and Wikipedia summaries — HTTPS only, see docs/07_security.md -->
+    <!-- Network: online map tiles only (tile.openstreetmap.org, HTTPS); region files come through the system
+         DownloadManager on the user's command. Nothing derived from the location is sent (docs/05_architecture.md ADR-24). -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
@@ -77,6 +78,19 @@
                 <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
             </intent-filter>
         </receiver>
+
+        <!-- EmojiCompat (pulled in by appcompat) looks up the Google Play services emoji font provider at start on
+             API 26–29; the app talks to no Google service (ADR-14, SEC-19). Emoji are drawn with the system font. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:ignore="MissingClass"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+                tools:node="remove" />
+        </provider>
 
         <provider
             android:name="androidx.core.content.FileProvider"

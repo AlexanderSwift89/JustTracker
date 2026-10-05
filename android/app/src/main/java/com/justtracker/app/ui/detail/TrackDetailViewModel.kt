@@ -1,5 +1,6 @@
 package com.justtracker.app.ui.detail
 
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
@@ -135,6 +136,8 @@ class TrackDetailViewModel(
                 type = "application/gpx+xml"
                 putExtra(Intent.EXTRA_STREAM, uri)
                 putExtra(Intent.EXTRA_SUBJECT, track.name)
+                // The read grant covers exactly this URI via ClipData, not only the framework's EXTRA_STREAM migration (SEC-17).
+                clipData = ClipData.newRawUri(track.name, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
         } catch (e: Exception) {
