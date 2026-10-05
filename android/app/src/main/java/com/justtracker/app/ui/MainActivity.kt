@@ -16,6 +16,7 @@ import com.justtracker.app.JustTrackerApplication
 import com.justtracker.app.domain.model.AppSettings
 import com.justtracker.app.domain.model.ThemeMode
 import com.justtracker.app.ui.common.LocalAppContainer
+import com.justtracker.app.ui.common.LocalMapTiles
 import com.justtracker.app.ui.theme.JustTrackerTheme
 import com.justtracker.app.util.AppLocale
 
@@ -51,7 +52,7 @@ class MainActivity : AppCompatActivity() {
                 val style = if (dark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
                 enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
             }
-            CompositionLocalProvider(LocalAppContainer provides container) {
+            CompositionLocalProvider(LocalAppContainer provides container, LocalMapTiles provides container.mapTiles) {
                 JustTrackerTheme(themeMode = current.theme) {
                     JustTrackerApp(settings = current)
                 }

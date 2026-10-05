@@ -67,7 +67,6 @@ import com.justtracker.app.R
 import com.justtracker.app.domain.model.ActivityType
 import com.justtracker.app.domain.model.Track
 import com.justtracker.app.ui.common.ActivityBadge
-import com.justtracker.app.ui.common.LocalAppContainer
 import com.justtracker.app.ui.common.MapModeBadge
 import com.justtracker.app.ui.common.SkeletonBox
 import com.justtracker.app.ui.common.SkeletonGroup
@@ -284,7 +283,6 @@ fun TrackDetailScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Read only where it is shown (the cursor panel and the map's ring): the slider does not recompose the screen.
     val cursorState = viewModel.cursor.collectAsStateWithLifecycle()
-    val appSettings by LocalAppContainer.current.settingsFlow.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
@@ -381,7 +379,7 @@ fun TrackDetailScreen(
                 }
                 return@BoxWithConstraints
             }
-            val offline = appSettings.mapMode == MapMode.OFFLINE
+            val offline = state.mapMode == MapMode.OFFLINE
             val tiles = statTiles(track, formatter)
             val cursorPanel = @Composable {
                 cursorState.value?.let { cursor ->

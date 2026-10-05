@@ -10,6 +10,7 @@ import com.justtracker.app.data.db.JustTrackerDatabase
 import com.justtracker.app.data.export.ExportFiles
 import com.justtracker.app.data.location.PlatformLocationSource
 import com.justtracker.app.data.maps.MapModeController
+import com.justtracker.app.data.maps.MapTiles
 import com.justtracker.app.data.maps.OfflineRegionStore
 import com.justtracker.app.data.network.ConnectivityObserver
 import com.justtracker.app.data.maps.RegionCatalog
@@ -70,6 +71,8 @@ class AppContainer(context: Context) {
     val connectivity: ConnectivityObserver by lazy { ConnectivityObserver(appContext) }
     /** Parsed Mapsforge render theme + display model, shared by every offline map (ADR-17); parsed on first use. */
     val offlineRenderTheme: OfflineRenderTheme by lazy { OfflineRenderTheme.create(appContext) }
+    /** Tile configuration and provider factory for every map (TrackMap gets it through LocalMapTiles). */
+    val mapTiles: MapTiles by lazy { MapTiles(appContext, settingsFlow, offlineRegionStore, { offlineRenderTheme }, appScope) }
     val mapModeController: MapModeController by lazy { MapModeController(settingsRepository, connectivity, offlineRegionStore, appScope) }
 
     /** Hot copy of settings for non-suspending callers (notification formatting). */

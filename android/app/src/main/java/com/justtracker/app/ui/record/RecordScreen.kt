@@ -72,7 +72,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
@@ -90,7 +89,6 @@ import com.justtracker.app.R
 import com.justtracker.app.ui.common.ActivityBadge
 import com.justtracker.app.ui.common.FittedText
 import com.justtracker.app.util.Permissions
-import com.justtracker.app.ui.common.LocalAppContainer
 import com.justtracker.app.ui.common.MapModeBadge
 import com.justtracker.app.ui.common.SpeedLegend
 import com.justtracker.app.domain.maps.MapMode
@@ -98,6 +96,7 @@ import com.justtracker.app.ui.common.TrackMap
 import com.justtracker.app.ui.common.TrackTapCard
 import com.justtracker.app.ui.common.appViewModel
 import com.justtracker.app.util.TimeFormat
+import com.justtracker.app.ui.theme.TrackColors
 import com.justtracker.app.ui.theme.tabular
 import com.justtracker.app.ui.theme.topOnly
 import com.justtracker.app.util.UnitFormatter
@@ -112,7 +111,6 @@ fun RecordScreen(
     },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val appSettings by LocalAppContainer.current.settingsFlow.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val activity = context as? Activity
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -267,7 +265,7 @@ fun RecordScreen(
                 if (state.status != RecordStatus.IDLE && !state.line.isEmpty) {
                     SpeedLegend(maxSpeedMps = state.track?.maxSpeedMps ?: 0.0, formatter = formatter)
                 }
-                if (appSettings.mapMode == MapMode.OFFLINE) MapModeBadge()
+                if (state.mapMode == MapMode.OFFLINE) MapModeBadge()
             }
 
             // Bottom panel behaves like an M3 standard bottom sheet: edge to edge, only the top corners
@@ -668,7 +666,7 @@ private fun AccelerationHint(pending: Boolean, onShown: () -> Unit, content: @Co
 
 @Composable
 private fun GpsIndicator(searching: Boolean) {
-    val color = if (searching) MaterialTheme.colorScheme.outline else Color(0xFF2E7D32)
+    val color = if (searching) MaterialTheme.colorScheme.outline else TrackColors.gpsOk
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
             if (searching) Icons.Filled.GpsNotFixed else Icons.Filled.GpsFixed,

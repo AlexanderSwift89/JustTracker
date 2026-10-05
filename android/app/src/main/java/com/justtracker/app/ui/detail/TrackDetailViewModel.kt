@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.justtracker.app.domain.geo.ElevationCalculator
 import com.justtracker.app.domain.geo.ElevationResult
+import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.domain.model.ActivityType
 import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.TrackStatus
@@ -36,6 +37,8 @@ data class TrackDetailUiState(
     /** Track line with per-vertex speed, distance and time (docs/06_system_analysis.md §3.6). */
     val line: TrackLine = TrackLine.EMPTY,
     val units: UnitSystem = UnitSystem.METRIC,
+    /** Explicit map source (US-22): the offline badge is shown in [MapMode.OFFLINE]. */
+    val mapMode: MapMode = MapMode.ONLINE,
     val loaded: Boolean = false,
 )
 
@@ -75,7 +78,7 @@ class TrackDetailViewModel(
     ) { track, geo, prefs ->
         // Gain/loss are always shown as computed from the points by the current algorithm, never from a stale row.
         val shown = track?.copy(elevationGainM = geo.elevation.gainM, elevationLossM = geo.elevation.lossM)
-        TrackDetailUiState(shown, geo.line, prefs.units, loaded = true)
+        TrackDetailUiState(shown, geo.line, prefs.units, prefs.mapMode, loaded = true)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrackDetailUiState())
 
     /**

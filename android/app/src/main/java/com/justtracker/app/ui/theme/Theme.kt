@@ -75,6 +75,16 @@ object ActivityColors {
 }
 
 /**
+ * Fixed status hues of the map and the recording panel: the start and finish dots of a track and "GPS ok". Like
+ * [ActivityColors] they do not follow dynamic colour, so their meaning never changes with the wallpaper.
+ */
+object TrackColors {
+    val start = Color(0xFF2E7D32)
+    val finish = Color(0xFFC62828)
+    val gpsOk = start
+}
+
+/**
  * Speeding up / slowing down on the acceleration indicator (docs/04_ux_design.md §2.12). Fixed hues rather than
  * dynamic-color roles, so the meaning never changes with the wallpaper; only icons and chart bars are tinted, which
  * need 3:1 against the panel — lighter tones on dark surfaces.

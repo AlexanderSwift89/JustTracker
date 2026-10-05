@@ -7,6 +7,7 @@ import com.justtracker.app.data.location.LocationSource
 import com.justtracker.app.data.repo.SettingsRepository
 import com.justtracker.app.data.repo.TrackRepository
 import com.justtracker.app.di.AppDispatchers
+import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.TrackStatus
 import com.justtracker.app.domain.model.UnitSystem
@@ -45,6 +46,8 @@ data class RecordUiState(
     /** Last position good enough for the marker; a value, so an unchanged position does not redraw the map (D-28). */
     val position: LatLon? = null,
     val units: UnitSystem = UnitSystem.METRIC,
+    /** Explicit map source (US-22): the offline badge is shown in [MapMode.OFFLINE]. */
+    val mapMode: MapMode = MapMode.ONLINE,
     val keepScreenOn: Boolean = false,
     val nowMs: Long = System.currentTimeMillis(),
     /** Section of the line the user tapped, if any. */
@@ -140,6 +143,7 @@ class RecordViewModel(
             live = live,
             position = live.lastLat?.let { lat -> live.lastLon?.let { lon -> LatLon(lat, lon) } },
             units = prefs.units,
+            mapMode = prefs.mapMode,
             keepScreenOn = prefs.keepScreenOn,
             nowMs = now,
             // A tap belongs to the track it was made on; drop it once that track is finished.
