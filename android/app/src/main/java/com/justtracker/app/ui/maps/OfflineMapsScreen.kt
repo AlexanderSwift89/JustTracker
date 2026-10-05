@@ -67,7 +67,7 @@ import com.justtracker.app.ui.common.rememberSkeletonVisible
 @Composable
 fun OfflineMapsScreen(
     onBack: () -> Unit,
-    viewModel: OfflineMapsViewModel = appViewModel { OfflineMapsViewModel(it) },
+    viewModel: OfflineMapsViewModel = appViewModel { c -> OfflineMapsViewModel(c.offlineRegionStore, c.settingsRepository, c.dispatchers) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current

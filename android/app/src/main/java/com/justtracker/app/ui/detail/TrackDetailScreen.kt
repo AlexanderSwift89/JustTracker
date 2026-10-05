@@ -277,7 +277,9 @@ private fun StatTileRows(tiles: List<StatItem>, modifier: Modifier = Modifier) {
 fun TrackDetailScreen(
     trackId: Long,
     onBack: () -> Unit,
-    viewModel: TrackDetailViewModel = appViewModelWithState(key = "detail-$trackId") { c, saved -> TrackDetailViewModel(c, trackId, saved) },
+    viewModel: TrackDetailViewModel = appViewModelWithState(key = "detail-$trackId") { c, saved ->
+        TrackDetailViewModel(c.trackRepository, c.settingsRepository, c.gpxExporter, trackId, saved, c.dispatchers)
+    },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Read only where it is shown (the cursor panel and the map's ring): the slider does not recompose the screen.
@@ -345,7 +347,7 @@ fun TrackDetailScreen(
                         DropdownMenuItem(text = { Text(stringResource(R.string.action_export_gpx)) }, onClick = {
                             menuOpen = false
                             scope.launch {
-                                val intent = viewModel.buildShareIntent(context)
+                                val intent = viewModel.shareIntent()
                                 if (intent == null) {
                                     snackbar.showSnackbar(exportFailed)
                                 } else {

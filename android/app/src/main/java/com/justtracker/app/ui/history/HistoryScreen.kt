@@ -48,7 +48,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.justtracker.app.R
 import com.justtracker.app.data.repo.TrackRepository
-import com.justtracker.app.di.AppContainer
 import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.UnitSystem
 import com.justtracker.app.ui.common.ActivityBadge
@@ -63,12 +62,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.justtracker.app.data.repo.SettingsRepository
 
 data class HistoryUiState(val tracks: List<Track> = emptyList(), val units: UnitSystem = UnitSystem.METRIC, val loaded: Boolean = false)
 
-class HistoryViewModel(container: AppContainer) : ViewModel() {
-    private val repo: TrackRepository = container.trackRepository
-    val state = combine(repo.observeFinishedTracks(), container.settingsRepository.settings) { tracks, settings ->
+class HistoryViewModel(private val repo: TrackRepository, settings: SettingsRepository) : ViewModel() {
+    val state = combine(repo.observeFinishedTracks(), settings.settings) { tracks, settings ->
         HistoryUiState(tracks, settings.units, loaded = true)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HistoryUiState())
 
@@ -80,7 +79,7 @@ class HistoryViewModel(container: AppContainer) : ViewModel() {
 @Composable
 fun HistoryScreen(
     onOpenTrack: (Long) -> Unit,
-    viewModel: HistoryViewModel = appViewModel { HistoryViewModel(it) },
+    viewModel: HistoryViewModel = appViewModel { c -> HistoryViewModel(c.trackRepository, c.settingsRepository) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current

@@ -42,7 +42,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.justtracker.app.BuildConfig
 import com.justtracker.app.R
-import com.justtracker.app.di.AppContainer
 import com.justtracker.app.domain.model.AppLanguage
 import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.domain.maps.RegionStatus
@@ -59,12 +58,17 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.justtracker.app.data.maps.OfflineRegionStore
+import com.justtracker.app.data.maps.MapModeController
+import com.justtracker.app.data.repo.SettingsRepository
 
-class SettingsViewModel(container: AppContainer) : ViewModel() {
-    private val repo = container.settingsRepository
-    private val mapModeController = container.mapModeController
+class SettingsViewModel(
+    private val repo: SettingsRepository,
+    private val mapModeController: MapModeController,
+    regions: OfflineRegionStore,
+) : ViewModel() {
     val settings = repo.settings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppSettings())
-    val readyRegions = container.offlineRegionStore.regions
+    val readyRegions = regions.regions
         .map { list -> list.filter { it.status == RegionStatus.READY } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -84,7 +88,7 @@ class SettingsViewModel(container: AppContainer) : ViewModel() {
 @Composable
 fun SettingsScreen(
     onOpenOfflineMaps: () -> Unit = {},
-    viewModel: SettingsViewModel = appViewModel { SettingsViewModel(it) },
+    viewModel: SettingsViewModel = appViewModel { c -> SettingsViewModel(c.settingsRepository, c.mapModeController, c.offlineRegionStore) },
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val readyRegions by viewModel.readyRegions.collectAsStateWithLifecycle()

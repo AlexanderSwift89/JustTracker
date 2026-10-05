@@ -32,7 +32,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.justtracker.app.R
 import com.justtracker.app.data.db.ActivityAggregate
-import com.justtracker.app.di.AppContainer
 import com.justtracker.app.domain.model.ActivityType
 import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.UnitSystem
@@ -55,6 +54,8 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
+import com.justtracker.app.data.repo.TrackRepository
+import com.justtracker.app.data.repo.SettingsRepository
 
 data class PeriodSummary(val count: Int, val distanceM: Double, val movingTimeMs: Long)
 
@@ -69,13 +70,11 @@ data class StatsUiState(
     val units: UnitSystem = UnitSystem.METRIC,
 )
 
-class StatsViewModel(container: AppContainer) : ViewModel() {
-    private val repo = container.trackRepository
-
+class StatsViewModel(repo: TrackRepository, settings: SettingsRepository) : ViewModel() {
     val state = combine(
         repo.observeFinishedTracks(),
         repo.observeActivityAggregates(),
-        container.settingsRepository.settings,
+        settings.settings,
     ) { tracks, byType, settings ->
         val zone = ZoneId.systemDefault()
         val today = LocalDate.now(zone)
@@ -99,7 +98,7 @@ class StatsViewModel(container: AppContainer) : ViewModel() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StatsScreen(viewModel: StatsViewModel = appViewModel { StatsViewModel(it) }) {
+fun StatsScreen(viewModel: StatsViewModel = appViewModel { c -> StatsViewModel(c.trackRepository, c.settingsRepository) }) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val formatter = remember(state.units) { UnitFormatter(context, state.units) }

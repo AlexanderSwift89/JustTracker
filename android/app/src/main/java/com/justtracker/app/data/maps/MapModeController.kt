@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * Turns connectivity changes into an explicit question for the user (US-22): the map mode itself is
@@ -22,7 +23,7 @@ class MapModeController(
     private val settings: SettingsRepository,
     connectivity: ConnectivityObserver,
     regions: OfflineRegionStore,
-    scope: CoroutineScope,
+    private val scope: CoroutineScope,
 ) {
     /** Connectivity state the user declined to switch for; cleared when connectivity changes again. */
     private val declinedFor = MutableStateFlow<Boolean?>(null)
@@ -45,6 +46,11 @@ class MapModeController(
     suspend fun setMode(mode: MapMode) {
         declinedFor.value = null
         settings.setMapMode(mode)
+    }
+
+    /** The user confirmed the prompt: switch to [mode]. Runs on the app scope, so a recreated screen cannot cancel it. */
+    fun confirm(mode: MapMode) {
+        scope.launch { setMode(mode) }
     }
 
     /** User chose to keep the current mode for the current connectivity state. */

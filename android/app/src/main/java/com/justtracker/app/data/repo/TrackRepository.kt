@@ -3,6 +3,7 @@ package com.justtracker.app.data.repo
 import com.justtracker.app.data.db.ActivityAggregate
 import com.justtracker.app.data.db.TrackDao
 import com.justtracker.app.data.export.ExportFiles
+import com.justtracker.app.di.AppDispatchers
 import com.justtracker.app.data.db.toDomain
 import com.justtracker.app.data.db.toEntity
 import com.justtracker.app.domain.activity.ActivityClassifier
@@ -13,7 +14,6 @@ import com.justtracker.app.domain.model.TrackPoint
 import com.justtracker.app.domain.model.TrackStatus
 import com.justtracker.app.domain.stats.TrackStatsCalculator
 import com.justtracker.app.util.traced
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -25,7 +25,11 @@ import java.io.File
  *
  * @param exportsDir folder of shared GPX copies ([ExportFiles]); a deleted track takes its copies with it.
  */
-class TrackRepository(private val dao: TrackDao, private val exportsDir: File? = null) {
+class TrackRepository(
+    private val dao: TrackDao,
+    private val exportsDir: File? = null,
+    private val dispatchers: AppDispatchers = AppDispatchers(),
+) {
 
     fun observeActiveTrack(): Flow<Track?> = dao.observeActiveTrack().map { it?.toDomain() }
     suspend fun getActiveTrack(): Track? = dao.getActiveTrack()?.toDomain()
@@ -94,7 +98,7 @@ class TrackRepository(private val dao: TrackDao, private val exportsDir: File? =
 
     private suspend fun deleteExports(id: Long) {
         val dir = exportsDir ?: return
-        withContext(Dispatchers.IO) { ExportFiles.deleteForTrack(dir, id) }
+        withContext(dispatchers.io) { ExportFiles.deleteForTrack(dir, id) }
     }
 
     /**
@@ -111,7 +115,7 @@ class TrackRepository(private val dao: TrackDao, private val exportsDir: File? =
         }
         // Up to 100 000 points: the full pass runs off the caller's thread (the service calls this on the main thread
         // right when the user taps Stop), and the smoothed speeds are computed once for statistics and classification.
-        val (stats, type) = withContext(Dispatchers.Default) {
+        val (stats, type) = withContext(dispatchers.default) {
             traced("track.finish") {
                 val speeds = TrackStatsCalculator.smoothedSpeeds(points)
                 val stats = TrackStatsCalculator.calculate(points, track.pausedTimeMs, track.startedAt, finishedAt, speeds)

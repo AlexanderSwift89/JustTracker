@@ -1,6 +1,11 @@
 package com.justtracker.app.di
 
 import android.content.Context
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.preferencesDataStoreFile
+import com.justtracker.app.data.export.FileProviderGpxExporter
+import com.justtracker.app.data.export.GpxExporter
+import com.justtracker.app.data.repo.RemovedFeatureKeysMigration
 import com.justtracker.app.data.db.JustTrackerDatabase
 import com.justtracker.app.data.export.ExportFiles
 import com.justtracker.app.data.location.PlatformLocationSource
@@ -40,9 +45,21 @@ class AppContainer(context: Context) {
         SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, e -> AppLog.e("Background task failed", e) },
     )
 
+    val dispatchers = AppDispatchers()
     val database: JustTrackerDatabase by lazy { JustTrackerDatabase.build(appContext) }
-    val trackRepository: TrackRepository by lazy { TrackRepository(database.trackDao(), ExportFiles.dir(appContext.cacheDir)) }
-    val settingsRepository: SettingsRepository by lazy { SettingsRepository(appContext) }
+    val trackRepository: TrackRepository by lazy {
+        TrackRepository(database.trackDao(), ExportFiles.dir(appContext.cacheDir), dispatchers)
+    }
+
+    /** The one settings store of the process (DataStore requires a single instance per file). */
+    val settingsRepository: SettingsRepository by lazy {
+        SettingsRepository(
+            PreferenceDataStoreFactory.create(migrations = listOf(RemovedFeatureKeysMigration)) {
+                appContext.preferencesDataStoreFile("settings")
+            },
+        )
+    }
+    val gpxExporter: GpxExporter by lazy { FileProviderGpxExporter(appContext, trackRepository, dispatchers) }
     val locationSource: LocationSource by lazy { PlatformLocationSource(appContext) }
     val trackingController: TrackingController by lazy { TrackingController(appContext) }
     val regionCatalog: RegionCatalog by lazy { RegionCatalog(appContext) }

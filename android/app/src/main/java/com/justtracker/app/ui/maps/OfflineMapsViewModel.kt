@@ -4,12 +4,13 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.justtracker.app.data.maps.CatalogRegion
-import com.justtracker.app.di.AppContainer
+import com.justtracker.app.data.maps.OfflineRegionStore
+import com.justtracker.app.data.repo.SettingsRepository
+import com.justtracker.app.di.AppDispatchers
 import com.justtracker.app.domain.maps.OfflineRegion
 import com.justtracker.app.domain.maps.RegionError
 import com.justtracker.app.domain.maps.RegionSource
 import com.justtracker.app.domain.model.AppLanguage
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,9 +44,11 @@ data class OfflineMapsUiState(
     val importing: Boolean = false,
 )
 
-class OfflineMapsViewModel(private val container: AppContainer) : ViewModel() {
-    private val store = container.offlineRegionStore
-    private val settings = container.settingsRepository
+class OfflineMapsViewModel(
+    private val store: OfflineRegionStore,
+    private val settings: SettingsRepository,
+    dispatchers: AppDispatchers = AppDispatchers(),
+) : ViewModel() {
     private val transient = MutableStateFlow(Transient())
 
     private data class Transient(val error: RegionError? = null, val importing: Boolean = false)
@@ -62,7 +65,7 @@ class OfflineMapsViewModel(private val container: AppContainer) : ViewModel() {
             emit(store.freeBytes())
             delay(FREE_SPACE_POLL_MS)
         }
-    }.flowOn(Dispatchers.IO)
+    }.flowOn(dispatchers.io)
 
     val state: StateFlow<OfflineMapsUiState> = combine(
         store.regions,

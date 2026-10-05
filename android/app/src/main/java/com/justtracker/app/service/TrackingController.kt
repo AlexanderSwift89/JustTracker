@@ -35,18 +35,39 @@ data class LiveTrackingState(
     val lastFinishDiscarded: Boolean = false,
 )
 
-/** Single entry point the UI uses to drive [TrackingService]. */
-class TrackingController(private val context: Context) {
-    private val _live = MutableStateFlow(LiveTrackingState())
-    val live: StateFlow<LiveTrackingState> = _live
+/** What the UI may do with a recording: the commands and the live, in-memory state of [TrackingService]. */
+interface TrackingControl {
+    val live: StateFlow<LiveTrackingState>
 
-    fun start() = send(TrackingService.ACTION_START, foreground = true)
-    fun pause() = send(TrackingService.ACTION_PAUSE)
-    fun resume() = send(TrackingService.ACTION_RESUME, foreground = true)
-    fun stop() = send(TrackingService.ACTION_STOP)
+    fun start()
+    fun pause()
+    fun resume()
+    fun stop()
 
     /** Re-attach to a track left in RECORDING/PAUSED state after process death. */
-    fun recover() = send(TrackingService.ACTION_RECOVER, foreground = true)
+    fun recover()
+
+    /**
+     * Shows [lat]/[lon] (the device's last known position) as the marker until the first fix of a recording, so the
+     * map opens near the user. It stays in memory: map tiles are the only traffic tied to the viewed area (ADR-24).
+     */
+    fun seedPosition(lat: Double, lon: Double)
+}
+
+/** Single entry point the UI uses to drive [TrackingService]. */
+class TrackingController(private val context: Context) : TrackingControl {
+    private val _live = MutableStateFlow(LiveTrackingState())
+    override val live: StateFlow<LiveTrackingState> = _live
+
+    override fun start() = send(TrackingService.ACTION_START, foreground = true)
+    override fun pause() = send(TrackingService.ACTION_PAUSE)
+    override fun resume() = send(TrackingService.ACTION_RESUME, foreground = true)
+    override fun stop() = send(TrackingService.ACTION_STOP)
+    override fun recover() = send(TrackingService.ACTION_RECOVER, foreground = true)
+
+    override fun seedPosition(lat: Double, lon: Double) = _live.update { live ->
+        if (live.lastLat == null) live.copy(lastLat = lat, lastLon = lon) else live
+    }
 
     internal fun update(block: (LiveTrackingState) -> LiveTrackingState) = _live.update(block)
 

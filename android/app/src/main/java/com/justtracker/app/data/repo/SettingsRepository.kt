@@ -1,6 +1,5 @@
 package com.justtracker.app.data.repo
 
-import android.content.Context
 import androidx.datastore.core.DataMigration
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -8,7 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import androidx.datastore.preferences.core.emptyPreferences
 import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.domain.model.AppLanguage
 import com.justtracker.app.domain.model.AppSettings
@@ -16,12 +15,9 @@ import com.justtracker.app.domain.model.ThemeMode
 import com.justtracker.app.domain.model.UnitSystem
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
-
-private val Context.settingsStore: DataStore<Preferences> by preferencesDataStore(
-    name = "settings",
-    produceMigrations = { listOf(RemovedFeatureKeysMigration) },
-)
+import java.io.IOException
 
 /**
  * Drops the preferences of features that no longer exist, so nothing about them stays on the device:
@@ -38,7 +34,11 @@ internal object RemovedFeatureKeysMigration : DataMigration<Preferences> {
     override suspend fun cleanUp() = Unit
 }
 
-class SettingsRepository(private val context: Context) {
+/**
+ * App settings in a Preferences DataStore. The store is created once per process by the AppContainer (file
+ * `datastore/settings.preferences_pb`, with [RemovedFeatureKeysMigration]); tests pass their own.
+ */
+class SettingsRepository(private val store: DataStore<Preferences>) {
     private object Keys {
         val UNITS = stringPreferencesKey("units")
         val THEME = stringPreferencesKey("theme")
@@ -52,7 +52,9 @@ class SettingsRepository(private val context: Context) {
         val ACCELERATION_HINT_SHOWN = booleanPreferencesKey("acceleration_hint_shown")
     }
 
-    val settings: Flow<AppSettings> = context.settingsStore.data.map { p ->
+    // An unreadable file (I/O error) gives the defaults instead of an exception in every screen; corruption is
+    // handled by DataStore itself.
+    val settings: Flow<AppSettings> = store.data.catch { e -> if (e is IOException) emit(emptyPreferences()) else throw e }.map { p ->
         AppSettings(
             units = p[Keys.UNITS]?.let { runCatching { UnitSystem.valueOf(it) }.getOrNull() } ?: UnitSystem.METRIC,
             theme = p[Keys.THEME]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
@@ -69,17 +71,17 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun current(): AppSettings = settings.first()
 
-    suspend fun setUnits(units: UnitSystem) = context.settingsStore.edit { it[Keys.UNITS] = units.name }
-    suspend fun setTheme(theme: ThemeMode) = context.settingsStore.edit { it[Keys.THEME] = theme.name }
-    suspend fun setMaxAccuracy(meters: Int) = context.settingsStore.edit { it[Keys.MAX_ACCURACY] = meters.coerceIn(10, 100) }
-    suspend fun setKeepScreenOn(on: Boolean) = context.settingsStore.edit { it[Keys.KEEP_SCREEN_ON] = on }
-    suspend fun setOnboardingDone() = context.settingsStore.edit { it[Keys.ONBOARDING_DONE] = true }
-    suspend fun setLanguage(language: AppLanguage) = context.settingsStore.edit { it[Keys.LANGUAGE] = language.tag }
-    suspend fun setMapsWifiOnly(on: Boolean) = context.settingsStore.edit { it[Keys.MAPS_WIFI_ONLY] = on }
-    suspend fun setMapMode(mode: MapMode) = context.settingsStore.edit { it[Keys.MAP_MODE] = mode.name }
-    suspend fun setShowAcceleration(on: Boolean) = context.settingsStore.edit {
+    suspend fun setUnits(units: UnitSystem) = store.edit { it[Keys.UNITS] = units.name }
+    suspend fun setTheme(theme: ThemeMode) = store.edit { it[Keys.THEME] = theme.name }
+    suspend fun setMaxAccuracy(meters: Int) = store.edit { it[Keys.MAX_ACCURACY] = meters.coerceIn(10, 100) }
+    suspend fun setKeepScreenOn(on: Boolean) = store.edit { it[Keys.KEEP_SCREEN_ON] = on }
+    suspend fun setOnboardingDone() = store.edit { it[Keys.ONBOARDING_DONE] = true }
+    suspend fun setLanguage(language: AppLanguage) = store.edit { it[Keys.LANGUAGE] = language.tag }
+    suspend fun setMapsWifiOnly(on: Boolean) = store.edit { it[Keys.MAPS_WIFI_ONLY] = on }
+    suspend fun setMapMode(mode: MapMode) = store.edit { it[Keys.MAP_MODE] = mode.name }
+    suspend fun setShowAcceleration(on: Boolean) = store.edit {
         it[Keys.SHOW_ACCELERATION] = on
         it[Keys.ACCELERATION_HINT_SHOWN] = true
     }
-    suspend fun setAccelerationHintShown() = context.settingsStore.edit { it[Keys.ACCELERATION_HINT_SHOWN] = true }
+    suspend fun setAccelerationHintShown() = store.edit { it[Keys.ACCELERATION_HINT_SHOWN] = true }
 }

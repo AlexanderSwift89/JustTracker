@@ -107,7 +107,9 @@ import kotlinx.coroutines.flow.first
 @Composable
 fun RecordScreen(
     onTrackFinished: (Long) -> Unit,
-    viewModel: RecordViewModel = appViewModel { RecordViewModel(it) },
+    viewModel: RecordViewModel = appViewModel { c ->
+        RecordViewModel(c.trackRepository, c.settingsRepository, c.trackingController, c.locationSource, c.dispatchers)
+    },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val appSettings by LocalAppContainer.current.settingsFlow.collectAsStateWithLifecycle()

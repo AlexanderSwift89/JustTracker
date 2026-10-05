@@ -1,25 +1,21 @@
 package com.justtracker.app.ui.detail
 
-import android.content.ClipData
-import android.content.Context
 import android.content.Intent
-import androidx.core.content.FileProvider
+import com.justtracker.app.data.export.GpxExporter
+import com.justtracker.app.data.repo.SettingsRepository
+import com.justtracker.app.data.repo.TrackRepository
+import com.justtracker.app.di.AppDispatchers
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.justtracker.app.data.export.ExportFiles
-import com.justtracker.app.di.AppContainer
 import com.justtracker.app.domain.geo.ElevationCalculator
 import com.justtracker.app.domain.geo.ElevationResult
-import com.justtracker.app.domain.gpx.GpxWriter
 import com.justtracker.app.domain.model.ActivityType
 import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.TrackStatus
 import com.justtracker.app.domain.model.UnitSystem
 import com.justtracker.app.domain.track.TrackCursor
 import com.justtracker.app.domain.track.TrackLine
-import com.justtracker.app.util.AppLog
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -33,8 +29,6 @@ import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
 import kotlin.math.abs
 
 data class TrackDetailUiState(
@@ -46,11 +40,13 @@ data class TrackDetailUiState(
 )
 
 class TrackDetailViewModel(
-    private val container: AppContainer,
+    private val repo: TrackRepository,
+    settings: SettingsRepository,
+    private val gpxExporter: GpxExporter,
     private val trackId: Long,
     savedState: SavedStateHandle,
+    dispatchers: AppDispatchers = AppDispatchers(),
 ) : ViewModel() {
-    private val repo = container.trackRepository
 
     private class Geometry(val line: TrackLine, val elevation: ElevationResult)
 
@@ -61,7 +57,7 @@ class TrackDetailViewModel(
      */
     private val geometry: SharedFlow<Geometry> = flow { emit(repo.getPoints(trackId)) }
         .map { points -> Geometry(TrackLine.of(points), ElevationCalculator.gainLoss(points)) }
-        .flowOn(Dispatchers.Default)
+        .flowOn(dispatchers.default)
         .shareIn(viewModelScope, SharingStarted.Lazily, replay = 1)
 
     private val track = repo.observeTrack(trackId)
@@ -75,11 +71,11 @@ class TrackDetailViewModel(
     val state: StateFlow<TrackDetailUiState> = combine(
         track,
         geometry,
-        container.settingsRepository.settings,
-    ) { track, geo, settings ->
+        settings.settings,
+    ) { track, geo, prefs ->
         // Gain/loss are always shown as computed from the points by the current algorithm, never from a stale row.
         val shown = track?.copy(elevationGainM = geo.elevation.gainM, elevationLossM = geo.elevation.lossM)
-        TrackDetailUiState(shown, geo.line, settings.units, loaded = true)
+        TrackDetailUiState(shown, geo.line, prefs.units, loaded = true)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrackDetailUiState())
 
     /**
@@ -130,35 +126,8 @@ class TrackDetailViewModel(
         onDone()
     }
 
-    /**
-     * Writes the GPX into cacheDir/exports and returns a share intent, or null on failure.
-     * Files older than 24 h are purged on every export and on app start; a deleted track takes its copies
-     * with it ([ExportFiles], docs/06_system_analysis.md UC-04).
-     */
-    suspend fun buildShareIntent(context: Context): Intent? = withContext(Dispatchers.IO) {
-        val track = repo.getTrack(trackId) ?: return@withContext null
-        val points = repo.getPoints(trackId)
-        try {
-            val dir = ExportFiles.dir(context.cacheDir).apply { mkdirs() }
-            ExportFiles.purgeOlderThan(dir, System.currentTimeMillis())
-            // A renamed track would otherwise leave its previous copy behind.
-            ExportFiles.deleteForTrack(dir, trackId)
-            val file = File(dir, GpxWriter.fileName(track))
-            file.bufferedWriter().use { GpxWriter.write(track, points, it) }
-            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-            Intent(Intent.ACTION_SEND).apply {
-                type = "application/gpx+xml"
-                putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_SUBJECT, track.name)
-                // The read grant covers exactly this URI via ClipData, not only the framework's EXTRA_STREAM migration (SEC-17).
-                clipData = ClipData.newRawUri(track.name, uri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-        } catch (e: Exception) {
-            AppLog.e("GPX export failed", e)
-            null
-        }
-    }
+    /** A share intent with the track as GPX, or null on failure ([GpxExporter]). */
+    suspend fun shareIntent(): Intent? = gpxExporter.shareIntent(trackId)
 
     private companion object {
         /** Below this the stored gain/loss already match the recomputed ones (rounding only). */

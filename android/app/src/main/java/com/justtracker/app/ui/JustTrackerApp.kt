@@ -36,7 +36,6 @@ import androidx.window.core.layout.WindowSizeClass
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 import com.justtracker.app.R
 import com.justtracker.app.domain.model.AppSettings
 import com.justtracker.app.ui.common.FittedText
@@ -95,7 +94,7 @@ fun JustTrackerApp(settings: AppSettings) {
         modeSuggestion?.let { suggestion ->
             MapModePromptDialog(
                 suggestion = suggestion,
-                onConfirm = { container.appScope.launch { container.mapModeController.setMode(suggestion.target) } },
+                onConfirm = { container.mapModeController.confirm(suggestion.target) },
                 onDismiss = { container.mapModeController.dismissSuggestion() },
             )
         }
@@ -148,6 +147,7 @@ fun JustTrackerApp(settings: AppSettings) {
         ) {
             composable(Routes.ONBOARDING) {
                 OnboardingScreen(
+                    languageChosen = settings.language != null,
                     onDone = {
                         navController.navigate(Routes.RECORD) {
                             popUpTo(Routes.ONBOARDING) { inclusive = true }

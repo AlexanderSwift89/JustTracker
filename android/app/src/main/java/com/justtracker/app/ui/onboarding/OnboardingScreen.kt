@@ -39,7 +39,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -50,14 +49,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.justtracker.app.R
 import com.justtracker.app.domain.model.AppLanguage
-import com.justtracker.app.ui.common.LocalAppContainer
+import com.justtracker.app.ui.common.appViewModel
 import com.justtracker.app.ui.common.Permissions
-import com.justtracker.app.util.AppLocale
 import com.justtracker.app.util.labelRes
-import kotlinx.coroutines.launch
 
 private enum class Step { LANGUAGE, PERMISSIONS }
 
@@ -66,24 +62,20 @@ private enum class Step { LANGUAGE, PERMISSIONS }
  * location → notifications permission chain (US-14).
  */
 @Composable
-fun OnboardingScreen(onDone: () -> Unit) {
-    val container = LocalAppContainer.current
-    val settings by container.settingsFlow.collectAsStateWithLifecycle()
+fun OnboardingScreen(
+    languageChosen: Boolean,
+    onDone: () -> Unit,
+    viewModel: OnboardingViewModel = appViewModel { c -> OnboardingViewModel(c.settingsRepository) },
+) {
     // The language step is skipped once a choice exists (also after AppCompat recreates the activity).
-    var step by rememberSaveable { mutableStateOf(if (settings.language == null) Step.LANGUAGE else Step.PERMISSIONS) }
+    var step by rememberSaveable { mutableStateOf(if (languageChosen) Step.PERMISSIONS else Step.LANGUAGE) }
 
     when (step) {
         Step.LANGUAGE -> LanguageStep(
             initial = AppLanguage.forDevice(),
-            onContinue = { chosen ->
-                container.appScope.launch {
-                    // Persist before applying: the recreated activity must already see language != null.
-                    container.settingsRepository.setLanguage(chosen)
-                    step = Step.PERMISSIONS
-                }
-            },
+            onContinue = { chosen -> viewModel.chooseLanguage(chosen) { step = Step.PERMISSIONS } },
         )
-        Step.PERMISSIONS -> PermissionsStep(onDone)
+        Step.PERMISSIONS -> PermissionsStep(onFinish = { viewModel.finish(onDone) })
     }
 }
 
@@ -118,7 +110,6 @@ private val STEP_MAX_WIDTH = 560.dp
 @Composable
 private fun LanguageStep(initial: AppLanguage, onContinue: (AppLanguage) -> Unit) {
     var selected by rememberSaveable { mutableStateOf(initial) }
-    val scope = rememberCoroutineScope()
 
     StepColumn {
         Spacer(Modifier.weight(1f))
@@ -160,11 +151,8 @@ private fun LanguageStep(initial: AppLanguage, onContinue: (AppLanguage) -> Unit
         }
         Spacer(Modifier.weight(1f))
         Button(
-            onClick = {
-                onContinue(selected)
-                // Applies the locale; on API < 33 AppCompat recreates the activity when it differs from the device one.
-                scope.launch { AppLocale.apply(selected) }
-            },
+            // Saves, then applies the locale; on API < 33 AppCompat recreates the activity when it differs from the device one.
+            onClick = { onContinue(selected) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
@@ -175,17 +163,10 @@ private fun LanguageStep(initial: AppLanguage, onContinue: (AppLanguage) -> Unit
 }
 
 @Composable
-private fun PermissionsStep(onDone: () -> Unit) {
-    val container = LocalAppContainer.current
+private fun PermissionsStep(onFinish: () -> Unit) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
 
-    fun finish() {
-        scope.launch {
-            container.settingsRepository.setOnboardingDone()
-            onDone()
-        }
-    }
+    fun finish() = onFinish()
 
     val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { finish() }
     val locationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {

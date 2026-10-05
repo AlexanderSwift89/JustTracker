@@ -3,16 +3,19 @@ package com.justtracker.app.ui.record
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.justtracker.app.data.repo.LiveTrackLine
-import com.justtracker.app.di.AppContainer
+import com.justtracker.app.data.location.LocationSource
+import com.justtracker.app.data.repo.SettingsRepository
+import com.justtracker.app.data.repo.TrackRepository
+import com.justtracker.app.di.AppDispatchers
 import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.TrackStatus
 import com.justtracker.app.domain.model.UnitSystem
 import com.justtracker.app.domain.stats.Acceleration
 import com.justtracker.app.service.LiveTrackingState
+import com.justtracker.app.service.TrackingControl
 import com.justtracker.app.domain.geo.LatLon
 import com.justtracker.app.domain.track.TrackLine
 import com.justtracker.app.domain.track.TrackTapInfo
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -81,15 +84,19 @@ data class RecordUiState(
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class RecordViewModel(private val container: AppContainer) : ViewModel() {
-    private val controller = container.trackingController
-
+class RecordViewModel(
+    tracks: TrackRepository,
+    private val settings: SettingsRepository,
+    private val tracking: TrackingControl,
+    private val location: LocationSource,
+    dispatchers: AppDispatchers = AppDispatchers(),
+) : ViewModel() {
     // One Room query for the state and the line: the row of the active track changes with every stored fix.
-    private val activeTrack = container.trackRepository.observeActiveTrack()
+    private val activeTrack = tracks.observeActiveTrack()
         .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), replay = 1)
 
     /** Lives as long as the view model: coming back to the tab continues from the tail, without a full read. */
-    private val liveLine = LiveTrackLine(container.trackRepository)
+    private val liveLine = LiveTrackLine(tracks)
 
     /**
      * The recording clock: once a second while a track is recording or paused (time, "searching GPS", stale
@@ -117,28 +124,28 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
     private val line = activeTrack
         .conflate()
         .map { track -> liveLine.update(track) }
-        .flowOn(Dispatchers.Default)
+        .flowOn(dispatchers.default)
 
     private val tapped = MutableStateFlow<TrackTapInfo?>(null)
 
     val state: StateFlow<RecordUiState> = combine(
         combine(activeTrack, line, tapped) { t, l, tap -> Sources(t, l, tap) },
-        controller.live,
-        container.settingsRepository.settings,
+        tracking.live,
+        settings.settings,
         clock,
-    ) { src, live, settings, now ->
+    ) { src, live, prefs, now ->
         RecordUiState(
             track = src.track,
             line = src.line,
             live = live,
             position = live.lastLat?.let { lat -> live.lastLon?.let { lon -> LatLon(lat, lon) } },
-            units = settings.units,
-            keepScreenOn = settings.keepScreenOn,
+            units = prefs.units,
+            keepScreenOn = prefs.keepScreenOn,
             nowMs = now,
             // A tap belongs to the track it was made on; drop it once that track is finished.
             tapped = if (src.track == null) null else src.tapped,
-            showAcceleration = settings.showAcceleration,
-            accelerationHintPending = !settings.accelerationHintShown && !settings.showAcceleration,
+            showAcceleration = prefs.showAcceleration,
+            accelerationHintPending = !prefs.accelerationHintShown && !prefs.showAcceleration,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RecordUiState())
 
@@ -148,11 +155,11 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
         const val TICK_MS = 1_000L
     }
 
-    fun start() = controller.start()
-    fun pause() = controller.pause()
-    fun resume() = controller.resume()
-    fun stop() = controller.stop()
-    fun recover() = controller.recover()
+    fun start() = tracking.start()
+    fun pause() = tracking.pause()
+    fun resume() = tracking.resume()
+    fun stop() = tracking.stop()
+    fun recover() = tracking.recover()
 
     /** Tap on the track line: resolve the vertex to its speed / distance / elapsed time. */
     fun onTrackTap(index: Int) {
@@ -166,23 +173,18 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
     /** Tap on the speed: shows or hides the acceleration indicator; the choice is kept between recordings. */
     fun toggleAcceleration() {
         val show = !state.value.showAcceleration
-        viewModelScope.launch { container.settingsRepository.setShowAcceleration(show) }
+        viewModelScope.launch { settings.setShowAcceleration(show) }
     }
 
     fun onAccelerationHintShown() {
-        viewModelScope.launch { container.settingsRepository.setAccelerationHintShown() }
+        viewModelScope.launch { settings.setAccelerationHintShown() }
     }
 
-    /**
-     * Seeds the position marker from the last known location so the map opens near the user. The position never
-     * leaves the device: map tiles are the only network traffic tied to the viewed area (ADR-24).
-     */
+    /** Seeds the position marker from the last known location so the map opens near the user ([TrackingControl.seedPosition]). */
     fun seedLastKnownLocation() {
         viewModelScope.launch {
-            val loc = container.locationSource.lastKnown() ?: return@launch
-            controller.update { live ->
-                if (live.lastLat == null) live.copy(lastLat = loc.latitude, lastLon = loc.longitude) else live
-            }
+            val loc = location.lastKnown() ?: return@launch
+            tracking.seedPosition(loc.latitude, loc.longitude)
         }
     }
 }
