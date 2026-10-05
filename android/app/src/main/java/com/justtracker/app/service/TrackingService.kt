@@ -22,6 +22,7 @@ import com.justtracker.app.domain.geo.LocationFilter
 import com.justtracker.app.domain.geo.Sample
 import com.justtracker.app.domain.geo.StartCheck
 import com.justtracker.app.domain.model.ActivityType
+import com.justtracker.app.domain.model.AppSettings
 import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.TrackPoint
 import com.justtracker.app.domain.model.TrackStatus
@@ -39,6 +40,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -66,8 +69,9 @@ class TrackingService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var container: AppContainer
     /** Resources in the app language: on API < 33 a Service context still follows the device locale. */
-    private val localized: Context get() = AppLocale.localized(this, container.cachedSettings)
-    private val notification: TrackingNotification get() = TrackingNotification(localized)
+    private lateinit var localized: Context
+    private lateinit var notification: TrackingNotification
+    private lateinit var formatter: UnitFormatter
     private var session: Session? = null
     private var locationJob: Job? = null
     private var lastNotificationUpdate = 0L
@@ -77,7 +81,22 @@ class TrackingService : Service() {
     override fun onCreate() {
         super.onCreate()
         container = (application as JustTrackerApplication).container
-        notification.ensureChannel()
+        applyLocaleAndUnits(container.cachedSettings)
+        // The notification follows a change of units or language at once, also in the middle of a recording (D-26).
+        // The first value also replaces the defaults a cold start may have seen before DataStore was read.
+        scope.launch {
+            container.settingsFlow.map { it.units to it.language }.distinctUntilChanged().collect {
+                applyLocaleAndUnits(container.cachedSettings)
+                if (session != null) refreshNotification(force = true)
+            }
+        }
+    }
+
+    /** Context, notification builder and formatter are made once per language and units, not on every update. */
+    private fun applyLocaleAndUnits(settings: AppSettings) {
+        localized = AppLocale.localized(this, settings)
+        notification = TrackingNotification(localized).also { it.ensureChannel() }
+        formatter = UnitFormatter(localized, settings.units)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -378,7 +397,7 @@ class TrackingService : Service() {
             startedAt = s?.track?.startedAt ?: System.currentTimeMillis(),
             distanceM = s?.stats?.distanceM ?: 0.0,
             speedMps = if (s == null) 0.0 else container.trackingController.live.value.currentSpeedMps.toDouble(),
-            formatter = formatter(),
+            formatter = formatter,
         )
         return try {
             ServiceCompat.startForeground(this, TrackingNotification.NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
@@ -404,7 +423,7 @@ class TrackingService : Service() {
             startedAt = s.track.startedAt,
             distanceM = s.stats.distanceM,
             speedMps = container.trackingController.live.value.currentSpeedMps.toDouble(),
-            formatter = formatter(),
+            formatter = formatter,
         )
         try {
             NotificationManagerCompat.from(this).notify(TrackingNotification.NOTIFICATION_ID, n)
@@ -412,10 +431,6 @@ class TrackingService : Service() {
             AppLog.w("Notification permission missing", e)
         }
     }
-
-    private var cachedFormatter: UnitFormatter? = null
-    private fun formatter(): UnitFormatter =
-        cachedFormatter ?: UnitFormatter(localized, container.cachedSettings.units).also { cachedFormatter = it }
 
     /** Fix time on the monotonic clock: unlike [Location.getTime] (UTC), it never steps when the clock is corrected. */
     private fun Location.monotonicMs(): Long = elapsedRealtimeNanos / 1_000_000

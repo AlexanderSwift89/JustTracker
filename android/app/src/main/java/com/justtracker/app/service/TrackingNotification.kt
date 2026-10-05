@@ -8,25 +8,55 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
 import com.justtracker.app.R
-import com.justtracker.app.ui.MainActivity
 import com.justtracker.app.util.UnitFormatter
 
-/** Builds the persistent foreground notification for [TrackingService]. */
+/**
+ * Builds the persistent foreground notification for [TrackingService] in the resources of [context] (the app
+ * language). One instance lives as long as the language and units do: the builder and the pending intents are made
+ * once and only the texts change on each update (every few seconds while recording).
+ */
 class TrackingNotification(private val context: Context) {
 
+    /** Creates the channel, or renames it after a language change (name and description may be updated). */
     fun ensureChannel() {
-        val manager = context.getSystemService(NotificationManager::class.java)
-        if (manager.getNotificationChannel(CHANNEL_ID) == null) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                context.getString(R.string.notification_channel_name),
-                NotificationManager.IMPORTANCE_LOW,
-            ).apply {
-                description = context.getString(R.string.notification_channel_description)
-                setShowBadge(false)
-            }
-            manager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            context.getString(R.string.notification_channel_name),
+            NotificationManager.IMPORTANCE_LOW,
+        ).apply {
+            description = context.getString(R.string.notification_channel_description)
+            setShowBadge(false)
         }
+        context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+    }
+
+    // The launcher intent of the own package opens the app like its icon does (MainActivity is singleTask), without
+    // the service layer depending on the UI class.
+    private val openIntent: PendingIntent by lazy {
+        val launch = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: Intent()
+        PendingIntent.getActivity(
+            context,
+            0,
+            launch.setPackage(context.packageName).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+    }
+    private val resumeIntent by lazy { servicePending(TrackingService.ACTION_RESUME, 1) }
+    private val pauseIntent by lazy { servicePending(TrackingService.ACTION_PAUSE, 2) }
+    private val stopIntent by lazy { servicePending(TrackingService.ACTION_STOP, 3) }
+
+    private val builder: NotificationCompat.Builder by lazy {
+        NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setShowWhen(true)
+            .setUsesChronometer(true)
+            .setContentIntent(openIntent)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
     }
 
     /**
@@ -40,38 +70,22 @@ class TrackingNotification(private val context: Context) {
         speedMps: Double,
         formatter: UnitFormatter,
     ): Notification {
-        val openIntent = PendingIntent.getActivity(
-            context,
-            0,
-            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
         val text = context.getString(
             R.string.notification_text_format,
             formatter.distance(distanceM),
             formatter.speed(speedMps),
         )
-        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
+        builder
             .setContentTitle(context.getString(if (paused) R.string.notification_title_paused else R.string.notification_title_recording))
             .setContentText(text)
             .setWhen(startedAt)
-            .setShowWhen(true)
-            .setUsesChronometer(true)
-            .setContentIntent(openIntent)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setSilent(true)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-
+            .clearActions()
         if (paused) {
-            builder.addAction(0, context.getString(R.string.record_resume), servicePending(TrackingService.ACTION_RESUME, 1))
+            builder.addAction(0, context.getString(R.string.record_resume), resumeIntent)
         } else {
-            builder.addAction(0, context.getString(R.string.record_pause), servicePending(TrackingService.ACTION_PAUSE, 2))
+            builder.addAction(0, context.getString(R.string.record_pause), pauseIntent)
         }
-        builder.addAction(0, context.getString(R.string.record_stop), servicePending(TrackingService.ACTION_STOP, 3))
+        builder.addAction(0, context.getString(R.string.record_stop), stopIntent)
         return builder.build()
     }
 
