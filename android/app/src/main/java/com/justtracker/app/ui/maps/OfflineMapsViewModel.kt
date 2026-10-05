@@ -9,11 +9,17 @@ import com.justtracker.app.domain.maps.OfflineRegion
 import com.justtracker.app.domain.maps.RegionError
 import com.justtracker.app.domain.maps.RegionSource
 import com.justtracker.app.domain.model.AppLanguage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** One list row: a catalogue entry (with its download state, if any) or an imported file. */
@@ -42,14 +48,29 @@ class OfflineMapsViewModel(private val container: AppContainer) : ViewModel() {
     private val settings = container.settingsRepository
     private val transient = MutableStateFlow(Transient())
 
-    private data class Transient(val error: RegionError? = null, val importing: Boolean = false, val tick: Int = 0)
+    private data class Transient(val error: RegionError? = null, val importing: Boolean = false)
+
+    /** The bundled catalogue, read once (it is cached per process as well). */
+    private val catalog: Flow<List<CatalogRegion>> = flow { emit(store.catalog()) }
+
+    /**
+     * Free space of the maps folder: a StatFs call on the IO pool every few seconds, not on the main thread with every
+     * progress tick of a download (P9).
+     */
+    private val freeBytes: Flow<Long> = flow {
+        while (true) {
+            emit(store.freeBytes())
+            delay(FREE_SPACE_POLL_MS)
+        }
+    }.flowOn(Dispatchers.IO)
 
     val state: StateFlow<OfflineMapsUiState> = combine(
         store.regions,
         settings.settings,
         transient,
-    ) { regions, prefs, t ->
-        val catalog = store.catalog()
+        catalog,
+        freeBytes,
+    ) { regions, prefs, t, catalog, free ->
         val byId = regions.associateBy { it.id }
         val language = prefs.language ?: AppLanguage.forDevice()
         OfflineMapsUiState(
@@ -59,7 +80,7 @@ class OfflineMapsViewModel(private val container: AppContainer) : ViewModel() {
                 .sortedBy { it.name(language).lowercase() },
             wifiOnly = prefs.mapsWifiOnly,
             canDownload = store.canDownload,
-            freeBytes = store.freeBytes(),
+            freeBytes = free,
             usedBytes = regions.sumOf { it.sizeBytes },
             language = language,
             error = t.error,
@@ -69,7 +90,7 @@ class OfflineMapsViewModel(private val container: AppContainer) : ViewModel() {
 
     fun download(id: String) = viewModelScope.launch {
         val error = store.download(id)
-        if (error != null) transient.value = transient.value.copy(error = error)
+        if (error != null) transient.update { it.copy(error = error) }
     }
 
     fun cancel(id: String) = viewModelScope.launch { store.cancel(id) }
@@ -77,12 +98,14 @@ class OfflineMapsViewModel(private val container: AppContainer) : ViewModel() {
     fun setWifiOnly(on: Boolean) = viewModelScope.launch { settings.setMapsWifiOnly(on) }
 
     fun import(uri: Uri, displayName: String?) = viewModelScope.launch {
-        transient.value = transient.value.copy(importing = true)
+        transient.update { it.copy(importing = true) }
         val error = store.import(uri, displayName)
-        transient.value = transient.value.copy(importing = false, error = error)
+        transient.update { it.copy(importing = false, error = error) }
     }
 
-    fun consumeError() {
-        transient.value = transient.value.copy(error = null)
+    fun consumeError() = transient.update { it.copy(error = null) }
+
+    private companion object {
+        const val FREE_SPACE_POLL_MS = 5_000L
     }
 }
