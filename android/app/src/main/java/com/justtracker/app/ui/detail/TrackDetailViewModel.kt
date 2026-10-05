@@ -15,25 +15,18 @@ import com.justtracker.app.domain.model.ActivityType
 import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.TrackStatus
 import com.justtracker.app.domain.model.UnitSystem
-import com.justtracker.app.data.poi.PoiResult
-import com.justtracker.app.domain.poi.Poi
 import com.justtracker.app.ui.common.PathSegment
 import com.justtracker.app.ui.common.TrackCursor
 import com.justtracker.app.ui.common.TrackPath
 import com.justtracker.app.util.AppLog
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.mapLatest
-import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -48,8 +41,6 @@ data class TrackDetailUiState(
     val segments: List<PathSegment> = emptyList(),
     val units: UnitSystem = UnitSystem.METRIC,
     val loaded: Boolean = false,
-    /** Places with a Wikipedia article within 400 m of the track; empty when disabled/offline. */
-    val pois: List<Poi> = emptyList(),
     /** Scrubber position on the track (slider / tap / arrows); start of the track by default. */
     val cursor: TrackCursor? = null,
 )
@@ -60,29 +51,6 @@ class TrackDetailViewModel(
     savedState: SavedStateHandle,
 ) : ViewModel() {
     private val repo = container.trackRepository
-
-    /**
-     * Places along the track. Starts with an empty list *immediately* (`scan`) so the screen never
-     * waits for Overpass: the lookup is rate-limited (≥ 15 s between calls, 60 s backoff) and used to
-     * hold back the whole state — the track appeared only after the request finished (D-11). An
-     * unavailable result keeps whatever was shown before. Only grid cells of the track without its first
-     * and last 300 m reach the server (ADR-21, [com.justtracker.app.domain.poi.TrackQuery]).
-     */
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private val pois: Flow<List<Poi>> = combine(repo.observePoints(trackId), container.settingsRepository.settings) { points, s ->
-        if (s.poiEnabled && points.size >= 2) points.map { it.lat to it.lon } else emptyList()
-    }
-        .distinctUntilChanged()
-        .mapLatest { line ->
-            if (line.isEmpty()) emptyList()
-            else when (val r = container.poiRepository.aroundTrack(trackId, line)) {
-                is PoiResult.Found -> r.pois
-                PoiResult.Unavailable -> null
-            }
-        }
-        .scan(emptyList<Poi>()) { prev, next -> next ?: prev }
-        // Up to 100 000 points are mapped, compared and turned into cells here — never on the main thread.
-        .flowOn(Dispatchers.Default)
 
     private class Geometry(val segments: List<PathSegment>, val elevation: ElevationResult)
 
@@ -102,13 +70,12 @@ class TrackDetailViewModel(
         repo.observeTrack(trackId),
         geometry,
         container.settingsRepository.settings,
-        pois,
         cursorIndex,
-    ) { track, geo, settings, poiList, idx ->
+    ) { track, geo, settings, idx ->
         // Gain/loss are always shown as computed from the points by the current algorithm, never from a stale row.
         val shown = track?.copy(elevationGainM = geo.elevation.gainM, elevationLossM = geo.elevation.lossM)
         val cursor = shown?.let { TrackPath.cursorAt(geo.segments, idx, it.startedAt) }
-        TrackDetailUiState(shown, geo.segments, settings.units, loaded = true, pois = poiList, cursor = cursor)
+        TrackDetailUiState(shown, geo.segments, settings.units, loaded = true, cursor = cursor)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrackDetailUiState())
 
     init {

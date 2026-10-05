@@ -6,9 +6,6 @@ import com.justtracker.app.di.AppContainer
 import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.TrackStatus
 import com.justtracker.app.domain.model.UnitSystem
-import com.justtracker.app.data.poi.PoiResult
-import com.justtracker.app.domain.poi.GeoCell
-import com.justtracker.app.domain.poi.Poi
 import com.justtracker.app.domain.stats.Acceleration
 import com.justtracker.app.service.LiveTrackingState
 import com.justtracker.app.ui.common.PathSegment
@@ -16,15 +13,11 @@ import com.justtracker.app.ui.common.TrackPath
 import com.justtracker.app.ui.common.TrackTapInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
@@ -44,8 +37,6 @@ data class RecordUiState(
     val units: UnitSystem = UnitSystem.METRIC,
     val keepScreenOn: Boolean = false,
     val nowMs: Long = System.currentTimeMillis(),
-    /** Places with a Wikipedia article around the current grid cell (empty when disabled/offline). */
-    val pois: List<Poi> = emptyList(),
     /** Section of the line the user tapped, if any. */
     val tapped: TrackTapInfo? = null,
     /** The acceleration indicator is open under the speed (US-23). */
@@ -106,25 +97,8 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
 
     private val tapped = MutableStateFlow<TrackTapInfo?>(null)
 
-    /**
-     * One Overpass lookup per ~500 m grid cell the user is in (cached in the repository); the
-     * previous list stays on screen while the next cell loads. Empty when the feature is off.
-     */
-    private val pois: Flow<List<Poi>> = combine(controller.live, container.settingsRepository.settings) { live, s ->
-        if (s.poiEnabled && live.lastLat != null && live.lastLon != null) GeoCell.of(live.lastLat, live.lastLon) else null
-    }
-        .distinctUntilChanged()
-        .mapLatest { cell ->
-            if (cell == null) emptyList()
-            else when (val r = container.poiRepository.aroundCell(cell)) {
-                is PoiResult.Found -> r.pois
-                PoiResult.Unavailable -> null
-            }
-        }
-        .scan(emptyList<Poi>()) { prev, next -> next ?: prev }
-
     val state: StateFlow<RecordUiState> = combine(
-        combine(activeTrack, segments, pois, tapped) { t, s, p, tap -> Sources(t, s, p, tap) },
+        combine(activeTrack, segments, tapped) { t, s, tap -> Sources(t, s, tap) },
         controller.live,
         container.settingsRepository.settings,
         ticker,
@@ -136,7 +110,6 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
             units = settings.units,
             keepScreenOn = settings.keepScreenOn,
             nowMs = now,
-            pois = src.pois,
             // A tap belongs to the track it was made on; drop it once that track is finished.
             tapped = if (src.track == null) null else src.tapped,
             showAcceleration = settings.showAcceleration,
@@ -144,7 +117,7 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RecordUiState())
 
-    private class Sources(val track: Track?, val segments: List<PathSegment>, val pois: List<Poi>, val tapped: TrackTapInfo?)
+    private class Sources(val track: Track?, val segments: List<PathSegment>, val tapped: TrackTapInfo?)
 
     fun start() = controller.start()
     fun pause() = controller.pause()
@@ -171,7 +144,10 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { container.settingsRepository.setAccelerationHintShown() }
     }
 
-    /** Seeds the position marker from the last known location so the map opens near the user. */
+    /**
+     * Seeds the position marker from the last known location so the map opens near the user. The position never
+     * leaves the device: map tiles are the only network traffic tied to the viewed area (ADR-24).
+     */
     fun seedLastKnownLocation() {
         viewModelScope.launch {
             val loc = container.locationSource.lastKnown() ?: return@launch

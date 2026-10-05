@@ -26,8 +26,6 @@ class JustTrackerApplication : Application() {
         container.appScope.launch(Dispatchers.IO) { ExportFiles.purgeOlderThan(ExportFiles.dir(cacheDir), System.currentTimeMillis()) }
         // Rows vs files vs DownloadManager may have drifted while the process was dead.
         container.appScope.launch { container.offlineRegionStore.reconcile() }
-        // Idle until the user enables auto-announcements and a recording is running.
-        container.poiAnnouncer.start()
     }
 
     /**

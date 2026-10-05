@@ -78,14 +78,11 @@ import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.ui.common.StatTile
 import com.justtracker.app.ui.common.TrackCursor
 import com.justtracker.app.ui.common.TrackMap
-import com.justtracker.app.ui.common.appViewModel
 import com.justtracker.app.ui.common.appViewModelWithState
 import com.justtracker.app.ui.common.FittedText
 import com.justtracker.app.ui.common.rememberSkeletonVisible
 import com.justtracker.app.ui.history.DeleteDialog
 import com.justtracker.app.ui.history.RenameDialog
-import com.justtracker.app.ui.poi.PoiCard
-import com.justtracker.app.ui.poi.PoiCardViewModel
 import com.justtracker.app.ui.theme.ActivityColors
 import com.justtracker.app.util.TimeFormat
 import com.justtracker.app.util.UnitFormatter
@@ -154,7 +151,6 @@ private fun DetailMap(
     formatter: UnitFormatter,
     offline: Boolean,
     onTrackTap: (segment: Int, index: Int) -> Unit,
-    onPoiClick: (com.justtracker.app.domain.poi.Poi) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val track = state.track ?: return
@@ -168,8 +164,6 @@ private fun DetailMap(
             fitToTrack = true,
             showStartFinish = true,
             onTrackTap = onTrackTap,
-            pois = state.pois,
-            onPoiClick = onPoiClick,
         )
         Column(
             modifier = Modifier
@@ -282,11 +276,9 @@ fun TrackDetailScreen(
     trackId: Long,
     onBack: () -> Unit,
     viewModel: TrackDetailViewModel = appViewModelWithState(key = "detail-$trackId") { c, saved -> TrackDetailViewModel(c, trackId, saved) },
-    poiCardViewModel: PoiCardViewModel = appViewModel(key = "poi-detail-$trackId") { PoiCardViewModel(it) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val appSettings by LocalAppContainer.current.settingsFlow.collectAsStateWithLifecycle()
-    val poiCard by poiCardViewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
@@ -313,7 +305,6 @@ fun TrackDetailScreen(
                 formatter = f,
                 offline = offline,
                 onTrackTap = viewModel::onTrackTap,
-                onPoiClick = { poi -> poiCardViewModel.open(poi, distanceM = null) },
                 modifier = modifier,
             )
         }
@@ -440,14 +431,6 @@ fun TrackDetailScreen(
         }
     }
 
-    poiCard?.let { card ->
-        PoiCard(
-            state = card,
-            formatter = formatter,
-            onDismiss = poiCardViewModel::close,
-            onToggleSpeak = poiCardViewModel::toggleSpeak,
-        )
-    }
     if (showRename && track != null) {
         RenameDialog(initial = track.name, onDismiss = { showRename = false }, onSave = {
             viewModel.rename(it)
