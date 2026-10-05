@@ -196,6 +196,9 @@ dependencies {
     implementation(libs.mapsforge.map)
     implementation(libs.mapsforge.themes)
     implementation(libs.kotlinx.coroutines.android)
+    // Aligns kotlinx-serialization with what room-migration 2.8 was built against (1.8); MigrationTestHelper
+    // failed with AbstractMethodError on the 1.7 that navigation pulled in.
+    implementation(platform(libs.kotlinx.serialization.bom))
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
