@@ -45,9 +45,6 @@ class FakeTrackDao : TrackDao {
     override fun observeFinishedTracks(): Flow<List<TrackEntity>> =
         tracks.map { all -> all.values.filter { it.status == "FINISHED" }.sortedByDescending { it.startedAt } }
 
-    override fun observeFinishedTracksSince(since: Long): Flow<List<TrackEntity>> =
-        observeFinishedTracks().map { list -> list.filter { it.startedAt >= since } }
-
     override fun observeActivityAggregates(): Flow<List<ActivityAggregate>> = tracks.map { all ->
         all.values.filter { it.status == "FINISHED" }.groupBy { it.activityType }
             .map { (type, l) -> ActivityAggregate(type, l.size, l.sumOf { it.distanceM }, l.sumOf { it.movingTimeMs }) }
@@ -85,17 +82,10 @@ class FakeTrackDao : TrackDao {
         return of(trackId).sortedWith(compareBy({ it.timestamp }, { it.id }))
     }
 
-    override fun observePoints(trackId: Long): Flow<List<TrackPointEntity>> =
-        points.map { all -> all.filter { it.trackId == trackId }.sortedWith(compareBy({ it.timestamp }, { it.id })) }
-
     override suspend fun getPointsAfter(trackId: Long, afterId: Long): List<TrackPointEntity> =
         of(trackId).filter { it.id > afterId }.sortedBy { it.id }
 
     override suspend fun pointExists(id: Long): Boolean = points.value.any { it.id == id }
-
-    override suspend fun getLastPoint(trackId: Long): TrackPointEntity? = of(trackId).maxByOrNull { it.timestamp }
-
-    override suspend fun countPoints(trackId: Long): Int = of(trackId).size
 
     override suspend fun maxSegment(trackId: Long): Int = of(trackId).maxOfOrNull { it.segment } ?: -1
 

@@ -1,6 +1,5 @@
 package com.justtracker.app.data.repo
 
-import com.justtracker.app.data.db.ActivityAggregate
 import com.justtracker.app.data.db.TrackDao
 import com.justtracker.app.data.export.ExportFiles
 import com.justtracker.app.di.AppDispatchers
@@ -12,6 +11,7 @@ import com.justtracker.app.domain.model.ActivityType
 import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.TrackPoint
 import com.justtracker.app.domain.model.TrackStatus
+import com.justtracker.app.domain.stats.ActivityTotals
 import com.justtracker.app.domain.stats.TrackStatsCalculator
 import com.justtracker.app.util.traced
 import kotlinx.coroutines.flow.Flow
@@ -40,18 +40,20 @@ class TrackRepository(
     suspend fun getTrack(id: Long): Track? = dao.getTrack(id)?.toDomain()
 
     fun observeFinishedTracks(): Flow<List<Track>> = dao.observeFinishedTracks().distinctUntilChanged().map { l -> l.map { it.toDomain() } }
-    fun observeFinishedTracksSince(since: Long): Flow<List<Track>> =
-        dao.observeFinishedTracksSince(since).map { l -> l.map { it.toDomain() } }
 
-    fun observeActivityAggregates(): Flow<List<ActivityAggregate>> = dao.observeActivityAggregates().distinctUntilChanged()
+    /** Finished tracks per activity type, summed in SQL; an unknown stored type counts as UNKNOWN. */
+    fun observeActivityTotals(): Flow<List<ActivityTotals>> = dao.observeActivityAggregates().distinctUntilChanged().map { rows ->
+        rows.map { a ->
+            val type = ActivityType.entries.firstOrNull { it.name == a.activityType } ?: ActivityType.UNKNOWN
+            ActivityTotals(type, a.count, a.distanceM, a.movingTimeMs)
+        }
+    }
 
-    fun observePoints(trackId: Long): Flow<List<TrackPoint>> = dao.observePoints(trackId).map { l -> l.map { it.toDomain() } }
     suspend fun getPoints(trackId: Long): List<TrackPoint> = dao.getPoints(trackId).map { it.toDomain() }
 
     /** Points of [trackId] after the point [lastKnownId] (0: all); null when that point was deleted since. */
     suspend fun pointsAfterIfIntact(trackId: Long, lastKnownId: Long): List<TrackPoint>? =
         dao.pointsAfterIfIntact(trackId, lastKnownId)?.map { it.toDomain() }
-    suspend fun getLastPoint(trackId: Long): TrackPoint? = dao.getLastPoint(trackId)?.toDomain()
     suspend fun maxSegment(trackId: Long): Int = dao.maxSegment(trackId)
 
     /**

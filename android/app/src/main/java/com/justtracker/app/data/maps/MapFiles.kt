@@ -29,15 +29,12 @@ object MapsDirectory {
 
     fun freeBytes(dir: File): Long = runCatching { StatFs(dir.path).availableBytes }.getOrDefault(0L)
 
-    fun usedBytes(dir: File): Long =
-        dir.listFiles { f -> f.isFile && f.name.endsWith(MAP_SUFFIX) }?.sumOf { it.length() } ?: 0L
-
     const val MAP_SUFFIX = ".map"
     const val PART_SUFFIX = ".map.part"
 }
 
 /** Header facts of a Mapsforge file; null bbox means the file is not a readable map. */
-data class MapFileInfo(val box: LatLonBox, val sizeBytes: Long, val languages: String?)
+data class MapFileInfo(val box: LatLonBox, val sizeBytes: Long)
 
 /** Reads only the header of a `.map` file — cheap even for multi-GB files. */
 object MapFileInspector {
@@ -51,7 +48,6 @@ object MapFileInspector {
             MapFileInfo(
                 box = LatLonBox(bb.minLatitude, bb.minLongitude, bb.maxLatitude, bb.maxLongitude),
                 sizeBytes = file.length(),
-                languages = info.languagesPreference,
             )
         } catch (e: Exception) {
             notAMap(file, e)

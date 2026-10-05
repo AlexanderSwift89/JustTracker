@@ -30,9 +30,6 @@ interface TrackDao {
     @Query("SELECT * FROM tracks WHERE status = 'FINISHED' ORDER BY startedAt DESC")
     fun observeFinishedTracks(): Flow<List<TrackEntity>>
 
-    @Query("SELECT * FROM tracks WHERE status = 'FINISHED' AND startedAt >= :since ORDER BY startedAt DESC")
-    fun observeFinishedTracksSince(since: Long): Flow<List<TrackEntity>>
-
     @Query(
         "SELECT activityType, COUNT(*) AS count, SUM(distanceM) AS distanceM, SUM(movingTimeMs) AS movingTimeMs " +
             "FROM tracks WHERE status = 'FINISHED' GROUP BY activityType ORDER BY distanceM DESC",
@@ -57,9 +54,6 @@ interface TrackDao {
     @Query("SELECT * FROM track_points WHERE trackId = :trackId ORDER BY timestamp ASC")
     suspend fun getPoints(trackId: Long): List<TrackPointEntity>
 
-    @Query("SELECT * FROM track_points WHERE trackId = :trackId ORDER BY timestamp ASC")
-    fun observePoints(trackId: Long): Flow<List<TrackPointEntity>>
-
     /** Points recorded after the point [afterId] — ids grow with every insert (AUTOINCREMENT), like the timestamps. */
     @Query("SELECT * FROM track_points WHERE trackId = :trackId AND id > :afterId ORDER BY id")
     suspend fun getPointsAfter(trackId: Long, afterId: Long): List<TrackPointEntity>
@@ -75,12 +69,6 @@ interface TrackDao {
     @Transaction
     suspend fun pointsAfterIfIntact(trackId: Long, lastKnownId: Long): List<TrackPointEntity>? =
         if (lastKnownId == 0L || pointExists(lastKnownId)) getPointsAfter(trackId, lastKnownId) else null
-
-    @Query("SELECT * FROM track_points WHERE trackId = :trackId ORDER BY timestamp DESC LIMIT 1")
-    suspend fun getLastPoint(trackId: Long): TrackPointEntity?
-
-    @Query("SELECT COUNT(*) FROM track_points WHERE trackId = :trackId")
-    suspend fun countPoints(trackId: Long): Int
 
     @Query("SELECT COALESCE(MAX(segment), -1) FROM track_points WHERE trackId = :trackId")
     suspend fun maxSegment(trackId: Long): Int

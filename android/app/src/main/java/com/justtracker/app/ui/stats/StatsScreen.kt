@@ -18,23 +18,19 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
 import com.justtracker.app.R
-import com.justtracker.app.data.db.ActivityAggregate
-import com.justtracker.app.domain.model.ActivityType
 import com.justtracker.app.domain.model.Track
-import com.justtracker.app.domain.model.UnitSystem
+import com.justtracker.app.domain.stats.PeriodSummary
 import com.justtracker.app.ui.common.ActivityBadge
 import com.justtracker.app.ui.common.EmptyState
 import com.justtracker.app.ui.common.SkeletonGroup
@@ -47,54 +43,6 @@ import com.justtracker.app.ui.common.rememberSkeletonVisible
 import com.justtracker.app.util.TimeFormat
 import com.justtracker.app.util.UnitFormatter
 import com.justtracker.app.util.labelRes
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
-import java.time.DayOfWeek
-import java.time.LocalDate
-import java.time.ZoneId
-import java.time.temporal.TemporalAdjusters
-import com.justtracker.app.data.repo.TrackRepository
-import com.justtracker.app.data.repo.SettingsRepository
-
-data class PeriodSummary(val count: Int, val distanceM: Double, val movingTimeMs: Long)
-
-data class StatsUiState(
-    val loaded: Boolean = false,
-    val total: PeriodSummary = PeriodSummary(0, 0.0, 0),
-    val week: PeriodSummary = PeriodSummary(0, 0.0, 0),
-    val month: PeriodSummary = PeriodSummary(0, 0.0, 0),
-    val byType: List<ActivityAggregate> = emptyList(),
-    val longest: Track? = null,
-    val fastest: Track? = null,
-    val units: UnitSystem = UnitSystem.METRIC,
-)
-
-class StatsViewModel(repo: TrackRepository, settings: SettingsRepository) : ViewModel() {
-    val state = combine(
-        repo.observeFinishedTracks(),
-        repo.observeActivityAggregates(),
-        settings.settings,
-    ) { tracks, byType, settings ->
-        val zone = ZoneId.systemDefault()
-        val today = LocalDate.now(zone)
-        val weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).atStartOfDay(zone).toInstant().toEpochMilli()
-        val monthStart = today.withDayOfMonth(1).atStartOfDay(zone).toInstant().toEpochMilli()
-        StatsUiState(
-            loaded = true,
-            total = summarize(tracks),
-            week = summarize(tracks.filter { it.startedAt >= weekStart }),
-            month = summarize(tracks.filter { it.startedAt >= monthStart }),
-            byType = byType,
-            longest = tracks.maxByOrNull { it.distanceM },
-            fastest = tracks.filter { it.distanceM >= 500 }.maxByOrNull { it.avgSpeedMps },
-            units = settings.units,
-        )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StatsUiState())
-
-    private fun summarize(tracks: List<Track>) =
-        PeriodSummary(tracks.size, tracks.sumOf { it.distanceM }, tracks.sumOf { it.movingTimeMs })
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,7 +60,7 @@ fun StatsScreen(viewModel: StatsViewModel = appViewModel { c -> StatsViewModel(c
             StatsSkeleton(Modifier.padding(padding))
             return@Scaffold
         }
-        if (state.loaded && state.total.count == 0) {
+        if (state.loaded && state.summaries.total.count == 0) {
             EmptyState(
                 icon = Icons.Filled.BarChart,
                 title = stringResource(R.string.history_empty_title),
@@ -128,25 +76,25 @@ fun StatsScreen(viewModel: StatsViewModel = appViewModel { c -> StatsViewModel(c
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item { SummaryRow(state.total, formatter, showCount = true) }
+            val s = state.summaries
+            item { SummaryRow(s.total, formatter) }
             item { SectionTitle(stringResource(R.string.stats_this_week)) }
-            item { SummaryRow(state.week, formatter, showCount = true) }
+            item { SummaryRow(s.week, formatter) }
             item { SectionTitle(stringResource(R.string.stats_this_month)) }
-            item { SummaryRow(state.month, formatter, showCount = true) }
-            state.longest?.let { t ->
+            item { SummaryRow(s.month, formatter) }
+            s.longest?.let { t ->
                 item { SectionTitle(stringResource(R.string.stats_longest)) }
                 item { RecordRow(t, formatter.distance(t.distanceM)) }
             }
-            state.fastest?.let { t ->
+            s.fastest?.let { t ->
                 item { SectionTitle(stringResource(R.string.stats_fastest)) }
                 item { RecordRow(t, formatter.speed(t.avgSpeedMps)) }
             }
             item { SectionTitle(stringResource(R.string.stats_by_type)) }
-            items(state.byType, key = { it.activityType }) { agg ->
-                val type = runCatching { ActivityType.valueOf(agg.activityType) }.getOrDefault(ActivityType.UNKNOWN)
+            items(state.byType, key = { it.type }) { agg ->
                 ListItem(
-                    leadingContent = { ActivityBadge(type, size = 36) },
-                    headlineContent = { Text(stringResource(type.labelRes())) },
+                    leadingContent = { ActivityBadge(agg.type, size = 36) },
+                    headlineContent = { Text(stringResource(agg.type.labelRes())) },
                     supportingContent = {
                         Text(pluralStringResource(R.plurals.stats_tracks_count, agg.count, agg.count) + " · " + TimeFormat.duration(agg.movingTimeMs))
                     },
@@ -180,9 +128,9 @@ private fun StatsSkeleton(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun SummaryRow(summary: PeriodSummary, formatter: UnitFormatter, showCount: Boolean) {
+private fun SummaryRow(summary: PeriodSummary, formatter: UnitFormatter) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (showCount) StatTile(stringResource(R.string.stats_total_tracks), summary.count.toString(), Modifier.weight(1f))
+        StatTile(stringResource(R.string.stats_total_tracks), summary.count.toString(), Modifier.weight(1f))
         StatTile(stringResource(R.string.stats_total_distance), formatter.distance(summary.distanceM), Modifier.weight(1f))
         StatTile(stringResource(R.string.stats_total_time), TimeFormat.duration(summary.movingTimeMs), Modifier.weight(1f))
     }

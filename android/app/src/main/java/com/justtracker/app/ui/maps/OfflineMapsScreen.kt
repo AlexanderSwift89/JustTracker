@@ -59,6 +59,7 @@ import com.justtracker.app.domain.maps.RegionError
 import com.justtracker.app.domain.maps.RegionStatus
 import com.justtracker.app.ui.common.SkeletonGroup
 import com.justtracker.app.ui.common.SkeletonListItem
+import com.justtracker.app.ui.common.ListSectionHeader
 import com.justtracker.app.ui.common.appViewModel
 import com.justtracker.app.ui.common.rememberSkeletonVisible
 
@@ -153,7 +154,7 @@ fun OfflineMapsScreen(
                     )
                 }
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                SectionHeader(stringResource(R.string.maps_catalog_header))
+                ListSectionHeader(stringResource(R.string.maps_catalog_header))
             }
             if (skeleton) {
                 // Catalogue rows are still being read (catalogue asset + Room): same footprint as the list.
@@ -172,7 +173,7 @@ fun OfflineMapsScreen(
             if (state.imported.isNotEmpty()) {
                 item {
                     HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                    SectionHeader(stringResource(R.string.maps_imported_header))
+                    ListSectionHeader(stringResource(R.string.maps_imported_header))
                 }
                 items(state.imported, key = { "i-" + it.id }) { row ->
                     RegionListItem(
@@ -236,16 +237,6 @@ fun OfflineMapsScreen(
 }
 
 private const val SKELETON_ROWS = 6
-
-@Composable
-private fun SectionHeader(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-    )
-}
 
 @Composable
 private fun RegionListItem(

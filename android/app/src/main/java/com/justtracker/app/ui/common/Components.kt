@@ -32,7 +32,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -145,4 +144,15 @@ fun EmptyState(icon: ImageVector, title: String, body: String, modifier: Modifie
             )
         }
     }
+}
+
+/** Title of a group of list items (Settings, Offline maps): the M3 list subheader. */
+@Composable
+fun ListSectionHeader(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    )
 }
