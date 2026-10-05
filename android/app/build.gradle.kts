@@ -96,6 +96,8 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            // mapsforge-themes ships two render themes; offline regions are drawn with OSMARENDER (OfflineRenderer).
+            excludes += "/assets/mapsforge/default.xml"
         }
     }
 
