@@ -98,9 +98,10 @@ class RegionDownloader(private val context: Context) {
 }
 
 /**
- * Manifest-registered so a download that finishes while the app is dead still gets verified.
- * The id is only ever looked up in DownloadManager (which returns this app's downloads only), so a
- * spoofed broadcast cannot do harm.
+ * Manifest-registered so a download that finishes while the app is dead still gets verified. Only the system
+ * download provider may send to it (`SEND_DOWNLOAD_COMPLETED_INTENTS` in the manifest); besides, the id is only
+ * ever looked up in DownloadManager (which returns this app's downloads only), so a spoofed broadcast could do no
+ * harm. Should a device's provider not deliver, the store's poller and `reconcile()` on start finish the job.
  */
 class DownloadCompleteReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {

@@ -9,8 +9,11 @@ import java.io.File
 
 /**
  * Where region files live. `DownloadManager` can only write to external storage, so the app-specific
- * external files dir is used (no permission needed, private to the app, removed on uninstall). When
- * the device has no external storage the internal dir is used and only Import is available.
+ * external files dir is used (no permission needed, removed on uninstall). On Android 10 and older, apps
+ * holding the storage permission can read and write it too — accepted for public map data: files are only
+ * parsed by Mapsforge's Java reader, a download is checked against the catalogue before READY, and every
+ * region is listed in Offline maps (docs/07_security.md SEC-13). When the device has no external storage the
+ * internal dir is used and only Import is available.
  */
 object MapsDirectory {
     const val DIR_NAME = "maps"

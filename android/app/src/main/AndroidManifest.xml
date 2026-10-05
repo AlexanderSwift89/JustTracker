@@ -73,10 +73,13 @@
             android:foregroundServiceType="location"
             android:stopWithTask="false" />
 
-        <!-- Offline region downloads finish through the system DownloadManager, possibly while the app is dead. -->
+        <!-- Offline region downloads finish through the system DownloadManager, possibly while the app is dead.
+             Exported because the system broadcast needs it; only the download provider, which holds the
+             signature permission SEND_DOWNLOAD_COMPLETED_INTENTS, may send it (docs/07_security.md SEC-09). -->
         <receiver
             android:name=".data.maps.DownloadCompleteReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:permission="android.permission.SEND_DOWNLOAD_COMPLETED_INTENTS">
             <intent-filter>
                 <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
             </intent-filter>

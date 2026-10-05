@@ -8,7 +8,9 @@ import com.justtracker.app.data.repo.SettingsRepository
 import com.justtracker.app.domain.maps.OfflineRegion
 import com.justtracker.app.domain.maps.RegionCoverage
 import com.justtracker.app.domain.maps.RegionError
+import com.justtracker.app.domain.maps.LatLonBox
 import com.justtracker.app.domain.maps.RegionEvent
+import com.justtracker.app.domain.maps.RegionPlausibility
 import com.justtracker.app.domain.maps.RegionSource
 import com.justtracker.app.domain.maps.RegionStatus
 import com.justtracker.app.domain.maps.RegionTransitions
@@ -225,7 +227,10 @@ class OfflineRegionStore(
         val part = File(mapsDir, row.fileName)
         val final = File(mapsDir, row.id + MapsDirectory.MAP_SUFFIX)
         val info = MapFileInspector.inspect(part)
-        if (info == null || !(part == final || part.renameTo(final))) {
+        // Until READY the row still holds the catalogue box written by download(); the current catalogue wins.
+        val expected = catalog.find(row.id)?.box ?: LatLonBox(row.minLat, row.minLon, row.maxLat, row.maxLon)
+        val plausible = info != null && RegionPlausibility.headerMatchesCatalog(expected, info.box)
+        if (info == null || !plausible || !(part == final || part.renameTo(final))) {
             part.delete()
             dao.upsert(row.copy(status = RegionStatus.ERROR.name, errorReason = RegionError.CORRUPT.name, downloadId = null, updatedAt = now()))
             return

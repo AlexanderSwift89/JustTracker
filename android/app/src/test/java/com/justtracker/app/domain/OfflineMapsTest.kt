@@ -8,6 +8,7 @@ import com.justtracker.app.domain.maps.MapSource
 import com.justtracker.app.domain.maps.MapSourceResolver
 import com.justtracker.app.domain.maps.RegionCoverage
 import com.justtracker.app.domain.maps.RegionError
+import com.justtracker.app.domain.maps.RegionPlausibility
 import com.justtracker.app.domain.maps.RegionEvent
 import com.justtracker.app.domain.maps.RegionStatus
 import com.justtracker.app.domain.maps.RegionTransitions
@@ -181,5 +182,59 @@ class RegionCatalogParserTest {
         assertTrue(regions.size >= 20)
         assertTrue(regions.any { it.id == "ru-central" })
         assertTrue(regions.all { it.nameEn.isNotBlank() && it.nameRu.isNotBlank() })
+    }
+}
+
+class RegionPlausibilityTest {
+    private val catalog = RegionCatalogParser.parse(java.io.File("src/main/assets/maps/regions.json").readText()).associateBy { it.id }
+
+    private fun box(minLat: Double, minLon: Double, maxLat: Double, maxLon: Double) = LatLonBox(minLat, minLon, maxLat, maxLon)
+
+    private fun LatLonBox.scaled(k: Double): LatLonBox {
+        val cLat = (minLat + maxLat) / 2
+        val cLon = (minLon + maxLon) / 2
+        val hLat = (maxLat - minLat) / 2 * k
+        val hLon = (maxLon - minLon) / 2 * k
+        return box((cLat - hLat).coerceAtLeast(-90.0), (cLon - hLon).coerceAtLeast(-180.0), (cLat + hLat).coerceAtMost(90.0), (cLon + hLon).coerceAtMost(180.0))
+    }
+
+    @Test
+    fun `real headers of the bundled catalogue are plausible`() {
+        // Header bounds of the published files (bytes 44..59), read 2026-10-05.
+        val headers = mapOf(
+            "malta" to box(35.42, 13.9, 36.433, 14.956),
+            "ru-northwest" to box(54.213, 19.308, 82.646, 72.725),
+            "ru-far-east-2" to box(37.247, 105.322, 82.1, 180.0),
+            "ru-central" to box(49.404, 30.6, 59.753, 47.77),
+        )
+        headers.forEach { (id, header) -> assertTrue(id, RegionPlausibility.headerMatchesCatalog(catalog.getValue(id).box, header)) }
+    }
+
+    @Test
+    fun `header elsewhere is rejected`() {
+        val finland = box(59.188, 18.924, 70.2, 31.716)
+        assertFalse(RegionPlausibility.headerMatchesCatalog(catalog.getValue("malta").box, finland))
+    }
+
+    @Test
+    fun `header far larger or smaller is rejected`() {
+        val world = box(-85.0, -180.0, 85.0, 180.0)
+        assertFalse(RegionPlausibility.headerMatchesCatalog(catalog.getValue("ru-siberia").box, world))
+        assertFalse(RegionPlausibility.headerMatchesCatalog(catalog.getValue("ru-far-east-2").box, world))
+        assertFalse(RegionPlausibility.headerMatchesCatalog(catalog.getValue("ru-central").box, box(55.75, 37.6, 55.76, 37.61)))
+        assertFalse(RegionPlausibility.headerMatchesCatalog(catalog.getValue("malta").box, box(35.9, 14.3, 91.0, 14.5)))
+    }
+
+    @Test
+    fun `every bundled catalogue box accepts itself, its quarter and itself grown 3x but not a tenth`() {
+        assertTrue(catalog.size >= 20)
+        for ((id, region) in catalog) {
+            val b = region.box
+            val shifted = box(b.minLat + (b.maxLat - b.minLat) / 2, b.minLon + (b.maxLon - b.minLon) / 2, b.maxLat, b.maxLon)
+            assertTrue(id, RegionPlausibility.headerMatchesCatalog(b, b))
+            assertTrue(id, RegionPlausibility.headerMatchesCatalog(b, shifted))
+            assertTrue(id, RegionPlausibility.headerMatchesCatalog(b, b.scaled(3.0)))
+            assertFalse(id, RegionPlausibility.headerMatchesCatalog(b, b.scaled(0.1)))
+        }
     }
 }
