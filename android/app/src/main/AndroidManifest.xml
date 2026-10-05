@@ -12,13 +12,6 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- Package visibility (Android 11+): the text-to-speech engine used by "Read aloud" -->
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.TTS_SERVICE" />
-        </intent>
-    </queries>
-
     <!-- GPS is essential: the whole product is GPS track recording -->
     <uses-feature
         android:name="android.hardware.location.gps"

@@ -11,12 +11,9 @@ import com.justtracker.app.data.maps.RegionCatalog
 import com.justtracker.app.data.maps.RegionDownloader
 import com.justtracker.app.data.maps.render.OfflineRenderTheme
 import com.justtracker.app.data.location.LocationSource
-import com.justtracker.app.data.poi.PoiRepository
-import com.justtracker.app.data.tts.TtsSpeaker
 import com.justtracker.app.data.repo.SettingsRepository
 import com.justtracker.app.data.repo.TrackRepository
 import com.justtracker.app.domain.model.AppSettings
-import com.justtracker.app.service.PoiAnnouncer
 import com.justtracker.app.service.TrackingController
 import com.justtracker.app.util.AppLocale
 import kotlinx.coroutines.CoroutineScope
@@ -39,9 +36,6 @@ class AppContainer(context: Context) {
     val settingsRepository: SettingsRepository by lazy { SettingsRepository(appContext) }
     val locationSource: LocationSource by lazy { PlatformLocationSource(appContext) }
     val trackingController: TrackingController by lazy { TrackingController(appContext) }
-    val poiRepository: PoiRepository by lazy { PoiRepository(preferredLang = { AppLocale.current(cachedSettings).language }) }
-    val tts: TtsSpeaker by lazy { TtsSpeaker(appContext, fallbackLocale = { AppLocale.current(cachedSettings) }) }
-    val poiAnnouncer: PoiAnnouncer by lazy { PoiAnnouncer(this) }
     val regionCatalog: RegionCatalog by lazy { RegionCatalog(appContext) }
     val regionDownloader: RegionDownloader by lazy { RegionDownloader(appContext) }
     val offlineRegionStore: OfflineRegionStore by lazy {
