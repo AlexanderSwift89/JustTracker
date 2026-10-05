@@ -1,5 +1,65 @@
 # Changelog
 
+## JustTracker [1.1.1] - 2026-10-05 (versionCode 5)
+
+Security audit of the app, build and CI (`docs/07_security.md` §8: SEC-01…SEC-13, OWASP MASVS v2). No critical
+issues; one high, four medium and eight low findings fixed. No new permissions.
+
+### Security / privacy
+- **Places along a saved track no longer reveal its start and end** (SEC-02, ADR-21): Overpass used to get the
+  track as up to 80 vertices rounded to ~11 m, always including the exact start and finish (usually home or
+  work). It now gets only the grid-cell centers (0.005°, as on the recording screen) of the track without its
+  first and last 300 m and without any point within 300 m of the start or finish; the query radius grows to
+  800 m and the answer is filtered on the device to places within 400 m of the real line.
+- **No APK on GitHub releases** (SEC-01, ADR-23): the tag release attached the debug build — debuggable
+  (`run-as` exposes the track database), logging coordinates, signed with a throw-away CI key. Releases now
+  carry notes only; users install from RuStore; the debug APK stays a CI artifact for developers.
+- **Release is never silently debug-signed** (SEC-03): without `keystore.properties` the release build is
+  unsigned; the debug key needs `-PallowDebugSignedRelease=true` and prints a warning (the D-24 cause).
+- **Network perimeter** (SEC-07, ADR-22): HTTPS to `overpass-api.de` and `(*.)wikipedia.org` only, default port,
+  no credentials in URLs, re-checked on every redirect; GET follows at most 3 redirects by hand (Wikipedia
+  redirects renamed titles), POST follows none.
+- **Strict Wikipedia links** (SEC-06): the page URL from a Wikipedia answer is accepted only if it parses as
+  `https://(*.)wikipedia.org` without userinfo or port — the substring check accepted
+  `https://evil.example/.wikipedia.org/`; links open with `CATEGORY_BROWSABLE`.
+- **One User-Agent without device details** (SEC-04): `JustTracker/<version> (<site>)` for Overpass, Wikipedia,
+  OSM tiles and region downloads — DownloadManager used to send the Android release and the device model.
+- **Download-complete broadcasts only from the system** (SEC-09): the receiver requires
+  `SEND_DOWNLOAD_COMPLETED_INTENTS`.
+- **Nothing in backups or device transfer** (SEC-10): every data domain is excluded from cloud backup and
+  device-to-device transfer (with targetSdk 31+ `allowBackup=false` does not stop the latter everywhere).
+- **GPX copies are removed** (SEC-11) together with their track and at the latest 24 h after export (also on app
+  start), not only on the next export.
+- **Release logs without exception text** (SEC-12): warnings and errors name the exception class only — no file
+  path with the track name, document URI or server answer; no region file names.
+- **Downloaded offline maps are checked against the catalogue** (SEC-13): a header box that does not overlap the
+  catalogue box or differs in area by more than 20× marks the file as corrupt.
+
+### Fixed
+- A deeply nested Overpass/Wikipedia answer could crash the app (`StackOverflowError` of Android's recursive
+  `org.json` on the main thread, SEC-08); JSON is now parsed off the main thread and such input is a parse error.
+- The Track detail places pipeline (up to 100 000 points mapped and compared) ran on the main thread.
+- CI named the debug artifact `JustTracker-versionName-debug.apk` (D-25); the step now reads the real version,
+  checks its format and that a tag matches it.
+
+### Changed
+- Gradle wrapper regenerated for 9.6.1 with `distributionSha256Sum`; CI validates wrappers; third-party actions
+  (`android-actions/setup-android`, `gradle/actions/setup-gradle`) pinned by commit SHA; the release job uses
+  the preinstalled `gh` instead of `softprops/action-gh-release` (SEC-05).
+- Privacy policy 1.1 (RU/EN): track cells without the ends, Wikipedia requests by automatic announcements,
+  Offline map mode for a map without network, device transfer disabled, GPX copy retention. RuStore data-safety
+  texts updated accordingly.
+
+### Docs
+- `07_security.md` §8 (findings, MASVS v2 coverage, accepted risks, owner actions), STRIDE and checklist
+  verified against the code; ADR-21…23; NFR-21…24; TC-115…130, D-25, OBS-14/15; release process and README:
+  install from RuStore only.
+
+### Tests
+- 36 new unit tests (219 in total): track query cells and trimming, segment distance and the along-line filter,
+  host policy and redirects, Wikipedia URL checks, parser guard, User-Agent, release log line, GPX copy cleanup,
+  region header plausibility against the real headers of all bundled regions.
+
 ## JustTracker [1.1.0] - 2026-10-04 (versionCode 4)
 
 ### Added

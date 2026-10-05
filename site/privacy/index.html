@@ -23,7 +23,7 @@
 <body>
 <main>
 <h1>JustTracker</h1>
-<p class="meta">Политика конфиденциальности · Privacy Policy · Версия 1.0 / Version 1.0 · 1 октября 2026 г. / October 1, 2026</p>
+<p class="meta">Политика конфиденциальности · Privacy Policy · Версия 1.1 / Version 1.1 · 5 октября 2026 г. / October 5, 2026</p>
 <nav><a href="#ru">Русский</a><a href="#en">English</a><a href="../">← justtracker</a></nav>
 
 <section class="lang" id="ru">
@@ -41,17 +41,17 @@
 <tr><td>Настройки (язык, единицы, тема и т. п.)</td><td>Работа Приложения</td><td>Только на устройстве</td><td>Никому</td></tr>
 <tr><td>Файлы офлайн-карт регионов</td><td>Отображение карты без интернета</td><td>В папке Приложения на устройстве</td><td>Никому</td></tr>
 </table>
-<p>Срок хранения — до удаления пользователем. Данные удаляются при удалении трека в Приложении или при удалении Приложения. Резервное копирование данных Приложения в облако Android отключено: геоданные не покидают устройство. Просмотренные фрагменты онлайн-карты временно сохраняются в кэше Приложения на устройстве. Экспортированные вами GPX-файлы находятся под вашим контролем: они передаются только тому приложению, которое вы выбрали в системном окне «Поделиться».</p>
+<p>Срок хранения — до удаления пользователем. Данные удаляются при удалении трека в Приложении или при удалении Приложения. Резервное копирование данных Приложения в облако Android и их перенос на новое устройство отключены: геоданные не покидают устройство. Просмотренные фрагменты онлайн-карты временно сохраняются в кэше Приложения на устройстве. Экспортированные вами GPX-файлы находятся под вашим контролем: они передаются только тому приложению, которое вы выбрали в системном окне «Поделиться»; копия, которую Приложение готовит для этого окна, удаляется вместе с треком и не позднее чем через 24 часа.</p>
 
 <h3>3. Сетевые запросы к сторонним сервисам</h3>
 <p>Для отдельных функций ваше устройство напрямую, без участия Разработчика, обращается к следующим сервисам, всегда по HTTPS. При любом запросе сервер получает IP-адрес устройства — так же, как при открытии сайта в браузере.</p>
 <ul>
 <li><strong>Фрагменты карты (тайлы)</strong> — <code>tile.openstreetmap.org</code> (OpenStreetMap Foundation): запрашиваются координаты фрагментов карты, которые вы просматриваете. <a href="https://osmfoundation.org/wiki/Privacy_Policy" rel="noopener">Политика OSMF</a>.</li>
 <li><strong>Офлайн-карты</strong> — <code>download.mapsforge.org</code> (проект Mapsforge): загрузка файла выбранного вами региона по вашей явной команде (Настройки → Офлайн-карты). Передаётся только название файла региона.</li>
-<li><strong>«Интересное рядом»</strong> (можно отключить в настройках) — <code>overpass-api.de</code> (FOSSGIS e.V., данные OpenStreetMap): запрашиваются объекты в примерном районе около 500 м (ячейка сетки, а не точное положение), для сохранённого трека — упрощённая линия маршрута, который вы открыли; <code>*.wikipedia.org</code> (Фонд Викимедиа): запрашивается краткое описание выбранного объекта по названию статьи. <a href="https://foundation.wikimedia.org/wiki/Policy:Privacy_policy" rel="noopener">Политика Фонда Викимедиа</a>.</li>
+<li><strong>«Интересное рядом»</strong> (можно отключить в настройках) — <code>overpass-api.de</code> (FOSSGIS e.V., данные OpenStreetMap): запрашиваются объекты в примерном районе около 500 м (ячейка сетки, а не точное положение), для открытого вами сохранённого трека — такие же ячейки вдоль маршрута, без его начального и конечного участков (около 300 м); <code>*.wikipedia.org</code> (Фонд Викимедиа): запрашивается краткое описание объекта по названию статьи — когда вы нажимаете на метку или, при включённой авто-озвучке, когда вы подходите к объекту ближе 150 м. <a href="https://foundation.wikimedia.org/wiki/Policy:Privacy_policy" rel="noopener">Политика Фонда Викимедиа</a>.</li>
 </ul>
 <p>Серверы указанных организаций могут находиться за пределами Российской Федерации. Разработчик не осуществляет передачу данных этим организациям, в том числе трансграничную: соединение устанавливает ваше устройство по вашему действию. Обработка полученных сведений регулируется политиками соответствующих организаций.</p>
-<p>Вы можете свести сетевые запросы к минимуму: скачать офлайн-карту региона (тогда тайлы не запрашиваются) и отключить «Интересное рядом». Запись и просмотр треков полностью работают без интернета.</p>
+<p>Вы можете свести сетевые запросы к минимуму: скачать офлайн-карту региона и включить режим карты «Офлайн» (Настройки → Режим карты; тогда тайлы не запрашиваются) и отключить «Интересное рядом». Запись и просмотр треков полностью работают без интернета.</p>
 <p>Каждый запрос содержит технический заголовок User-Agent с названием и версией Приложения (этого требуют правила использования указанных сервисов); идентификаторов устройства, аккаунта или пользователя в запросах нет. Кнопка «Википедия» в карточке объекта открывает статью в вашем браузере — с этого момента действует политика конфиденциальности Фонда Викимедиа.</p>
 <p>Приложение не содержит рекламных, аналитических и трекинговых SDK, не собирает идентификаторы устройства и не отправляет Разработчику никакие данные, включая отчёты об ошибках.</p>
 
@@ -85,6 +85,7 @@
 
 <h3>9. Изменения и контакты</h3>
 <p>Актуальная версия Политики публикуется по адресу <a href="https://alexanderswift89.github.io/JustTracker/privacy/">alexanderswift89.github.io/JustTracker/privacy/</a> с указанием номера версии и даты вступления в силу; о существенных изменениях сообщается в описании обновления Приложения. Вопросы по Политике: <a href="https://github.com/AlexanderSwift89/JustTracker/issues">github.com/AlexanderSwift89/JustTracker/issues</a>.</p>
+<p>Изменения в версии 1.1 (5 октября 2026 г.): для сохранённого трека передаются ячейки сетки без начального и конечного участков маршрута; уточнено, что описание статьи запрашивается и авто-озвучкой; для работы карты без сети нужен режим «Офлайн»; перенос данных на новое устройство отключён; указан срок хранения копии GPX.</p>
 </section>
 
 <section class="lang" id="en">
@@ -102,17 +103,17 @@
 <tr><td>Settings (language, units, theme, …)</td><td>Operation of the App</td><td>On the device only</td><td>Nobody</td></tr>
 <tr><td>Offline map region files</td><td>Showing the map without internet</td><td>In the App’s folder on the device</td><td>Nobody</td></tr>
 </table>
-<p>Retention: until you delete it. Data is deleted when you delete a track in the App or uninstall the App. Android cloud backup of the App data is disabled: location data never leaves the device. Online map tiles you have viewed are kept temporarily in the App’s cache on the device. GPX files you export are under your control: they go only to the app you pick in the system “Share” dialog.</p>
+<p>Retention: until you delete it. Data is deleted when you delete a track in the App or uninstall the App. Android cloud backup and device-to-device transfer of the App data are disabled: location data never leaves the device. Online map tiles you have viewed are kept temporarily in the App’s cache on the device. GPX files you export are under your control: they go only to the app you pick in the system “Share” dialog; the copy the App prepares for that dialog is deleted together with the track and within 24 hours at the latest.</p>
 
 <h3>3. Network requests to third-party services</h3>
 <p>For some features your device connects directly, without the Developer’s involvement, to the services below, always over HTTPS. Every request reveals the device’s IP address to that server, just as opening a website in a browser does.</p>
 <ul>
 <li><strong>Map tiles</strong> — <code>tile.openstreetmap.org</code> (OpenStreetMap Foundation): the coordinates of the map tiles you are viewing. <a href="https://osmfoundation.org/wiki/Privacy_Policy" rel="noopener">OSMF privacy policy</a>.</li>
 <li><strong>Offline maps</strong> — <code>download.mapsforge.org</code> (Mapsforge project): downloads the region file you explicitly chose (Settings → Offline maps). Only the file name of the region is sent.</li>
-<li><strong>Places nearby</strong> (can be switched off in Settings) — <code>overpass-api.de</code> (FOSSGIS e.V., OpenStreetMap data): objects in an approximate ~500 m grid cell (not your exact position), and for a saved track a simplified line of the route you opened; <code>*.wikipedia.org</code> (Wikimedia Foundation): the lead summary of the article you tapped, by article title. <a href="https://foundation.wikimedia.org/wiki/Policy:Privacy_policy" rel="noopener">Wikimedia privacy policy</a>.</li>
+<li><strong>Places nearby</strong> (can be switched off in Settings) — <code>overpass-api.de</code> (FOSSGIS e.V., OpenStreetMap data): objects in an approximate ~500 m grid cell (not your exact position), and for a saved track you opened the same kind of cells along the route, without its first and last stretch (about 300 m); <code>*.wikipedia.org</code> (Wikimedia Foundation): the lead summary of an article, by title — when you tap a place, or, with automatic announcements on, when you come within 150 m of it. <a href="https://foundation.wikimedia.org/wiki/Policy:Privacy_policy" rel="noopener">Wikimedia privacy policy</a>.</li>
 </ul>
 <p>The servers of these organisations may be located outside the Russian Federation. The Developer does not transfer data to them, cross-border or otherwise: the connection is made by your device as a result of your action. Processing of the information they receive is governed by their own policies.</p>
-<p>You can keep network requests to a minimum: download an offline map of your region (then no tiles are requested) and switch off Places nearby. Recording and viewing tracks works fully offline.</p>
+<p>You can keep network requests to a minimum: download an offline map of your region and set the map mode to Offline (Settings → Map mode; then no tiles are requested), and switch off Places nearby. Recording and viewing tracks works fully offline.</p>
 <p>Every request carries a technical User-Agent header with the App’s name and version (the usage policies of these services require it); no device, account or user identifiers are sent. The “Wikipedia” button on a place card opens the article in your browser — from that point the Wikimedia Foundation’s privacy policy applies.</p>
 <p>The App contains no advertising, analytics or tracking SDKs, collects no device identifiers and sends nothing to the Developer, including crash reports.</p>
 
@@ -146,6 +147,7 @@
 
 <h3>9. Changes and contact</h3>
 <p>The current version of this Policy is published at <a href="https://alexanderswift89.github.io/JustTracker/privacy/">alexanderswift89.github.io/JustTracker/privacy/</a> with its version number and effective date; material changes are announced in the App’s update notes. Questions about this Policy: <a href="https://github.com/AlexanderSwift89/JustTracker/issues">github.com/AlexanderSwift89/JustTracker/issues</a>.</p>
+<p>Changes in version 1.1 (October 5, 2026): for a saved track only grid cells without the first and last stretch of the route are sent; article summaries are also requested by automatic announcements; the Offline map mode is needed for a map without network; device-to-device transfer is disabled; the retention of the GPX copy is stated.</p>
 </section>
 </main>
 </body>

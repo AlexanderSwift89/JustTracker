@@ -47,6 +47,14 @@ Map data © OpenStreetMap contributors (ODbL). Offline maps: Mapsforge files. Pl
 
 Privacy policy: https://alexanderswift89.github.io/JustTracker/privacy/
 
+## What's new (version 1.1.1)
+
+• Security and privacy update. For Places nearby along a saved track the server now receives only ~500 m areas along the route — without the start and the end of the track.
+• The GPX copy made for sharing is deleted together with the track and within a day at the latest.
+• App data is excluded from cloud backups and from transfer to a new phone.
+• Network requests go only over HTTPS to OpenStreetMap and Wikipedia, with links and redirects checked; offline map downloads no longer reveal the phone model.
+• A downloaded offline map is checked before use.
+
 ## What's new (version 1.1.0)
 
 • Acceleration indicator: tap the speed on the recording screen to see your current acceleration (m/s²), a speeding-up / slowing-down arrow and a chart of the last minute. Tap again to hide it; the choice is remembered.
