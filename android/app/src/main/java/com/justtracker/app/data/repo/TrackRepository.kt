@@ -12,6 +12,7 @@ import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.TrackPoint
 import com.justtracker.app.domain.model.TrackStatus
 import com.justtracker.app.domain.stats.TrackStatsCalculator
+import com.justtracker.app.util.traced
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -101,11 +102,9 @@ class TrackRepository(private val dao: TrackDao, private val exportsDir: File? =
             delete(trackId)
             return null
         }
-        val stats = TrackStatsCalculator.calculate(points, track.pausedTimeMs, track.startedAt, finishedAt)
-        val type = if (track.activityManual) {
-            track.activityType
-        } else {
-            ActivityClassifier.classify(TrackStatsCalculator.smoothedSpeeds(points))
+        val (stats, type) = traced("track.finish") {
+            val stats = TrackStatsCalculator.calculate(points, track.pausedTimeMs, track.startedAt, finishedAt)
+            stats to if (track.activityManual) track.activityType else ActivityClassifier.classify(TrackStatsCalculator.smoothedSpeeds(points))
         }
         val finished = track.copy(
             status = TrackStatus.FINISHED,

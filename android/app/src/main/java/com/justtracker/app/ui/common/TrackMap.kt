@@ -35,6 +35,7 @@ import com.justtracker.app.R
 import com.justtracker.app.data.maps.render.HybridTileProvider
 import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.util.AppLocale
+import com.justtracker.app.util.traced
 import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
 import org.osmdroid.events.ZoomEvent
@@ -300,7 +301,7 @@ fun TrackMap(
                 }
             }
         },
-        update = { map ->
+        update = { map -> traced("map.update") {
             holder.onTrackTap = onTrackTap
             holder.onUserGesture = onUserGesture
             syncPolylines(holder, segments, lineColor.toArgb(), strokePx, speedColors, maxSpeedMps)
@@ -324,7 +325,7 @@ fun TrackMap(
                 map.controller.animateTo(position)
             }
             map.invalidate()
-        },
+        } },
     )
     }
 }

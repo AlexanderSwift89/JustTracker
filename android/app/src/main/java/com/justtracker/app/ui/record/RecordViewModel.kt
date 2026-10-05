@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.justtracker.app.util.traced
 import org.osmdroid.util.GeoPoint
 
 enum class RecordStatus { IDLE, RECORDING, PAUSED }
@@ -92,7 +93,7 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
     // Speed smoothing + distances are O(n) per emission (1 Hz): keep them off the main thread.
     private val segments = activeTrack
         .flatMapLatest { track -> if (track == null) flowOf(emptyList()) else container.trackRepository.observePoints(track.id) }
-        .map { points -> TrackPath.build(points) }
+        .map { points -> traced("record.trackLine") { TrackPath.build(points) } }
         .flowOn(Dispatchers.Default)
 
     private val tapped = MutableStateFlow<TrackTapInfo?>(null)

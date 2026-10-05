@@ -1,6 +1,7 @@
 package com.justtracker.app
 
 import android.app.Application
+import android.os.StrictMode
 import com.justtracker.app.data.export.ExportFiles
 import com.justtracker.app.di.AppContainer
 import com.justtracker.app.util.AppUserAgent
@@ -25,7 +26,7 @@ class JustTrackerApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        if (!BuildConfig.DEBUG) mapsforgeLogger.level = Level.OFF
+        if (BuildConfig.DEBUG) enableStrictMode() else mapsforgeLogger.level = Level.OFF
         container = AppContainer(this)
         configureOsmdroid()
         // Mapsforge needs its Android graphics factory once per process before any region renders (ADR-17).
@@ -36,6 +37,15 @@ class JustTrackerApplication : Application() {
         container.appScope.launch(Dispatchers.IO) { ExportFiles.purgeOlderThan(ExportFiles.dir(cacheDir), System.currentTimeMillis()) }
         // Rows vs files vs DownloadManager may have drifted while the process was dead.
         container.appScope.launch { container.offlineRegionStore.reconcile() }
+    }
+
+    /**
+     * Debug builds log disk and network access on the main thread and leaked closeables (cursors, streams) to logcat
+     * (tag StrictMode) — the cheap way to catch a slow main thread before it shows as jank (docs/08_test_plan.md §2).
+     */
+    private fun enableStrictMode() {
+        StrictMode.setThreadPolicy(StrictMode.ThreadPolicy.Builder().detectDiskReads().detectDiskWrites().detectNetwork().penaltyLog().build())
+        StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder().detectLeakedClosableObjects().detectLeakedSqlLiteObjects().penaltyLog().build())
     }
 
     /**
