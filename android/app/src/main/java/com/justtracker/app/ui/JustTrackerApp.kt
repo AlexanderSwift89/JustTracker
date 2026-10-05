@@ -1,10 +1,5 @@
 package com.justtracker.app.ui
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.History
@@ -19,8 +14,11 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -35,6 +33,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.window.core.layout.WindowSizeClass
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -132,7 +131,7 @@ fun JustTrackerApp(settings: AppSettings) {
                     },
                     icon = {
                         if (tab.route == Routes.RECORD && recording) {
-                            BadgedBox(badge = { PulsingBadge() }) { Icon(tab.icon, contentDescription = null) }
+                            BadgedBox(badge = { RecordingBadge() }) { Icon(tab.icon, contentDescription = null) }
                         } else {
                             Icon(tab.icon, contentDescription = null)
                         }
@@ -178,17 +177,24 @@ fun JustTrackerApp(settings: AppSettings) {
     }
 }
 
+/**
+ * "Recording" dot on the Record tab. It blinks once a second like a REC lamp: one redraw per change instead of an
+ * animation at the display rate, which kept every tab drawing 60 frames a second for the whole recording (D-29).
+ * The alpha is read in the draw phase only, so a blink recomposes nothing.
+ */
 @Composable
-private fun PulsingBadge() {
-    val transition = rememberInfiniteTransition(label = "pulse")
-    val alpha by transition.animateFloat(
-        initialValue = 1f,
-        targetValue = 0.3f,
-        animationSpec = infiniteRepeatable(tween(1000), RepeatMode.Reverse),
-        label = "alpha",
-    )
+private fun RecordingBadge() {
+    var dim by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(BADGE_BLINK_MS)
+            dim = !dim
+        }
+    }
     Badge(
         containerColor = MaterialTheme.colorScheme.error,
-        modifier = Modifier.graphicsLayer { this.alpha = alpha },
+        modifier = Modifier.graphicsLayer { alpha = if (dim) 0.3f else 1f },
     )
 }
+
+private const val BADGE_BLINK_MS = 1_000L

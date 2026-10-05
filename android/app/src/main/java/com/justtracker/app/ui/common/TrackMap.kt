@@ -205,6 +205,7 @@ fun TrackMap(
     val mapMode = settings.mapMode
     val density = LocalDensity.current
     val strokePx = with(density) { 6.dp.toPx() }
+    val followSnapPx = with(density) { FOLLOW_SNAP.toPx() }
     val paddingPx = with(density) { 48.dp.toPx() }.toInt()
     val minViewportPx = with(density) { FIT_MIN_VIEWPORT.toPx() }.toInt()
     val primaryArgb = MaterialTheme.colorScheme.primary.toArgb()
@@ -322,7 +323,7 @@ fun TrackMap(
             if (follow && position != null && position != holder.lastFollowTarget) {
                 holder.lastFollowTarget = position
                 if (map.zoomLevelDouble < FOLLOW_MIN_ZOOM) map.controller.setZoom(FOLLOW_ZOOM)
-                map.controller.animateTo(position)
+                followTo(map, position, followSnapPx)
             }
             map.invalidate()
         } },
@@ -389,6 +390,22 @@ private fun syncPolylines(
         }
         holder.polylines.add(pl)
         map.overlays.add(0, pl)
+    }
+}
+
+/**
+ * Keeps the followed position centred. A step of a few pixels (walking, cycling at street zoom) is a plain re-centre —
+ * one frame; a longer one glides in [FOLLOW_ANIMATION_MS]. The default one-second animation on every fix kept the map
+ * drawing 60 frames a second for the whole recording (D-29).
+ */
+private fun followTo(map: MapView, position: GeoPoint, snapPx: Float) {
+    val target = map.projection.toPixels(position, null)
+    val dx = (target.x - map.width / 2).toFloat()
+    val dy = (target.y - map.height / 2).toFloat()
+    if (dx * dx + dy * dy <= snapPx * snapPx) {
+        map.controller.setCenter(position)
+    } else {
+        map.controller.animateTo(position, null, FOLLOW_ANIMATION_MS)
     }
 }
 
@@ -494,6 +511,12 @@ private fun ringMarker(map: MapView, color: Int, sizeDp: Float): Marker {
 private const val DEFAULT_ZOOM = 4.0
 private const val FOLLOW_ZOOM = 17.0
 private const val FOLLOW_MIN_ZOOM = 14.0
+
+/** Up to this distance from the centre a new position is re-centred without animation. */
+private val FOLLOW_SNAP = 12.dp
+
+/** Glide to a farther position: short, so the map is still most of every second between fixes. */
+private const val FOLLOW_ANIMATION_MS = 300L
 
 /** Closest zoom a fit may choose (a one-point or very short track). */
 private const val FIT_MAX_ZOOM = 18.0

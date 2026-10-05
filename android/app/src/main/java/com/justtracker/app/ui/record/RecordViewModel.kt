@@ -13,10 +13,13 @@ import com.justtracker.app.ui.common.TrackPath
 import com.justtracker.app.ui.common.TrackTapInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -81,14 +84,27 @@ data class RecordUiState(
 class RecordViewModel(private val container: AppContainer) : ViewModel() {
     private val controller = container.trackingController
 
-    private val ticker = flow {
-        while (true) {
-            emit(System.currentTimeMillis())
-            kotlinx.coroutines.delay(1000)
-        }
-    }
-
     private val activeTrack = container.trackRepository.observeActiveTrack()
+
+    /**
+     * The recording clock: once a second while a track is recording or paused (time, "searching GPS", stale
+     * acceleration), a single value otherwise — an idle Record screen is not recomposed and redrawn every second (D-28).
+     */
+    private val clock: Flow<Long> = activeTrack
+        .map { it?.status == TrackStatus.RECORDING || it?.status == TrackStatus.PAUSED }
+        .distinctUntilChanged()
+        .flatMapLatest { running ->
+            if (!running) {
+                flowOf(System.currentTimeMillis())
+            } else {
+                flow {
+                    while (true) {
+                        emit(System.currentTimeMillis())
+                        delay(TICK_MS)
+                    }
+                }
+            }
+        }
 
     // Speed smoothing + distances are O(n) per emission (1 Hz): keep them off the main thread.
     private val segments = activeTrack
@@ -102,7 +118,7 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
         combine(activeTrack, segments, tapped) { t, s, tap -> Sources(t, s, tap) },
         controller.live,
         container.settingsRepository.settings,
-        ticker,
+        clock,
     ) { src, live, settings, now ->
         RecordUiState(
             track = src.track,
@@ -119,6 +135,10 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RecordUiState())
 
     private class Sources(val track: Track?, val segments: List<PathSegment>, val tapped: TrackTapInfo?)
+
+    private companion object {
+        const val TICK_MS = 1_000L
+    }
 
     fun start() = controller.start()
     fun pause() = controller.pause()
