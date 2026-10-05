@@ -9,26 +9,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Route
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,16 +30,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.justtracker.app.R
+import com.justtracker.app.data.repo.SettingsRepository
 import com.justtracker.app.data.repo.TrackRepository
 import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.UnitSystem
@@ -54,6 +47,8 @@ import com.justtracker.app.ui.common.ActivityBadge
 import com.justtracker.app.ui.common.EmptyState
 import com.justtracker.app.ui.common.SkeletonGroup
 import com.justtracker.app.ui.common.SkeletonTrackCard
+import com.justtracker.app.ui.common.DeleteDialog
+import com.justtracker.app.ui.common.RenameDialog
 import com.justtracker.app.ui.common.appViewModel
 import com.justtracker.app.ui.common.rememberSkeletonVisible
 import com.justtracker.app.util.TimeFormat
@@ -62,7 +57,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import com.justtracker.app.data.repo.SettingsRepository
 
 data class HistoryUiState(val tracks: List<Track> = emptyList(), val units: UnitSystem = UnitSystem.METRIC, val loaded: Boolean = false)
 
@@ -214,39 +208,3 @@ private fun TrackCard(track: Track, formatter: UnitFormatter, onClick: () -> Uni
 }
 
 private const val SKELETON_CARDS = 4
-
-@Composable
-fun RenameDialog(initial: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
-    var name by rememberSaveable { mutableStateOf(initial) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.detail_rename_title)) },
-        text = {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { if (it.length <= TrackRepository.MAX_NAME_LENGTH) name = it },
-                singleLine = true,
-                label = { Text(stringResource(R.string.detail_rename_hint)) },
-                // In landscape the keyboard covers the dialog's buttons: its ✓ key saves as well.
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { if (name.isNotBlank()) onSave(name) }),
-                modifier = Modifier.width(320.dp),
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = { onSave(name) }, enabled = name.isNotBlank()) { Text(stringResource(R.string.action_save)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
-}
-
-@Composable
-fun DeleteDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.history_delete_dialog_title)) },
-        text = { Text(stringResource(R.string.history_delete_dialog_body)) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.action_delete)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
-}

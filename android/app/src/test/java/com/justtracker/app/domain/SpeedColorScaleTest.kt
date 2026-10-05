@@ -5,6 +5,8 @@ import com.justtracker.app.domain.model.TrackStatus
 import com.justtracker.app.domain.model.ActivityType
 import com.justtracker.app.ui.common.SpeedColorScale
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -64,5 +66,15 @@ class TrackRecordingTimeTest {
     @Test
     fun `never negative`() {
         assertEquals(0L, track(50_000, null).recordingTimeMs(nowMs = 40_000))
+    }
+
+    @Test
+    fun `pace is shown for walking and running only and needs a distance`() {
+        val walk = track(0, 100_000).copy(activityType = ActivityType.WALK, distanceM = 1000.0, movingTimeMs = 600_000)
+        assertTrue(walk.showsPace)
+        assertEquals(0.6, walk.paceSecPerMeter!!, 1e-9)
+        assertTrue(walk.copy(activityType = ActivityType.RUN).showsPace)
+        assertFalse(walk.copy(activityType = ActivityType.BIKE).showsPace)
+        assertNull(walk.copy(distanceM = 0.0).paceSecPerMeter)
     }
 }

@@ -71,6 +71,19 @@ data class Track(
      */
     fun recordingTimeMs(nowMs: Long = System.currentTimeMillis()): Long =
         ((finishedAt ?: nowMs) - startedAt).coerceAtLeast(0)
+
+    /** Pace is a walking and running measure: the track's statistics show it for those activities only (US-08). */
+    val showsPace: Boolean
+        get() = activityType == ActivityType.WALK || activityType == ActivityType.RUN
+
+    /** Moving time per metre, s/m; null without distance. */
+    val paceSecPerMeter: Double?
+        get() = if (distanceM > 0) (movingTimeMs / 1000.0) / distanceM else null
+
+    companion object {
+        /** Longest track name the app stores (rename, auto-name); also the limit of the rename field. */
+        const val MAX_NAME_LENGTH = 100
+    }
 }
 
 /** Result of a full statistics pass over a track's points. */

@@ -83,7 +83,7 @@ class TrackRepository(
     suspend fun addPoint(point: TrackPoint, updatedTrack: Track) =
         dao.insertPointAndUpdateTrack(point.toEntity(), updatedTrack.toEntity())
 
-    suspend fun rename(id: Long, name: String) = dao.renameTrack(id, name.trim().take(MAX_NAME_LENGTH))
+    suspend fun rename(id: Long, name: String) = dao.renameTrack(id, name.trim().take(Track.MAX_NAME_LENGTH))
 
     suspend fun setActivityType(id: Long, type: ActivityType) = dao.setActivityType(id, type.name, manual = true)
 
@@ -141,7 +141,6 @@ class TrackRepository(
     }
 
     companion object {
-        const val MAX_NAME_LENGTH = 100
         const val MIN_POINTS = 2
     }
 }
