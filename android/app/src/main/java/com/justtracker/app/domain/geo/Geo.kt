@@ -1,5 +1,6 @@
 package com.justtracker.app.domain.geo
 
+import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -17,5 +18,25 @@ object Geo {
         val dLambda = Math.toRadians(lon2 - lon1)
         val a = sin(dPhi / 2) * sin(dPhi / 2) + cos(phi1) * cos(phi2) * sin(dLambda / 2) * sin(dLambda / 2)
         return 2 * EARTH_RADIUS_M * atan2(sqrt(a), sqrt(1 - a))
+    }
+
+    /** Length of one degree of latitude (and of longitude on the equator), meters. */
+    const val METERS_PER_DEGREE = EARTH_RADIUS_M * PI / 180.0
+
+    /**
+     * Shortest distance from P to the segment AB, meters. A local equirectangular projection around P is
+     * exact enough for track segments (error well under 1 % below ~10 km); a zero-length segment is a point.
+     */
+    fun distanceToSegmentMeters(pLat: Double, pLon: Double, aLat: Double, aLon: Double, bLat: Double, bLon: Double): Double {
+        val kx = METERS_PER_DEGREE * cos(Math.toRadians(pLat))
+        val ax = (aLon - pLon) * kx
+        val ay = (aLat - pLat) * METERS_PER_DEGREE
+        val dx = (bLon - aLon) * kx
+        val dy = (bLat - aLat) * METERS_PER_DEGREE
+        val len2 = dx * dx + dy * dy
+        val t = if (len2 == 0.0) 0.0 else (-(ax * dx + ay * dy) / len2).coerceIn(0.0, 1.0)
+        val cx = ax + t * dx
+        val cy = ay + t * dy
+        return sqrt(cx * cx + cy * cy)
     }
 }

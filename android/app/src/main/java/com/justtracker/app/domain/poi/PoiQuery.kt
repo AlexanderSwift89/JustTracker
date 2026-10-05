@@ -4,9 +4,10 @@ import java.util.Locale
 import kotlin.math.floor
 
 /**
- * Grid cell (~0.005° ≈ 550 m of latitude) the user's position is snapped to before any network
- * request. The Overpass query is built around the *cell center*, never the exact fix, so the
- * server learns the area, not the precise location (docs/07_security.md §2).
+ * Grid cell (~0.005° ≈ 550 m of latitude) every position is snapped to before any network request —
+ * the user's live position and the vertices of a saved track alike ([TrackQuery]). Overpass queries are
+ * built around *cell centers*, never exact fixes, so the server learns the area, not the precise location
+ * (docs/07_security.md §2, ADR-09, ADR-21).
  */
 data class GeoCell(val row: Int, val col: Int) {
     val centerLat: Double get() = (row + 0.5) * SIZE_DEG
@@ -23,8 +24,14 @@ object OverpassQl {
     /** Radius around a cell center; must exceed half the cell diagonal plus the desired coverage. */
     const val POINT_RADIUS_M = 1500
 
-    /** Radius around the track polyline in detail view. */
+    /** Places shown along a saved track are at most this far from its real line (filtered on the device). */
     const val TRACK_RADIUS_M = 400
+
+    /**
+     * Radius around the cell-center polyline sent for a track: [TRACK_RADIUS_M] plus half a cell diagonal
+     * (≤ 393 m, on the equator), so every place within [TRACK_RADIUS_M] of the trimmed real line is covered (ADR-21).
+     */
+    const val TRACK_QUERY_RADIUS_M = 800
 
     /** Overpass caps the polyline length; ~80 vertices keep the query well under limits. */
     const val MAX_POLYLINE_VERTICES = 80
@@ -32,10 +39,13 @@ object OverpassQl {
     /** Overpass returns the first N by id, not the nearest, so we over-fetch and rank on the client. */
     const val MAX_RESULTS = 200
 
+    /** Over-fetch for a track: its query corridor is twice as wide as the one shown. */
+    const val MAX_TRACK_RESULTS = 400
+
     /** Pins shown around the user after ranking by distance to the cell center. */
     const val MAX_AROUND_CELL = 80
 
-    /** Pins shown along a track after ranking by distance to the (simplified) line. */
+    /** Pins shown along a track after filtering and ranking by distance to its real line. */
     const val MAX_ALONG_TRACK = 60
 
     private const val TIMEOUT_S = 20
@@ -49,20 +59,21 @@ object OverpassQl {
             "out center $MAX_RESULTS;"
 
     /**
-     * Objects within [TRACK_RADIUS_M] of the polyline. Input is simplified to at most
-     * [MAX_POLYLINE_VERTICES] evenly spaced vertices and rounded to ~11 m (4 decimals).
+     * Objects near the cells a saved track passes through ([TrackQuery.cells]): at most [MAX_POLYLINE_VERTICES]
+     * cell centers as a polyline, or a point query for a single cell. Takes cells, not coordinates, so a raw
+     * fix cannot reach the server; the answer is filtered back to [TRACK_RADIUS_M] of the real line on the
+     * device ([PoiProximity.alongLine]).
      */
-    fun aroundPolyline(points: List<Pair<Double, Double>>): String? {
-        val simplified = simplify(points, MAX_POLYLINE_VERTICES)
-        if (simplified.size < 2) return null
-        val coords = simplified.joinToString(",") { (lat, lon) -> "${fmt(lat)},${fmt(lon)}" }
+    fun aroundTrackCells(cells: List<GeoCell>): String? {
+        if (cells.isEmpty()) return null
+        val coords = simplify(cells, MAX_POLYLINE_VERTICES).joinToString(",") { "${fmt(it.centerLat)},${fmt(it.centerLon)}" }
         return "[out:json][timeout:$TIMEOUT_S];" +
-            "$SELECTOR(around:$TRACK_RADIUS_M,$coords);" +
-            "out center $MAX_RESULTS;"
+            "$SELECTOR(around:$TRACK_QUERY_RADIUS_M,$coords);" +
+            "out center $MAX_TRACK_RESULTS;"
     }
 
-    /** Keeps the first and last point and evenly spaced samples in between. */
-    fun simplify(points: List<Pair<Double, Double>>, max: Int): List<Pair<Double, Double>> {
+    /** Keeps the first and last element and evenly spaced samples in between. */
+    fun <T> simplify(points: List<T>, max: Int): List<T> {
         if (points.size <= max) return points
         val step = (points.size - 1).toDouble() / (max - 1)
         return List(max) { i -> points[Math.round(i * step).toInt().coerceAtMost(points.size - 1)] }

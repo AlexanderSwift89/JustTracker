@@ -1,5 +1,6 @@
 package com.justtracker.app.domain
 
+import com.justtracker.app.domain.geo.Geo
 import com.justtracker.app.domain.poi.GeoCell
 import com.justtracker.app.domain.poi.OverpassQl
 import com.justtracker.app.domain.poi.Poi
@@ -7,6 +8,7 @@ import com.justtracker.app.domain.poi.PoiFactory
 import com.justtracker.app.domain.poi.PoiKind
 import com.justtracker.app.domain.poi.PoiProximity
 import com.justtracker.app.domain.poi.PoiSummary
+import com.justtracker.app.domain.poi.TrackQuery
 import com.justtracker.app.domain.poi.WikipediaRef
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -126,21 +128,57 @@ class OverpassQlTest {
         assertFalse(q, q.contains("55,7") || q.contains("37,6"))
     }
 
+    /** "lat,lon" pairs of the track query, in order. */
+    private fun coords(q: String): List<Pair<String, String>> =
+        q.substringAfter("around:${OverpassQl.TRACK_QUERY_RADIUS_M},").substringBefore(")").split(",").chunked(2) { it[0] to it[1] }
+
+    /** 11 km north from Red Square, a point every ~11 m. */
+    private val track = List(1000) { i -> (55.75421 + i * 0.0001) to 37.61961 }
+
     @Test
-    fun `polyline query simplifies long tracks`() {
-        val points = List(1000) { i -> (55.0 + i * 0.0001) to (37.0 + i * 0.0001) }
-        val q = OverpassQl.aroundPolyline(points)!!
-        val coords = q.substringAfter("around:400,").substringBefore(")").split(",")
-        assertEquals(OverpassQl.MAX_POLYLINE_VERTICES * 2, coords.size)
-        assertEquals("55.0000", coords.first())
-        assertEquals("55.0999", coords[coords.size - 2])
+    fun `track query contains only cell centers`() {
+        val q = OverpassQl.aroundTrackCells(TrackQuery.cells(track))!!
+        val center = Regex("""^-?\d+\.\d{2}(25|75)$""")
+        for ((lat, lon) in coords(q)) {
+            assertTrue(lat, center.matches(lat))
+            assertTrue(lon, center.matches(lon))
+        }
+        assertTrue(q, q.endsWith("out center ${OverpassQl.MAX_TRACK_RESULTS};"))
     }
 
     @Test
-    fun `polyline query needs at least two points`() {
-        assertNull(OverpassQl.aroundPolyline(emptyList()))
-        assertNull(OverpassQl.aroundPolyline(listOf(1.0 to 2.0)))
-        assertNotNull(OverpassQl.aroundPolyline(listOf(1.0 to 2.0, 1.001 to 2.0)))
+    fun `track query never contains the raw start or finish`() {
+        val q = OverpassQl.aroundTrackCells(TrackQuery.cells(track))!!
+        assertFalse(q, q.contains("55.7542,37.6196"))
+        assertFalse(q, q.contains("55.8541,37.6196"))
+        // The first cell sent is the one of the first point 300 m along the track, not the start cell.
+        assertTrue(coords(q).first() != ("55.7525" to "37.6175"))
+    }
+
+    @Test
+    fun `single cell gives a point query`() {
+        val q = OverpassQl.aroundTrackCells(listOf(GeoCell.of(55.7558, 37.6173)))!!
+        assertTrue(q, q.contains("(around:800,55.7575,37.6175)"))
+    }
+
+    @Test
+    fun `long cell path is capped at 80 vertices and keeps both ends`() {
+        val cells = List(500) { GeoCell(11000 + it, 7400) }
+        val c = coords(OverpassQl.aroundTrackCells(cells)!!)
+        assertEquals(OverpassQl.MAX_POLYLINE_VERTICES, c.size)
+        assertEquals("55.0025" to "37.0025", c.first())
+        assertEquals("57.4975" to "37.0025", c.last())
+    }
+
+    @Test
+    fun `query radius covers track radius plus half a cell diagonal`() {
+        val halfDiagonal = Geo.distanceMeters(0.0, 0.0, GeoCell.SIZE_DEG / 2, GeoCell.SIZE_DEG / 2)
+        assertTrue(OverpassQl.TRACK_QUERY_RADIUS_M >= OverpassQl.TRACK_RADIUS_M + halfDiagonal)
+    }
+
+    @Test
+    fun `no cells, no query`() {
+        assertNull(OverpassQl.aroundTrackCells(emptyList()))
     }
 
     @Test
@@ -149,6 +187,75 @@ class OverpassQlTest {
         val s = OverpassQl.simplify(points, 5)
         assertEquals(listOf(0.0, 2.5, 5.0, 7.5, 10.0).map { Math.round(it).toDouble() }, s.map { it.first })
         assertEquals(points, OverpassQl.simplify(points, 11))
+    }
+}
+
+class TrackQueryTest {
+    private fun dist(a: Pair<Double, Double>, b: Pair<Double, Double>) = Geo.distanceMeters(a.first, a.second, b.first, b.second)
+
+    /** Straight north from (55.0, 37.0), a point every ~11.1 m. */
+    private fun north(n: Int) = List(n) { i -> (55.0 + i * 0.0001) to 37.0 }
+
+    @Test
+    fun `drops the first and last 300 m of path`() {
+        val track = north(1000)
+        val inner = TrackQuery.interior(track)
+        assertTrue(inner.isNotEmpty())
+        assertTrue(inner.all { dist(it, track.first()) >= TrackQuery.END_TRIM_M && dist(it, track.last()) >= TrackQuery.END_TRIM_M })
+        assertEquals(TrackQuery.END_TRIM_M, dist(inner.first(), track.first()), 12.0)
+        assertEquals(TrackQuery.END_TRIM_M, dist(inner.last(), track.last()), 12.0)
+    }
+
+    @Test
+    fun `drops points within 300 m of start or finish even mid-track`() {
+        // 2 km east, then back west through the start and 2 km beyond it (~6.4 m per step at 55° N).
+        val east = List(313) { i -> 55.0 to 37.0 + i * 0.0001 }
+        val west = List(626) { i -> 55.0 to 37.0312 - i * 0.0001 }
+        val track = east + west
+        val start = track.first()
+        val inner = TrackQuery.interior(track)
+        assertTrue(inner.isNotEmpty())
+        assertTrue(inner.none { dist(it, start) < TrackQuery.END_TRIM_M })
+    }
+
+    @Test
+    fun `short track falls back to the point at half its length`() {
+        val track = north(38) // ~410 m: nothing survives a 300 m trim from both ends; half = 205.7 m
+        assertTrue(TrackQuery.interior(track).isEmpty())
+        val half = TrackQuery.pointAtHalfLength(track)
+        assertEquals(track[19], half) // first point at >= 205.7 m: 19 x 11.12 m
+        assertEquals(listOf(GeoCell.of(half.first, half.second)), TrackQuery.cells(track))
+    }
+
+    @Test
+    fun `standing still yields a single cell`() {
+        val track = List(50) { 55.7558 to 37.6173 }
+        assertEquals(listOf(GeoCell.of(55.7558, 37.6173)), TrackQuery.cells(track))
+        assertEquals(listOf(GeoCell.of(55.7558, 37.6173)), TrackQuery.cells(track.take(1)))
+        assertTrue(TrackQuery.cells(emptyList()).isEmpty())
+    }
+
+    @Test
+    fun `snaps to cell centers and merges consecutive duplicates`() {
+        val outAndBack = north(1000) + north(1000).reversed()
+        val cells = TrackQuery.cells(outAndBack)
+        assertTrue(cells.zipWithNext().none { (a, b) -> a == b })
+        // Path order is kept: the way back revisits the same cells instead of being dropped.
+        assertTrue(cells.size > cells.toSet().size)
+        assertTrue(cells.all { it.col == GeoCell.of(55.0, 37.0).col })
+    }
+
+    @Test
+    fun `filter line stays within a step of the track and is bounded`() {
+        val dense = north(1000)
+        val thin = TrackQuery.filterLine(dense)
+        assertEquals(dense.first(), thin.first())
+        assertEquals(dense.last(), thin.last())
+        assertTrue(thin.size < dense.size)
+        assertTrue(dense.all { p -> PoiProximity.distanceToLine(p.first, p.second, thin) <= 25.0 })
+
+        val long = List(100_000) { i -> (40.0 + i * 0.0001) to 37.0 } // ~1 110 km
+        assertTrue(TrackQuery.filterLine(long).size <= TrackQuery.FILTER_MAX_VERTICES + 2)
     }
 }
 
@@ -176,13 +283,36 @@ class PoiProximityTest {
         assertEquals(listOf(nearer, near), PoiProximity.nearest(listOf(far, near, nearer), 55.0, 37.0, 2))
     }
 
+    // ~63.8 m per 0.001° of longitude at 55° N; the line runs 1.1 km north along 37.0.
+    private val line = listOf(55.0 to 37.0, 55.0100 to 37.0)
+    private fun east(id: String, lat: Double, meters: Double) = poi(id, lat, 37.0 + meters / 63_800.0)
+
     @Test
-    fun `nearestToLine keeps places closest to any vertex`() {
-        val line = listOf(55.0 to 37.0, 55.0100 to 37.0)
-        val ranked = PoiProximity.nearestToLine(listOf(near, far, nearer), line, 2)
-        // `far` sits exactly on the second vertex, so it outranks `near`.
-        assertEquals(listOf(far, nearer).toSet(), ranked.toSet())
-        assertEquals(3, PoiProximity.nearestToLine(listOf(near, far, nearer), line, 5).size)
+    fun `alongLine drops places farther than 400 m`() {
+        val inside = east("inside", 55.005, 300.0)
+        val outside = east("outside", 55.005, 500.0)
+        assertEquals(listOf(inside), PoiProximity.alongLine(listOf(outside, inside), line, limit = 10))
+    }
+
+    @Test
+    fun `alongLine measures to segments, not vertices`() {
+        // 550 m from both vertices, 100 m from the segment between them.
+        val mid = east("mid", 55.005, 100.0)
+        assertEquals(listOf(mid), PoiProximity.alongLine(listOf(mid), line, limit = 10))
+        assertEquals(100.0, PoiProximity.distanceToLine(mid.lat, mid.lon, line), 2.0)
+    }
+
+    @Test
+    fun `alongLine ranks nearest first and limits`() {
+        val a = east("a", 55.002, 250.0)
+        val b = east("b", 55.004, 50.0)
+        val c = east("c", 55.006, 150.0)
+        assertEquals(listOf(b, c), PoiProximity.alongLine(listOf(a, b, c), line, limit = 2))
+    }
+
+    @Test
+    fun `empty line yields nothing`() {
+        assertTrue(PoiProximity.alongLine(listOf(near), emptyList(), limit = 10).isEmpty())
     }
 
     @Test

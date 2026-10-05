@@ -6,12 +6,15 @@ import com.justtracker.app.domain.poi.OverpassQl
 import com.justtracker.app.domain.poi.Poi
 import com.justtracker.app.domain.poi.PoiProximity
 import com.justtracker.app.domain.poi.PoiSummary
+import com.justtracker.app.domain.poi.TrackQuery
 import com.justtracker.app.domain.poi.WikipediaRef
 import com.justtracker.app.util.AppLog
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.net.URLEncoder
 import java.util.Locale
 
@@ -56,12 +59,14 @@ class PoiRepository(
 
     suspend fun aroundTrack(trackId: Long, points: List<Pair<Double, Double>>): PoiResult {
         synchronized(trackCache) { trackCache[trackId]?.takeIf { fresh(it) } }?.let { return PoiResult.Found(it.pois) }
-        val line = OverpassQl.simplify(points, OverpassQl.MAX_POLYLINE_VERTICES)
-        val query = OverpassQl.aroundPolyline(line) ?: return PoiResult.Found(emptyList())
-        return overpass(query)
-            ?.let { PoiProximity.nearestToLine(it, line, OverpassQl.MAX_ALONG_TRACK) }
-            ?.also { pois -> synchronized(trackCache) { trackCache[trackId] = Entry(pois, SystemClock.elapsedRealtime()) } }
-            ?.let { PoiResult.Found(it) } ?: PoiResult.Unavailable
+        // Only cell centers of the trimmed track leave the device (ADR-21); the real line filters the answer.
+        val (cells, line) = withContext(Dispatchers.Default) { TrackQuery.cells(points) to TrackQuery.filterLine(points) }
+        val query = OverpassQl.aroundTrackCells(cells) ?: return PoiResult.Found(emptyList())
+        AppLog.geo { "Overpass track query: $query" }
+        val found = overpass(query) ?: return PoiResult.Unavailable
+        val pois = withContext(Dispatchers.Default) { PoiProximity.alongLine(found, line, OverpassQl.MAX_ALONG_TRACK) }
+        synchronized(trackCache) { trackCache[trackId] = Entry(pois, SystemClock.elapsedRealtime()) }
+        return PoiResult.Found(pois)
     }
 
     /** Null when the article has no usable summary (missing, disambiguation, offline). */

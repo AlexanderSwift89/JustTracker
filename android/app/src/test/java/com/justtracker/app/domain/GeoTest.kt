@@ -26,6 +26,20 @@ class GeoTest {
     fun `haversine one degree latitude is about 111 km`() {
         assertEquals(111_195.0, Geo.distanceMeters(0.0, 0.0, 1.0, 0.0), 50.0)
     }
+
+    @Test
+    fun `segment distance is perpendicular inside and endpoint distance outside`() {
+        val inside = Geo.distanceToSegmentMeters(55.005, 37.001, 55.0, 37.0, 55.01, 37.0)
+        assertEquals(Geo.distanceMeters(55.005, 37.0, 55.005, 37.001), inside, 0.5)
+        val beyond = Geo.distanceToSegmentMeters(55.02, 37.0, 55.0, 37.0, 55.01, 37.0)
+        assertEquals(Geo.distanceMeters(55.01, 37.0, 55.02, 37.0), beyond, 2.0)
+    }
+
+    @Test
+    fun `zero-length segment equals point distance`() {
+        val d = Geo.distanceToSegmentMeters(55.003, 37.004, 55.0, 37.0, 55.0, 37.0)
+        assertEquals(Geo.distanceMeters(55.0, 37.0, 55.003, 37.004), d, 1.0)
+    }
 }
 
 class LocationFilterTest {

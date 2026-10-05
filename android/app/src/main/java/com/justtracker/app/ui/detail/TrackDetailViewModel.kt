@@ -64,7 +64,8 @@ class TrackDetailViewModel(
      * Places along the track. Starts with an empty list *immediately* (`scan`) so the screen never
      * waits for Overpass: the lookup is rate-limited (≥ 15 s between calls, 60 s backoff) and used to
      * hold back the whole state — the track appeared only after the request finished (D-11). An
-     * unavailable result keeps whatever was shown before.
+     * unavailable result keeps whatever was shown before. Only grid cells of the track without its first
+     * and last 300 m reach the server (ADR-21, [com.justtracker.app.domain.poi.TrackQuery]).
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     private val pois: Flow<List<Poi>> = combine(repo.observePoints(trackId), container.settingsRepository.settings) { points, s ->
@@ -79,6 +80,8 @@ class TrackDetailViewModel(
             }
         }
         .scan(emptyList<Poi>()) { prev, next -> next ?: prev }
+        // Up to 100 000 points are mapped, compared and turned into cells here — never on the main thread.
+        .flowOn(Dispatchers.Default)
 
     private class Geometry(val segments: List<PathSegment>, val elevation: ElevationResult)
 
