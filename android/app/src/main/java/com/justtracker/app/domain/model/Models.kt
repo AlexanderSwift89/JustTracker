@@ -99,10 +99,6 @@ data class AppSettings(
     val maxAccuracyM: Int = 50,
     val keepScreenOn: Boolean = false,
     val onboardingDone: Boolean = false,
-    /** Show Wikipedia-backed places around the user / the track (Overpass). */
-    val poiEnabled: Boolean = true,
-    /** Read a place aloud automatically when the user gets within 150 m while recording. Off by default. */
-    val poiAutoSpeak: Boolean = false,
     /** Explicit UI language; null until the user picks one in onboarding. */
     val language: AppLanguage? = null,
     /** Offline region downloads only over Wi-Fi (they are hundreds of MB). */
