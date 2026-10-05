@@ -60,6 +60,22 @@ interface TrackDao {
     @Query("SELECT * FROM track_points WHERE trackId = :trackId ORDER BY timestamp ASC")
     fun observePoints(trackId: Long): Flow<List<TrackPointEntity>>
 
+    /** Points recorded after the point [afterId] — ids grow with every insert (AUTOINCREMENT), like the timestamps. */
+    @Query("SELECT * FROM track_points WHERE trackId = :trackId AND id > :afterId ORDER BY id")
+    suspend fun getPointsAfter(trackId: Long, afterId: Long): List<TrackPointEntity>
+
+    @Query("SELECT EXISTS(SELECT 1 FROM track_points WHERE id = :id)")
+    suspend fun pointExists(id: Long): Boolean
+
+    /**
+     * The points after [lastKnownId], or null when that point is gone — a recording only ever deletes its newest
+     * segment (a stray start, `deleteSegmentIfShort`), so while the last known point exists, every earlier one does.
+     * One read transaction: no delete can fall between the check and the query (ADR-25).
+     */
+    @Transaction
+    suspend fun pointsAfterIfIntact(trackId: Long, lastKnownId: Long): List<TrackPointEntity>? =
+        if (lastKnownId == 0L || pointExists(lastKnownId)) getPointsAfter(trackId, lastKnownId) else null
+
     @Query("SELECT * FROM track_points WHERE trackId = :trackId ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLastPoint(trackId: Long): TrackPointEntity?
 

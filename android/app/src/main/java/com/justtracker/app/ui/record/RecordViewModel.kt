@@ -2,6 +2,7 @@ package com.justtracker.app.ui.record
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.justtracker.app.data.repo.LiveTrackLine
 import com.justtracker.app.di.AppContainer
 import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.TrackStatus
@@ -20,15 +21,16 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import com.justtracker.app.util.traced
 
 enum class RecordStatus { IDLE, RECORDING, PAUSED }
 
@@ -82,7 +84,12 @@ data class RecordUiState(
 class RecordViewModel(private val container: AppContainer) : ViewModel() {
     private val controller = container.trackingController
 
+    // One Room query for the state and the line: the row of the active track changes with every stored fix.
     private val activeTrack = container.trackRepository.observeActiveTrack()
+        .shareIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), replay = 1)
+
+    /** Lives as long as the view model: coming back to the tab continues from the tail, without a full read. */
+    private val liveLine = LiveTrackLine(container.trackRepository)
 
     /**
      * The recording clock: once a second while a track is recording or paused (time, "searching GPS", stale
@@ -105,9 +112,11 @@ class RecordViewModel(private val container: AppContainer) : ViewModel() {
         }
 
     // Speed smoothing + distances are O(n) per emission (1 Hz): keep them off the main thread.
+    // Every stored fix rewrites the track row: read only the new points then (ADR-25). conflate + map, not mapLatest:
+    // an update is never cancelled halfway, a slow one just skips to the newest row.
     private val line = activeTrack
-        .flatMapLatest { track -> if (track == null) flowOf(emptyList()) else container.trackRepository.observePoints(track.id) }
-        .map { points -> traced("record.trackLine") { TrackLine.of(points) } }
+        .conflate()
+        .map { track -> liveLine.update(track) }
         .flowOn(Dispatchers.Default)
 
     private val tapped = MutableStateFlow<TrackTapInfo?>(null)

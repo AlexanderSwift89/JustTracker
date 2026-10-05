@@ -43,6 +43,10 @@ class TrackRepository(private val dao: TrackDao, private val exportsDir: File? =
 
     fun observePoints(trackId: Long): Flow<List<TrackPoint>> = dao.observePoints(trackId).map { l -> l.map { it.toDomain() } }
     suspend fun getPoints(trackId: Long): List<TrackPoint> = dao.getPoints(trackId).map { it.toDomain() }
+
+    /** Points of [trackId] after the point [lastKnownId] (0: all); null when that point was deleted since. */
+    suspend fun pointsAfterIfIntact(trackId: Long, lastKnownId: Long): List<TrackPoint>? =
+        dao.pointsAfterIfIntact(trackId, lastKnownId)?.map { it.toDomain() }
     suspend fun getLastPoint(trackId: Long): TrackPoint? = dao.getLastPoint(trackId)?.toDomain()
     suspend fun maxSegment(trackId: Long): Int = dao.maxSegment(trackId)
 
