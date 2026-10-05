@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.room)
+    alias(libs.plugins.baselineprofile)
 }
 
 // Release signing is read from keystore.properties (git-ignored). Without it the release build is
@@ -124,6 +125,19 @@ room {
     schemaDirectory("$projectDir/schemas")
 }
 
+// The profile is generated on a device on demand (`gradlew :app:generateReleaseBaselineProfile`, docs/08_test_plan.md
+// section 2) and committed under src/release/generated; release builds then ship it.
+baselineProfile {
+    automaticGenerationDuringBuild = false
+    dexLayoutOptimization = true
+}
+
+// Profile generation and the startup benchmark install release-like builds: a package of their own keeps them apart
+// from an installed store version (another signature) on the test device.
+android.buildTypes.configureEach {
+    if (name == "nonMinifiedRelease" || name == "benchmarkRelease") applicationIdSuffix = ".benchmark"
+}
+
 // Fails a release build whose key from keystore.properties is not the published one (releaseCertSha256):
 // RuStore refuses such an upload as a signature change.
 abstract class VerifyReleaseKey : DefaultTask() {
@@ -176,6 +190,8 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.profileinstaller)
+    baselineProfile(project(":baselineprofile"))
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
