@@ -129,7 +129,7 @@ class RecordViewModel(
         .map { track -> liveLine.update(track) }
         .flowOn(dispatchers.default)
 
-    private val tapped = MutableStateFlow<TrackTapInfo?>(null)
+    private val tapped = MutableStateFlow<Tap?>(null)
 
     val state: StateFlow<RecordUiState> = combine(
         combine(activeTrack, line, tapped) { t, l, tap -> Sources(t, l, tap) },
@@ -146,14 +146,17 @@ class RecordViewModel(
             mapMode = prefs.mapMode,
             keepScreenOn = prefs.keepScreenOn,
             nowMs = now,
-            // A tap belongs to the track it was made on; drop it once that track is finished.
-            tapped = if (src.track == null) null else src.tapped,
+            // A tap belongs to the line it was resolved on: a finished track, the next recording or a line rebuilt
+            // after a stray start was deleted (all a new generation) drop it; the same line growing keeps it.
+            tapped = src.tapped?.takeIf { src.track != null && it.generation == src.line.generation }?.info,
             showAcceleration = prefs.showAcceleration,
             accelerationHintPending = !prefs.accelerationHintShown && !prefs.showAcceleration,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RecordUiState())
 
-    private class Sources(val track: Track?, val line: TrackLine, val tapped: TrackTapInfo?)
+    private class Sources(val track: Track?, val line: TrackLine, val tapped: Tap?)
+
+    private class Tap(val generation: Int, val info: TrackTapInfo)
 
     private companion object {
         const val TICK_MS = 1_000L
@@ -169,7 +172,7 @@ class RecordViewModel(
     fun onTrackTap(index: Int) {
         val s = state.value
         val startedAt = s.track?.startedAt ?: return
-        tapped.value = s.line.tapInfo(index, startedAt)
+        tapped.value = s.line.tapInfo(index, startedAt)?.let { Tap(s.line.generation, it) }
     }
 
     fun dismissTap() = tapped.update { null }

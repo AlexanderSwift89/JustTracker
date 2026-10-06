@@ -83,9 +83,25 @@ class RecordAndDetailViewModelTest {
         val tap = vm.state.first { it.tapped != null }.tapped!!
         assertEquals(30.0, tap.distanceFromStartM, 0.5)
         assertEquals(10_000L, tap.elapsedMs)
-        // the line grows with the stored points
+        // the line grows with the stored points; the tap stays on it
         repo.walk(track.copy(pointCount = 20), 5, from = 20)
-        assertNotNull(vm.state.first { it.line.size == 25 })
+        assertNotNull(vm.state.first { it.line.size == 25 }.tapped)
+    }
+
+    @Test
+    fun `a tap on one recording is not shown on the next one`() = runTest(dispatcher) {
+        val first = repo.createTrack("first", startedAt = 0)
+        repo.walk(first, 20)
+        tracking.state.update { it.copy(serviceRunning = true) }
+        val vm = recordViewModel(testSettings(tmp.root, backgroundScope))
+        vm.state.first { it.line.size == 20 }
+        vm.onTrackTap(10)
+        assertNotNull(vm.state.first { it.tapped != null }.tapped)
+        repo.updateTrack(repo.getTrack(first.id)!!.copy(status = TrackStatus.FINISHED, finishedAt = 60_000))
+        val second = repo.createTrack("second", startedAt = 120_000)
+        repo.walk(second, 15)
+        val state = vm.state.first { it.track?.id == second.id && it.line.size == 15 }
+        assertNull(state.tapped)
     }
 
     @Test
