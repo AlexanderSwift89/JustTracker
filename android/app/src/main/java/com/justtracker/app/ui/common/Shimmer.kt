@@ -113,21 +113,6 @@ fun SkeletonLine(width: Dp, modifier: Modifier = Modifier, height: Dp = 14.dp) {
     )
 }
 
-/** Paragraph placeholder: [lines] lines, the last one shorter, like a real text block. */
-@Composable
-fun SkeletonParagraph(lines: Int, modifier: Modifier = Modifier, lineHeight: Dp = 16.dp) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        repeat(lines) { i ->
-            SkeletonBox(
-                Modifier
-                    .fillMaxWidth(if (i == lines - 1) 0.6f else 1f)
-                    .height(lineHeight),
-                shape = MaterialTheme.shapes.extraSmall,
-            )
-        }
-    }
-}
-
 /** Placeholder with the footprint of a [StatTile] (label + headline value): the card tone stays still, only the lines shimmer. */
 @Composable
 fun SkeletonStatTile(modifier: Modifier = Modifier) {

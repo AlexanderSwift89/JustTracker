@@ -13,11 +13,11 @@ import java.util.Locale
  *
  * On API 33+ `AppCompatDelegate.setApplicationLocales` goes through the system LocaleManager and the
  * whole process follows it. On API 26–32 AppCompat only re-wraps AppCompatActivity contexts, so
- * non-UI code (service notification, auto-naming, POI language, TTS fallback) reads the choice from
+ * non-UI code (service notification, auto-naming, offline map labels) reads the choice from
  * DataStore via [current] / [localized], and [applyDefault] keeps `Locale.getDefault()` in step.
  */
 object AppLocale {
-    /** Locale for network/TTS/formatting: explicit app choice, then AppCompat, then the device. */
+    /** Locale for map labels and formatting: explicit app choice, then AppCompat, then the device. */
     fun current(settings: AppSettings): Locale =
         settings.language?.let { Locale.forLanguageTag(it.tag) }
             ?: AppCompatDelegate.getApplicationLocales().get(0)
@@ -31,7 +31,7 @@ object AppLocale {
 
     fun localized(context: Context, settings: AppSettings): Context = localized(context, current(settings))
 
-    /** Makes `Locale.getDefault()` (java.time, Wikipedia language) follow the app language. */
+    /** Makes `Locale.getDefault()` (java.time, number formats) follow the app language. */
     fun applyDefault(language: AppLanguage?) {
         language ?: return
         val locale = Locale.forLanguageTag(language.tag)

@@ -58,7 +58,7 @@ class OfflineMapsViewModel(
 
     /**
      * Free space of the maps folder: a StatFs call on the IO pool every few seconds, not on the main thread with every
-     * progress tick of a download (P9).
+     * progress tick of a download.
      */
     private val freeBytes: Flow<Long> = flow {
         while (true) {
