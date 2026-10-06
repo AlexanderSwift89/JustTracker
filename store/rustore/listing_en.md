@@ -32,20 +32,25 @@ HISTORY AND STATISTICS
 • Overall statistics by activity and by week.
 • GPX export — open your tracks in any mapping software.
 
-PLACES NEARBY (optional)
-• Pins for sights with a Wikipedia article around you and along the track, a short summary and a Read-aloud button.
-• One switch turns the feature off; while it is on, only an approximate area is sent to the server, never your exact position.
-
 SIMPLE AND SELF-CONTAINED
 • No Google services required — runs on any Android 8.0+ device, including phones without Google Play.
 • Explicit interface language choice: Russian or English.
 • Material Design 3, dark theme, dynamic colours on Android 12+.
 • Metric or imperial units.
 • All data stays on the device; cloud backup of location data is disabled.
+• The app goes online only for map tiles (Online mode) and for an offline region you download yourself. Coordinates and tracks are never sent anywhere; the map server only sees which area is shown on screen, and in Offline mode nothing at all.
 
-Map data © OpenStreetMap contributors (ODbL). Offline maps: Mapsforge files. Place descriptions: Wikipedia, CC BY-SA 4.0.
+Map data © OpenStreetMap contributors (ODbL). Offline maps: Mapsforge files.
 
 Privacy policy: https://alexanderswift89.github.io/JustTracker/privacy/
+
+## What's new (version 1.1.2)
+
+• Privacy: Places nearby has been removed. The app no longer sends your coordinates or the area you are in to any server: in Online mode it only loads the map tiles shown on screen, an offline region is downloaded only when you ask for it, and in Offline mode the app does not go online at all. Coordinates and tracks stay on your phone.
+• Long tracks: recording and track details with tens of thousands of points stay smooth and use less of the phone; while nothing changes on screen, the app spends no battery on redrawing.
+• The recording notification follows a change of units or language at once.
+• Faster start-up.
+• Security: no service messages in the system log, a free-space check when importing a map.
 
 ## What's new (version 1.1.1)
 

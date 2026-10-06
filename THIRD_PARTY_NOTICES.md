@@ -16,14 +16,13 @@
 
 | Источник | Лицензия | Атрибуция в приложении |
 |---|---|---|
-| Данные карты OpenStreetMap (онлайн-тайлы `tile.openstreetmap.org`, файлы регионов Mapsforge, объекты Overpass API) | [ODbL 1.0](https://www.openstreetmap.org/copyright) — «© участники OpenStreetMap» | `CopyrightOverlay` на карте; строки `settings_map_attribution`, `maps_attribution`, `settings_poi_attribution` |
-| Краткие описания объектов — Wikipedia (Фонд Викимедиа) | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) | Строка `poi_attribution` в карточке объекта + кнопка «Википедия» (ссылка на статью) |
+| Данные карты OpenStreetMap (онлайн-тайлы `tile.openstreetmap.org`, файлы регионов Mapsforge) | [ODbL 1.0](https://www.openstreetmap.org/copyright) — «© участники OpenStreetMap» | `CopyrightOverlay` на карте; строки `settings_map_attribution`, `maps_attribution` |
+
+С версии 1.1.2 приложение не показывает тексты Википедии и не обращается к Overpass API: функция «Интересное рядом» удалена, вместе с ней — атрибуция CC BY-SA 4.0.
 
 ## Правила использования сервисов / Service usage policies
 
 | Сервис | Правила | Как выполняем |
 |---|---|---|
-| OSMF tile server `tile.openstreetmap.org` | [Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/) — валидный User-Agent, без массовой выгрузки, атрибуция | User-Agent = `applicationId`; офлайн-карты — файлы Mapsforge, а не выгрузка тайлов (ADR-13); `CopyrightOverlay` |
-| Overpass API `overpass-api.de` (FOSSGIS e.V.) | Добросовестное использование, User-Agent | Запрос по ячейке сетки, кэш по ячейке/треку, интервалы повторов; User-Agent `JustTracker/<версия> (<сайт>)` |
-| Wikimedia REST API `*.wikipedia.org` | [API etiquette](https://www.mediawiki.org/wiki/API:Etiquette) — User-Agent с контактом | Тот же User-Agent; один запрос на карточку |
-| `download.mapsforge.org` | Файлы предоставляются проектом Mapsforge для свободного скачивания (данные ODbL) | Загрузка только по явной команде пользователя |
+| OSMF tile server `tile.openstreetmap.org` | [Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/) — валидный User-Agent, без массовой выгрузки, атрибуция | User-Agent `JustTracker/<версия> (<сайт>)` (`AppUserAgent`); офлайн-карты — файлы Mapsforge, а не выгрузка тайлов (ADR-13); `CopyrightOverlay` |
+| `download.mapsforge.org` | Файлы предоставляются проектом Mapsforge для свободного скачивания (данные ODbL) | Загрузка только по явной команде пользователя; тот же User-Agent |

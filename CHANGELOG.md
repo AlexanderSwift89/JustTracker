@@ -1,5 +1,92 @@
 # Changelog
 
+## JustTracker [1.1.2] - 2026-10-06 (versionCode 6)
+
+Privacy, performance and refactoring release. **Places nearby is removed: in the Online map mode the app only
+loads map tiles.** Second security audit (`docs/07_security.md` §9: SEC-14…SEC-20, OWASP MASVS v2). No new
+permissions, database schema unchanged.
+
+### Removed
+- **Places nearby** (SEC-14, ADR-24): Overpass/Wikipedia pins on both maps, the place card, read-aloud and the
+  automatic announcements, together with the HTTP client, host policy, parsers, text-to-speech, the TTS
+  `<queries>` block, strings, the pin icon and 55 tests. On every cold start the Record screen sent the ~500 m grid
+  cell of the last known location — usually home — to Overpass before any recording, contrary to the privacy policy
+  and the RuStore declaration. The app now talks to `tile.openstreetmap.org` (Online mode) and
+  `download.mapsforge.org` (a region, on the user's command) only; apart from the tiles of the map shown on screen
+  (around the position on the Record screen, also before a recording, and around an opened track), nothing derived
+  from the location leaves the device. The `poi_enabled` and `poi_auto_speak` settings are dropped from DataStore on the first read; the other
+  settings, tracks and regions are kept.
+
+### Security / privacy
+- **No library logs in release** (SEC-15, ADR-29): R8 now strips every `android.util.Log` level, not only `d/v` —
+  osmdroid wrote `Log.w/i` lines with tile paths `/z/x/y`, i.e. the area around the user while following.
+  `AppLog.w/e` write through `Log.println` (SEC-12 format kept); Mapsforge `java.util.logging` is off in release.
+- **Map import needs free space** (SEC-16): size + 200 MB, like a download; the copy stops at that budget whatever
+  the provider reports, so an endless document cannot fill the disk and end a running recording.
+- **Links and sharing** (SEC-17): links open only as `https://` with a host; the GPX share grant is an explicit
+  `ClipData`.
+- **Malformed map files** (SEC-18): a header that runs out of memory or stack is rejected as corrupt; the start-up
+  reconcile handles each region on its own and an uncaught app-scope failure is logged instead of crashing — no
+  crash loop; catalogue URLs with credentials or an explicit port are rejected.
+- **No Google font provider** (SEC-19): `EmojiCompatInitializer` (from appcompat) looked up the Google Play
+  services font provider at start on API 26–29; removed, emoji use the system font.
+- **CI** (SEC-20): `actions/*` pinned by commit SHA too; the Pages checkout keeps no token.
+- **Offline mode cannot reach the network through the pre-cache**: the tile downloader is not built at all in
+  Offline mode (osmdroid's pre-cache ignores `useDataConnection()`; before, only MAPNIK's no-preventive policy kept
+  it off the network).
+- Privacy policy 1.2 (RU/EN): two hosts only; which map tiles are requested (around the position, also before a
+  recording, and around an opened track) and why the last known position is read before a recording; no "Read
+  aloud" section; the age rating is left to the store page.
+  RuStore texts, declarations and moderator notes updated; rating 0+ now applies (owner's decision in the console).
+- Verified by traffic capture on the release APK (TC-131): Online — only the OSM tile CDN; Offline — 0 bytes; a region
+  — only after the confirmation dialog.
+
+### Performance (emulator API 34, debug, Offline mode without regions)
+- **Live track line read from the database tail** (ADR-25): the line is an immutable chunked `TrackLine` that a
+  builder extends point by point; the map rebuilds only the pieces from the last drawn vertex. Recording on a
+  10 000-point track: process CPU 141–149 % → 21–22 %, main thread 31 % → 5–9 %, 60 → ~3 frames per second.
+- **Track detail** reads the points once (D-27): with a recording in the background a 50 000-point track no longer
+  rebuilds every second — 17 % CPU and a 65–85 ms frame per second → 0.8 % and no frames.
+- **Idle Record screen** draws nothing (D-28): 8 % CPU and a frame per second → 0 %. The recording dot on the tab
+  blinks once a second and the followed map moves without a one-second animation per fix (D-29).
+- **Line simplified for the zoom** (ADR-26): Douglas–Peucker per piece below 0.4 px, mean speed colour, taps refined
+  to the full line. Scrubbing a 50 000-point track: janky 90 % → 55 %, p90 101 → 85 ms.
+- Stop computes the statistics off the main thread; History and Statistics skip equal database results; the
+  Offline maps screen reads the catalogue once and the free space on the IO pool.
+- **Baseline profile** shipped in the APK: cold start median 660 → 633 ms (`StartupBenchmark`).
+- The unused Mapsforge default render theme is no longer packaged.
+
+### Fixed
+- The recording notification kept the old units or language until the next recording (D-26); it now follows a
+  change at once, and its builder and pending intents are made once per settings.
+- A tapped section of the line came back on the next recording with the previous track's values, and stayed on a
+  vertex that a dropped stray start had removed (D-30, since 1.0); a tap now belongs to the line it was made on.
+
+### Changed (no behaviour change)
+- Recording rules moved from `TrackingService` into a pure `domain/recording/TrackRecorder` with 13 golden tests
+  written before the move (ADR-27); one live-state update per fix.
+- View models get the dependencies they use instead of the whole `AppContainer`: `TrackingControl`, `GpxExporter`,
+  injectable DataStore and `AppDispatchers`; `ArchitectureTest` checks the layer rules on the sources (ADR-28).
+- `SpeedMath` shared by the statistics pass, the running totals and the live speed; `MapTiles` gives the map its
+  tile configuration; `TrackMap` split into camera / overlays / composable; Record and Detail screens split by
+  part; `OfflineRegionStore` cleanup; statistics summaries in the domain (`TrackSummaries`); dead code removed.
+- Build: lint fails on any new warning; unused libraries removed; core-ktx 1.19.1, navigation 2.10.2;
+  kotlinx-serialization aligned with Room 2.8; `.editorconfig`.
+
+### Tests
+- 220 JVM tests: the 55 Places nearby tests are gone, `SpeedProfile` tests moved to `TrackLineTest`; new —
+  `TrackLineTest` 11, `TrackRecorderTest` 13, `LiveTrackLineTest` 6, `LineSimplifierTest` 4, `TrackSummariesTest` 3,
+  `ArchitectureTest` 5, `TrackRepositoryTest` 4, view models 8, `CopyAtMostTest` 3, settings migration 2, region row 2,
+  catalogue URLs, pace colour scale.
+- 4 instrumented Room tests (`TrackDaoTest`, `MigrationTest` 1 → 2); `:baselineprofile` module (profile generator,
+  startup benchmark); `tools/perf` (synthetic long tracks, CPU and frame measurements).
+
+### Docs
+- `07_security.md` §9 (audit 1.1.2, MASVS, accepted risks), STRIDE, checklist, policy 1.2; ADR-24…29 (ADR-07…10 and
+  ADR-21 cancelled, ADR-22 narrowed); UC-06/07 and NFR-11/21 retired, NFR-12/22 narrowed, NFR-25…27; TC-131…146,
+  D-26…30, OBS-16…19; stage J11; PRD, UX, user guide, README, site, RuStore materials; store screenshots 1, 2 and 6
+  retaken on the release build (no debug tile grid, no place pins).
+
 ## JustTracker [1.1.1] - 2026-10-05 (versionCode 5)
 
 Security audit of the app, build and CI (`docs/07_security.md` §8: SEC-01…SEC-13, OWASP MASVS v2). No critical

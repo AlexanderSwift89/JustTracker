@@ -21,7 +21,7 @@ JustTracker — ответвление TrekLog 1.2.0 (история TrekLog с�
 | 10 | Безопасность и релиз-подготовка | Безопасность, Техлид | Проверка чек-листа, R8, подпись, AAB | 4 |
 | 11 | Документация и публикация | Тех. писатель, PO | `09_release_rustore.md`, `10_user_guide.md`, README, листинг | 8 |
 | | **Итого 1.0** | | | **108** |
-| 12 | 1.1 «Интересное рядом» (ступень 1 + А, минимум) | Все роли | POI-маркеры (Overpass + Wikipedia), карточка + TTS, авто-озвучка opt-in; обновление PRD/UX/архитектуры/безопасности/тестов/гайда | 16 |
+| 12 | 1.1 «Интересное рядом» (ступень 1 + А, минимум; **удалено в 1.1.2**, J11) | Все роли | POI-маркеры (Overpass + Wikipedia), карточка + TTS, авто-озвучка opt-in; обновление PRD/UX/архитектуры/безопасности/тестов/гайда | 16 |
 | 13 | 1.2 «Время записи и скорость по участкам» | Все роли | Время записи как основное время (панель, история, детали, хронометр в уведомлении); окраска линии по скорости на live-карте и в деталях, легенда, тап по участку; без миграции БД; обновление PRD/UX/архитектуры/тестов/гайда | 8 |
 | **J0** | JustTracker: репозиторий и переименование | Техлид | Клон с историей, `com.justtracker.app`, классы/строки/иконка под бренд, versionCode 1 / 1.0.0, CI | 3 |
 | **J1** | LocationManager вместо GMS | Разработчик | `PlatformLocationSource` (LocationManagerCompat), `ProviderPolicy` + тест, `FakeLocationSource`, удаление play-services | 3 |
@@ -38,6 +38,9 @@ JustTracker — ответвление TrekLog 1.2.0 (история TrekLog с�
 | | **Итого JustTracker 1.0.2** | | | **101** |
 | **J10** | 1.1.0: индикатор ускорения, живая скорость | Все роли | Исследование (локально, `research/`, вне git); `AccelerationEstimator` (взвешенная регрессия доплеровской скорости по окну 4 с, гистерезис) + `AccelerationHistory` + `LiveMotion`; скорость по каждому фиксу (OBS-12); `LiveTrackingState` (ускорение, свежесть, минута); блок скорости — кнопка, строка ускорения со стрелкой, значением м/с²/фут/с² и графиком 60 с, раскладка в landscape, однократная подсказка, ключи `show_acceleration`/`acceleration_hint_shown`; 32 unit-теста; проверка на эмуляторе (`geo fix` со скоростью); документация (US-23, UX §2.12, ADR-20, SA §3.10/NFR-20, TC-105…114); версия 1.1.0 (versionCode 4) | 31 |
 | | **Итого JustTracker 1.1.0** | | | **132** |
+| — | 1.1.1: аудит безопасности (SEC-01…13) | Все роли | Выполнен вне плана этапов: `07_security.md` §8, CHANGELOG 1.1.1 | — |
+| **J11** | 1.1.2: приватность, производительность, рефакторинг | Все роли | Три аудита (архитектура, безопасность, производительность) против документации; **удаление «Интересного рядом»** — в онлайн-режиме сеть только для карты (SEC-14, ADR-24); аудит безопасности 1.1.2 (SEC-15…20); измерительная база (`tools/perf`, StrictMode, trace-секции); `TrackLine` и хвостовая загрузка live-линии, детали без пересчёта, упрощение по зуму, простой без кадров (ADR-25, ADR-26, D-26…D-30); `TrackRecorder` с «золотыми» тестами, явные зависимости, `MapTiles`, разбиение экранов и карты (ADR-27, ADR-28); тесты ViewModel/репозитория, androidTest Room, baseline profile + Macrobenchmark, lint без предупреждений, `ArchitectureTest`; захват трафика и замеры на эмуляторе (TC-131…146); документация, политика 1.2; версия 1.1.2 (versionCode 6) | 77 |
+| | **Итого JustTracker 1.1.2** (без 1.1.1) | | | **209** |
 
 Критический путь: 3 → 4 → 5 → 6 → 7 → 9 → 10 → 11. Этапы 1–2 могут идти параллельно с 3; этап 8 параллелен с 7 после готовности 4–5.
 
@@ -113,13 +116,25 @@ T-56  AppSettings.showAcceleration / accelerationHintShown, ключи DataStore
 T-57  UI: SpeedBlock (кнопка, значок show_chart), AccelerationIndicator + график (Canvas), раскладка по ширине колонки (≥ 380 dp — в строку), AccelerationHint (PlainTooltip, однократно), AccelerationColors, UnitFormatter (знак U+2212, м/с² / фут/с², произносимые единицы), TalkBack-узлы, строки en/ru; 3 unit-теста формата
 T-58  Тестирование: TC-105…109, 111, 112 на эмуляторе API 34 (портрет/landscape, пауза, смерть процесса, шрифт 200 %, тёмная тема, приёмник без скорости); TC-110, 113, 114 — реальное устройство перед релизом
 T-59  Документация: PRD US-23 + US-06, UX §2.2/§2.12/§3/§4/§5, архитектура §2/§3/§4/§6/§9 + ADR-20, SA UC-01 6f/§2/§3.3/§3.10/NFR-20, безопасность §3, тест-план (TC-105…114, OBS-12/13, §2, §6), гайд, README, CHANGELOG, «Что нового», versionCode 4 / 1.1.0
+
+--- JustTracker 1.1.2 (J11) ---
+T-60  Аудиты кода против docs и SEC-01…13: архитектура, безопасность, производительность; решение владельца — удалить «Интересное рядом»
+T-61  Удаление POI: экраны, сервис, настройки, старт приложения; затем код (Overpass/Wikipedia, Http, HostPolicy, TTS, PoiAnnouncer), ресурсы, <queries>, 55 тестов; RemovedFeatureKeysMigration + тест (SEC-14, ADR-24)
+T-62  Безопасность: R8 вырезает все уровни Log, AppLog через Log.println, логгер Mapsforge OFF (SEC-15, ADR-29); импорт карты — проверка места и copyAtMost (SEC-16); https-only ссылки, ClipData для GPX, без EmojiCompatInitializer (SEC-17, SEC-19); MapFileInspector/reconcile/URL каталога (SEC-18); Actions по SHA (SEC-20)
+T-63  Измерительная база: StrictMode в debug, traced(), tools/perf (make_track_db.py, measure.py); замеры «до» на эмуляторе
+T-64  Дешёвые исправления: distinctUntilChanged, один поток значка записи, finish вне главного потока; D-26 (уведомление), D-28/D-29 (простой, мигание значка, камера); офлайн-карты — каталог один раз, свободное место на IO
+T-65  TrackLine + TrackLineBuilder (ADR-25, тест-свойство); карта рисует куски «сегмент ∩ чанк»; LiveTrackLine + pointsAfterIfIntact; детали читают точки один раз (D-27); LineSimplifier по зуму (ADR-26)
+T-66  Рефакторинг: явные зависимости ViewModel, TrackingControl, GpxExporter, AppDispatchers, SettingsRepository(DataStore) (ADR-28); TrackRecorder + «золотые» тесты (ADR-27); SpeedMath; MapTiles, TrackMap → камера/оверлеи; экраны записи и деталей по частям; OfflineRegionStore; TrackSummaries; мёртвый код
+T-67  Тесты и инструменты: ViewModel и TrackRepository на фейках; androidTest TrackDaoTest, MigrationTest; :baselineprofile (генератор, StartupBenchmark), профиль в release; lint warningsAsErrors, .editorconfig, удаление неиспользуемых библиотек; ArchitectureTest
+T-68  Регрессия на эмуляторе: TC-131…146 (трафик debug и release, release-logcat, восстановление, офлайн-регион, экспорт), замеры «после»
+T-69  Документация: PRD, UX, архитектура (ADR-24…29), SA (UC-06/07, §3.6, §3.7, NFR-25…27), безопасность (§1–§3, §5–§7, §9, политика 1.2), тест-план, план работ, гайд, README, сайт, RuStore, CHANGELOG, «Что нового»; versionCode 6 / 1.1.2
 ```
 
 ## 4. Definition of Done
 
 **Для задачи:**
 - код компилируется, `./gradlew :app:testDebugUnitTest` зелёный;
-- нет новых lint-ошибок уровня Error;
+- lint без предупреждений (`warningsAsErrors`, с 1.1.2);
 - строки вынесены в ресурсы (en + ru);
 - изменения покрыты unit-тестом, если это доменная логика;
 - ручной smoke на эмуляторе (для UI/сервисных задач).
@@ -136,40 +151,51 @@ T-59  Документация: PRD US-23 + US-06, UX §2.2/§2.12/§3/§4/§5, 
 ## 5. Соглашения по коду
 
 - **Язык:** Kotlin 2.x, Compose BOM, Coroutines/Flow. Java 17 target.
-- **Пакеты:** `com.justtracker.app.{data,domain,service,ui,util}`; UI по фичам: `ui.record`, `ui.history`, `ui.detail`, `ui.stats`, `ui.settings`, `ui.maps`, `ui.onboarding`, `ui.poi`, `ui.common`, `ui.theme`; офлайн-карты — `data.maps` (+ `data.maps.render`), `domain.maps`.
+- **Пакеты:** `com.justtracker.app.{data,domain,service,ui,util,di}`; UI по фичам: `ui.record`, `ui.history`, `ui.detail`, `ui.stats`, `ui.settings`, `ui.maps`, `ui.onboarding`, `ui.common`, `ui.theme`; офлайн-карты — `data.maps` (+ `data.maps.render`), `domain.maps`; запись — `domain.recording`, линия трека — `domain.track`. Экран и его ViewModel — в разных файлах; файл экрана не разрастается за ~500 строк — части выносятся (`RecordPanels`, `TrackDetailParts`).
+- **Слои (1.1.2, ADR-28):** `domain` без Android; `data` без `ui`/`service`; `service` без `ui`; UI не импортирует `AppContainer` (кроме `ViewModelSupport`, `JustTrackerApp`, `MainActivity`) и Room-сущности. Проверяет `ArchitectureTest` — правило не обходить, а обсуждать.
 - **Локаль:** язык берётся из DataStore (`AppSettings.language`) через `util.AppLocale`; `Locale.getDefault()` напрямую не использовать; ресурсы в Service/Application — через `AppLocale.localized(context, settings)`.
-- **Сеть:** новый хост — только через белый список (`07_security.md` §3) и ревью; каталог регионов принимает только `https://download.mapsforge.org/...`.
-- **DI:** ручной `AppContainer` в `JustTrackerApplication` (объём MVP не оправдывает Hilt; см. ADR-03).
+- **Сеть (1.1.2, ADR-24):** приложение обращается только к `tile.openstreetmap.org` (тайлы в режиме «Онлайн») и `download.mapsforge.org` (регион по явной команде); ничего производного от геолокации на серверы не отправляется. Новый хост, запрос или библиотека с сетью — только решением владельца, через ревью безопасности, захват трафика TC-131 и обновление политики конфиденциальности; каталог регионов принимает только `https://download.mapsforge.org/...`.
+- **DI:** ручной `AppContainer` в `JustTrackerApplication` (объём MVP не оправдывает Hilt; см. ADR-03). ViewModel получают только свои зависимости через `appViewModel { c -> … }` (ADR-28); диспетчеры — `AppDispatchers`, чтобы тесты подставляли свой.
 - **Единицы хранения:** СИ — метры, м/с, секунды/миллисекунды epoch, градусы WGS84. Конвертация только в UI-слое через `UnitFormatter`.
-- **Ошибки:** доменные функции не бросают исключения на некорректных данных — возвращают пустой/нулевой результат; IO-ошибки логируются через `Timber`-подобный `Log` обёрткой `AppLog`, в release координаты не логируются.
+- **Ошибки:** доменные функции не бросают исключения на некорректных данных — возвращают пустой/нулевой результат; IO-ошибки логируются через `Timber`-подобный `Log` обёрткой `AppLog`, в release координаты не логируются. С 1.1.2 R8 вырезает все вызовы `android.util.Log` в release (ADR-29) — писать только через `AppLog`.
 - **Состояние:** ViewModel → `StateFlow<UiState>`; сервис пишет только в БД; UI читает только из БД (single source of truth).
 - **Ориентация (1.0.2, ADR-18):** поворот не пересоздаёт activity — раскладка строится от размеров (`BoxWithConstraints`, класс ширины окна), ресурсы `-land` не используются; флаги открытых диалогов и листов — `rememberSaveable` (объекты — по id), чтобы переживать пересоздание по теме/языку; всё, что может не поместиться по высоте (≈ 360 dp в landscape), прокручивается.
 - **Схема БД:** только через миграции (`AutoMigration` или ручные) и экспортированные `schemas/*.json`; `fallbackToDestructiveMigration` запрещён.
 - **Версии:** только через `gradle/libs.versions.toml`.
+- **Производительность (1.1.2):** на пути «фикс → экран» — никакой работы O(n) по треку (ADR-25); горячие участки размечены `traced(...)`; карта инвалидируется только при реальном изменении. Изменения записи, карты и деталей сопровождаются замером `tools/perf` против NFR-25…27.
+- **Форматирование:** `.editorconfig` (Kotlin official, строка до 140 символов, хвостовые запятые) для новых и изменённых строк; массово существующий код не переформатируется.
 
 ## 6. Сборка и инструменты
 
 - Gradle 9.6.1 (wrapper), AGP 9.4.1 со встроенным Kotlin (плагин `kotlin-android` не применяется), Kotlin 2.3.21, KSP 2.3.12 для Room.
 - `minSdk 26`, `targetSdk 36`, `compileSdk 37` (актуальные AndroidX-библиотеки требуют compileSdk 37).
 - Release: `isMinifyEnabled = true`, `isShrinkResources = true`, правила для osmdroid/mapsforge/Room; `bundle.language.enableSplit = false` (оба языка в каждой установке).
-- Подпись: `keystore.properties` (в `.gitignore`); если файла нет — release подписывается debug-ключом только для локальной проверки (в RuStore не загружать — так ушла 1.0.0, D-24). **Один release-ключ навсегда** — RuStore не переподписывает и не хранит ключ; с 1.0.2 это `justtracker-release.jks` (SHA-256 `BC:B7:0F:…:87:09`), задача `verifyReleaseKey` сверяет сертификат перед каждой release-сборкой. В CI ключ приходит из секретов `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` (job `release-signed` на тег `v*`).
+- Подпись: `keystore.properties` (в `.gitignore`); если файла нет — release не подписывается (с 1.1.1, SEC-03), debug-ключ — только явно `-PallowDebugSignedRelease=true` для локальной проверки (в RuStore не загружать — так ушла 1.0.0, D-24). **Один release-ключ навсегда** — RuStore не переподписывает и не хранит ключ; с 1.0.2 это `justtracker-release.jks` (SHA-256 `BC:B7:0F:…:87:09`), задача `verifyReleaseKey` сверяет сертификат перед каждой release-сборкой. В CI ключ приходит из секретов `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` (job `release-signed` на тег `v*`).
 - Версия: `-PversionCode=N -PversionName=X.Y.Z` переопределяют значения из `build.gradle.kts`.
-- Зависимости без Google: `play-services-*` запрещены (ADR-14); `androidx.appcompat` нужен для per-app locale.
+- Зависимости без Google: `play-services-*` запрещены (ADR-14); `androidx.appcompat` нужен для per-app locale; `EmojiCompatInitializer` удалён из манифеста (SEC-19).
+- Lint (1.1.2): `warningsAsErrors = true` — любое новое предупреждение валит сборку; `GradleDependency` — информационное (обновления версий — осознанным коммитом).
+- Baseline Profile (1.1.2): модуль `:baselineprofile` (`com.android.test`, Macrobenchmark, UiAutomator); профиль генерируется вручную на эмуляторе API 34 и коммитится в `app/src/release/generated/baselineProfiles/`, автогенерация при сборке выключена; release-подобные сборки генератора и бенчмарка (`nonMinifiedRelease`, `benchmarkRelease`) получают пакет с суффиксом `.benchmark`, чтобы не задевать установленное приложение.
 - Команды:
   - `.\gradlew.bat :app:assembleDebug`
   - `.\gradlew.bat :app:testDebugUnitTest`
   - `.\gradlew.bat :app:lintDebug`
   - `.\gradlew.bat :app:bundleRelease` / `:app:assembleRelease`
   - `python store/rustore/make_icon.py` — иконка 512 для карточки
+  - `.\gradlew.bat :app:connectedDebugAndroidTest` — Room на эмуляторе (удаляет установленную debug-сборку с данными)
+  - `.\gradlew.bat :app:generateReleaseBaselineProfile` — новый профиль после заметных изменений UI
+  - `.\gradlew.bat :baselineprofile:connectedBenchmarkReleaseAndroidTest` — холодный старт с профилем и без
+  - `python tools/perf/make_track_db.py --points 10000 --status RECORDING` и `python tools/perf/measure.py` — длинный трек и замер CPU/кадров (`08_test_plan.md` §2)
 
 ## 7. Проверки перед merge
 
-1. Unit-тесты зелёные.
-2. `lintDebug` без Error.
+1. Unit-тесты зелёные (в том числе `ArchitectureTest`).
+2. `lintDebug` без предупреждений (с 1.1.2 предупреждение — ошибка).
 3. Smoke: старт записи → 30 с симулированного движения → стоп → трек в истории → открыть детали → экспорт GPX.
 4. Ревью по чек-листу безопасности для изменений в манифесте/сервисе/экспорте/receiver **и для любого нового сетевого хоста**.
 5. Для изменений в карте/локали — smoke на эмуляторе без Google APIs (AOSP) и проверка офлайн-региона в авиарежиме.
 6. Для изменений UI — каждый затронутый экран в портрете и landscape телефона, поворот туда и обратно (в т. ч. с открытым диалогом), без ANR (TC-91..95).
+7. (1.1.2) **Любое изменение, касающееся сети** — новая библиотека, обновление osmdroid/Mapsforge, новый хост или запрос: захват трафика TC-131 до merge. «Онлайн» — только тайлы, «Офлайн» — 0 байт, регион — только по команде; release-logcat без строк библиотек (TC-133).
+8. (1.1.2) Изменения DAO или схемы — `connectedDebugAndroidTest`; изменения записи, карты и деталей — замер `tools/perf` без регрессии NFR-25…27.
 
 ## 8. Риски и митигация
 
@@ -185,4 +211,6 @@ T-59  Документация: PRD US-23 + US-06, UX §2.2/§2.12/§3/§4/§5, 
 | download.mapsforge.org недоступен / изменил раскладку | Каталог не работает | Каталог в assets с явными URL; импорт своего `.map` как обход; при переезде мирора — обновление каталога релизом |
 | Потеря release-ключа | Невозможно обновить приложение в RuStore | Ключ и пароли в менеджере паролей + секреты GitHub; инструкция в `09_release_rustore.md` |
 | Устройства без GMS (Huawei/Honor) | Геолокация не работает при зависимости от GMS | ADR-14: только платформенный LocationManager; регресс на образе AOSP |
+| Регресс приватности через библиотеку или обновление (новые логи, сетевые вызовы, сервисы Google) | Нарушение политики и декларации RuStore | R8 вырезает `android.util.Log` (ADR-29); захват трафика TC-131 и release-logcat TC-133 перед merge и релизом; ревью итогового манифеста (SEC-19) |
+| Деградация на длинных треках (100 000 точек) | Нагрев, расход батареи, рывки | Хвостовая загрузка и куски линии (ADR-25), упрощение по зуму (ADR-26), замеры `tools/perf` против NFR-25…27 |
 | Фоновый рендер офлайн-тайлов (pre-cache кольца и зума −1) во время записи | Расход батареи/нагрев на слабых устройствах | Потоки рендера — ½ ядер (2–4), писатель кэша — MIN_PRIORITY, тайлы RGB_565; TC-90 на реальном устройстве; при жалобах — отключать pre-cache офлайн-модуля во время записи |
