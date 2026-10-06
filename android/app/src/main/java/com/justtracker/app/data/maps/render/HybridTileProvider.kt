@@ -35,7 +35,7 @@ import java.util.concurrent.Executors
  *
  * ```
  * OFFLINE: [offline SQLite cache] → [approximation from cached offline tiles] → [OfflineRegionModule]
- *          → online chain without the downloader (setUseDataConnection(false))
+ *          → online chain without the downloader (not built at all; setUseDataConnection(false) as well)
  * ONLINE:  online chain as is; downloaded regions are not consulted
  * ```
  *
@@ -53,7 +53,8 @@ class HybridTileProvider private constructor(
     offlineSource: OfflineTileSource?,
 ) : MapTileProviderArray(ONLINE_SOURCE, registerReceiver) {
 
-    private val downloader: MapTileDownloader
+    /** The only module that goes to the network; built in [MapMode.ONLINE] only (ADR-24). */
+    private val downloader: MapTileDownloader?
 
     init {
         val preCache = tileCache.preCache
@@ -77,12 +78,14 @@ class HybridTileProvider private constructor(
             addProvider(fileSystem)
             addProvider(archive)
         }
-        downloader = MapTileDownloader(ONLINE_SOURCE, writer, networkCheck)
+        // OFFLINE must not reach the network through the pre-cache either: osmdroid's pre-cache ignores
+        // useDataConnection() and asks every module it holds, so the downloader is simply not built.
+        downloader = if (mode == MapMode.ONLINE) MapTileDownloader(ONLINE_SOURCE, writer, networkCheck) else null
         mTileProviderList.add(assets)
         mTileProviderList.add(fileSystem)
         mTileProviderList.add(archive)
         mTileProviderList.add(approximation)
-        mTileProviderList.add(downloader)
+        downloader?.let { mTileProviderList.add(it) }
 
         tileCache.protectedTileComputers.add(MapTileAreaZoomComputer(-1))
         tileCache.protectedTileComputers.add(MapTileAreaBorderComputer(1))
@@ -91,7 +94,7 @@ class HybridTileProvider private constructor(
         preCache.addProvider(assets)
         preCache.addProvider(fileSystem)
         preCache.addProvider(archive)
-        preCache.addProvider(downloader)
+        downloader?.let { preCache.addProvider(it) }
         tileCache.protectedTileContainers.add(this)
 
         // OFFLINE never touches the network — even with no region to render (US-22).
@@ -107,6 +110,7 @@ class HybridTileProvider private constructor(
      */
     override fun isDowngradedMode(pMapTileIndex: Long): Boolean {
         if (offline != null && offline.covers(pMapTileIndex)) return false
+        val downloader = downloader ?: return true
         if (!networkCheck.networkAvailable || !useDataConnection()) return true
         val zoom = MapTileIndex.getZoom(pMapTileIndex)
         return zoom < downloader.minimumZoomLevel || zoom > downloader.maximumZoomLevel
