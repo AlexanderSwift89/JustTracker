@@ -5,6 +5,7 @@ import com.justtracker.app.R
 import com.justtracker.app.domain.model.UnitSystem
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /** Converts SI values to user-facing strings. The only place where units are applied (ADR-05). */
 class UnitFormatter(private val context: Context, val units: UnitSystem) {
@@ -41,6 +42,23 @@ class UnitFormatter(private val context: Context, val units: UnitSystem) {
     }
 
     fun speed(mps: Double): String = "${speedValue(mps)} ${speedUnit()}"
+
+    /** Whole speed without unit — the ends of a speed change, "0 → 72 km/h" (US-24). */
+    fun speedWholeValue(mps: Double): String = speedInUnits(mps).roundToInt().toString()
+
+    /** A few seconds in whole seconds ("10 s"), a minute and more as "mm:ss" — how long a speed change took. */
+    fun shortDuration(ms: Long): String {
+        val seconds = wholeSeconds(ms)
+        return if (seconds < 60) "$seconds ${context.getString(R.string.unit_s)}" else TimeFormat.duration(ms)
+    }
+
+    /** [shortDuration] as TalkBack should say it ("10 seconds"). */
+    fun shortDurationSpoken(ms: Long): String {
+        val seconds = wholeSeconds(ms)
+        return if (seconds < 60) context.resources.getQuantityString(R.plurals.seconds_spoken, seconds, seconds) else TimeFormat.duration(ms)
+    }
+
+    private fun wholeSeconds(ms: Long): Int = ((ms + 500) / 1000).toInt().coerceAtLeast(0)
 
     fun elevation(meters: Double, signed: Boolean = false): String {
         val value = when (units) {

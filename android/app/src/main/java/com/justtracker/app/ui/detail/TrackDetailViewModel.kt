@@ -12,11 +12,15 @@ import com.justtracker.app.domain.geo.ElevationCalculator
 import com.justtracker.app.domain.geo.ElevationResult
 import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.domain.model.ActivityType
+import com.justtracker.app.domain.model.LineMetric
 import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.model.TrackStatus
 import com.justtracker.app.domain.model.UnitSystem
+import com.justtracker.app.domain.track.AccelerationEpisode
+import com.justtracker.app.domain.track.TrackAcceleration
 import com.justtracker.app.domain.track.TrackCursor
 import com.justtracker.app.domain.track.TrackLine
+import com.justtracker.app.util.traced
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -36,6 +40,10 @@ data class TrackDetailUiState(
     val track: Track? = null,
     /** Track line with per-vertex speed, distance and time (docs/06_system_analysis.md §3.6). */
     val line: TrackLine = TrackLine.EMPTY,
+    /** Acceleration along [line] and its episodes (US-24, §3.11); [TrackAcceleration.NONE] until loaded. */
+    val acceleration: TrackAcceleration = TrackAcceleration.NONE,
+    /** What the line is coloured by: the remembered choice, speed when the track has no acceleration to show. */
+    val lineMetric: LineMetric = LineMetric.SPEED,
     val units: UnitSystem = UnitSystem.METRIC,
     /** Explicit map source (US-22): the offline badge is shown in [MapMode.OFFLINE]. */
     val mapMode: MapMode = MapMode.ONLINE,
@@ -44,22 +52,25 @@ data class TrackDetailUiState(
 
 class TrackDetailViewModel(
     private val repo: TrackRepository,
-    settings: SettingsRepository,
+    private val settings: SettingsRepository,
     private val gpxExporter: GpxExporter,
     private val trackId: Long,
     savedState: SavedStateHandle,
     dispatchers: AppDispatchers = AppDispatchers(),
 ) : ViewModel() {
 
-    private class Geometry(val line: TrackLine, val elevation: ElevationResult)
+    private class Geometry(val line: TrackLine, val elevation: ElevationResult, val acceleration: TrackAcceleration)
 
     /**
-     * Track line and gain/loss, derived from the points off the main thread; shared by the state, the cursor and the
-     * write-back. A finished track's points never change: they are read once per view model. Observing them re-read
-     * and rebuilt up to 100 000 points on every fix a recording stored meanwhile (D-27).
+     * Track line, gain/loss and acceleration, derived from the points off the main thread; shared by the state, the
+     * cursor and the write-back. A finished track's points never change: they are read once per view model. Observing
+     * them re-read and rebuilt up to 100 000 points on every fix a recording stored meanwhile (D-27).
      */
     private val geometry: SharedFlow<Geometry> = flow { emit(repo.getPoints(trackId)) }
-        .map { points -> Geometry(TrackLine.of(points), ElevationCalculator.gainLoss(points)) }
+        .map { points ->
+            val line = TrackLine.of(points)
+            Geometry(line, ElevationCalculator.gainLoss(points), traced("detail.acceleration") { TrackAcceleration.of(points, line) })
+        }
         .flowOn(dispatchers.default)
         .shareIn(viewModelScope, SharingStarted.Lazily, replay = 1)
 
@@ -78,7 +89,9 @@ class TrackDetailViewModel(
     ) { track, geo, prefs ->
         // Gain/loss are always shown as computed from the points by the current algorithm, never from a stale row.
         val shown = track?.copy(elevationGainM = geo.elevation.gainM, elevationLossM = geo.elevation.lossM)
-        TrackDetailUiState(shown, geo.line, prefs.units, prefs.mapMode, loaded = true)
+        // The choice stays remembered for the next track even when this one has nothing to colour by acceleration.
+        val metric = if (geo.acceleration.isAvailable) prefs.detailLineMetric else LineMetric.SPEED
+        TrackDetailUiState(shown, geo.line, geo.acceleration, metric, prefs.units, prefs.mapMode, loaded = true)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrackDetailUiState())
 
     /**
@@ -89,7 +102,7 @@ class TrackDetailViewModel(
         geometry,
         track.map { it?.startedAt }.distinctUntilChanged(),
         cursorIndex,
-    ) { geo, startedAt, idx -> startedAt?.let { geo.line.cursorAt(idx, it) } }
+    ) { geo, startedAt, idx -> startedAt?.let { geo.line.cursorAt(idx, it) }?.let(geo.acceleration::annotate) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     init {
@@ -114,6 +127,14 @@ class TrackDetailViewModel(
     fun scrubToFraction(fraction: Float) {
         cursorIndex.value = state.value.line.indexForFraction(fraction)
     }
+
+    /** An episode in "Speeding up and slowing down": the scrubber goes to where it starts. */
+    fun onEpisodeTap(episode: AccelerationEpisode) {
+        cursorIndex.value = episode.startIndex.coerceIn(0, (state.value.line.size - 1).coerceAtLeast(0))
+    }
+
+    /** The speed / acceleration switch over the map; remembered for the next track. */
+    fun setLineMetric(metric: LineMetric) = viewModelScope.launch { settings.setDetailLineMetric(metric) }
 
     /** Arrow buttons: move one vertex back or forward. */
     fun stepCursor(delta: Int) {

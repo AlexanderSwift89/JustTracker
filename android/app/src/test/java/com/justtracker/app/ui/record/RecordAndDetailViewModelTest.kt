@@ -7,10 +7,13 @@ import com.justtracker.app.data.location.LocationSource
 import com.justtracker.app.data.repo.TrackRepository
 import com.justtracker.app.di.AppDispatchers
 import com.justtracker.app.domain.maps.MapMode
+import com.justtracker.app.domain.model.LineMetric
 import com.justtracker.app.domain.model.TrackStatus
+import com.justtracker.app.domain.stats.AccelerationState
 import com.justtracker.app.testing.FakeTrackDao
 import com.justtracker.app.testing.FakeTrackingControl
 import com.justtracker.app.testing.finishedTrack
+import com.justtracker.app.testing.stopAndGo
 import com.justtracker.app.testing.testSettings
 import com.justtracker.app.testing.walk
 import com.justtracker.app.ui.detail.TrackDetailViewModel
@@ -26,6 +29,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -135,5 +139,42 @@ class RecordAndDetailViewModelTest {
         val stored = repo.getTrack(track.id)!!
         assertEquals(0.0, stored.elevationGainM, 0.0)
         assertEquals(TrackStatus.FINISHED, stored.status)
+    }
+
+    @Test
+    fun `Detail without Doppler speeds has no acceleration and stays coloured by speed`() = runTest(dispatcher) {
+        // walk() stores speeds equal to the displacement speed: nothing to differentiate (§3.11).
+        val track = repo.finishedTrack("walk", startedAt = 0)
+        repo.walk(track, 30)
+        val settings = testSettings(tmp.root, backgroundScope)
+        settings.setDetailLineMetric(LineMetric.ACCELERATION)
+        val vm = TrackDetailViewModel(repo, settings, { null }, track.id, SavedStateHandle(), AppDispatchers(dispatcher, dispatcher))
+        val state = vm.state.first { it.loaded }
+        assertFalse(state.acceleration.isAvailable)
+        assertEquals(LineMetric.SPEED, state.lineMetric)
+        assertNull(vm.cursor.first { it != null }!!.accelerationMps2)
+        // The choice is kept for the next track.
+        assertEquals(LineMetric.ACCELERATION, settings.current().detailLineMetric)
+    }
+
+    @Test
+    fun `Detail of a drive switches to acceleration and an episode moves the scrubber to its start`() = runTest(dispatcher) {
+        val track = repo.finishedTrack("drive", startedAt = 1_000_000L)
+        var row = track
+        for (p in stopAndGo().points) {
+            row = row.copy(pointCount = row.pointCount + 1)
+            repo.addPoint(p.copy(id = 0, trackId = track.id), row)
+        }
+        val vm = TrackDetailViewModel(repo, testSettings(tmp.root, backgroundScope), { null }, track.id, SavedStateHandle(), AppDispatchers(dispatcher, dispatcher))
+        val state = vm.state.first { it.loaded }
+        assertTrue(state.acceleration.isAvailable)
+        assertEquals(LineMetric.SPEED, state.lineMetric)
+        vm.setLineMetric(LineMetric.ACCELERATION)
+        vm.state.first { it.lineMetric == LineMetric.ACCELERATION }
+        val stop = state.acceleration.maxDeceleration!!
+        vm.onEpisodeTap(stop)
+        val cursor = vm.cursor.first { it?.index == stop.startIndex }!!
+        assertNotNull(cursor.accelerationMps2)
+        assertEquals(AccelerationState.DECELERATING, cursor.accelerationState)
     }
 }

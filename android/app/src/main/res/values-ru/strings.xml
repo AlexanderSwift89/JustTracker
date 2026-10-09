@@ -113,6 +113,17 @@
     <string name="detail_cursor_altitude">Высота</string>
     <string name="detail_hide_stats">Скрыть статистику, увеличить карту</string>
     <string name="detail_show_stats">Показать статистику</string>
+    <string name="detail_line_speed">Скорость</string>
+    <string name="detail_line_acceleration">Ускорение</string>
+    <string name="detail_cursor_acceleration">Ускорение</string>
+    <string name="detail_max_acceleration">Макс. разгон</string>
+    <string name="detail_max_deceleration">Макс. замедление</string>
+    <string name="detail_episodes_title">Разгоны и замедления</string>
+    <string name="detail_episode_speeds">%1$s → %2$s %3$s за %4$s</string>
+    <string name="detail_episode_detail">%1$s %2$s · %3$s от старта</string>
+    <string name="detail_episodes_show_all">Показать все (%1$d)</string>
+    <string name="cd_episode">%1$s с %2$s до %3$s %4$s за %5$s, пик %6$s %7$s, %8$s от старта</string>
+    <string name="cd_stat_acceleration">%1$s %2$s %3$s</string>
 
     <string name="stats_title">Статистика</string>
     <string name="stats_total_tracks">Треков</string>
@@ -230,6 +241,13 @@
     <string name="unit_fps2">фут/с²</string>
     <string name="unit_mps2_spoken">метра в секунду в квадрате</string>
     <string name="unit_fps2_spoken">фута в секунду в квадрате</string>
+    <string name="unit_s">с</string>
+    <plurals name="seconds_spoken">
+        <item quantity="one">%d секунду</item>
+        <item quantity="few">%d секунды</item>
+        <item quantity="many">%d секунд</item>
+        <item quantity="other">%d секунды</item>
+    </plurals>
 
     <string name="cd_activity_icon">Тип движения: %1$s</string>
     <string name="cd_acceleration">Ускорение %1$s %2$s, %3$s</string>
