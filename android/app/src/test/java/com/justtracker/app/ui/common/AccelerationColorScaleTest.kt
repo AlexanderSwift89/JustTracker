@@ -49,4 +49,43 @@ class AccelerationColorScaleTest {
         assertNotEquals(AccelerationColorScale.LIGHT.up, AccelerationColorScale.DARK.up)
         assertNotEquals(AccelerationColorScale.LIGHT.down, AccelerationColorScale.DARK.down)
     }
+
+    @Test
+    fun `speeding up, slowing down and steady stay apart with simulated colour-vision deficiency`() {
+        // Machado, Oliveira, Fernandes 2009, severity 1, in linear RGB; distances in CIELAB (ΔE76).
+        val deuteranopia = doubleArrayOf(0.367322, 0.860646, -0.227968, 0.280085, 0.672501, 0.047413, -0.011820, 0.042940, 0.968881)
+        val protanopia = doubleArrayOf(0.152286, 1.052583, -0.204868, 0.114503, 0.786281, 0.099216, -0.003882, -0.048116, 1.051998)
+        val normal = doubleArrayOf(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+        for (p in palettes) {
+            for (m in listOf(normal, deuteranopia, protanopia)) {
+                val up = lab(simulate(p.up, m))
+                val down = lab(simulate(p.down, m))
+                val neutral = lab(simulate(p.neutral, m))
+                assertTrue("up/down ${distance(up, down)}", distance(up, down) >= 20.0)
+                assertTrue("up/neutral ${distance(up, neutral)}", distance(up, neutral) >= 30.0)
+                assertTrue("down/neutral ${distance(down, neutral)}", distance(down, neutral) >= 30.0)
+            }
+        }
+    }
+
+    private fun linear(c: Int): Double {
+        val v = c / 255.0
+        return if (v <= 0.04045) v / 12.92 else Math.pow((v + 0.055) / 1.055, 2.4)
+    }
+
+    private fun simulate(argb: Int, m: DoubleArray): DoubleArray {
+        val rgb = doubleArrayOf(linear((argb shr 16) and 0xFF), linear((argb shr 8) and 0xFF), linear(argb and 0xFF))
+        return DoubleArray(3) { r -> (m[3 * r] * rgb[0] + m[3 * r + 1] * rgb[1] + m[3 * r + 2] * rgb[2]).coerceIn(0.0, 1.0) }
+    }
+
+    private fun lab(rgb: DoubleArray): DoubleArray {
+        val x = (0.4124 * rgb[0] + 0.3576 * rgb[1] + 0.1805 * rgb[2]) / 0.95047
+        val y = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
+        val z = (0.0193 * rgb[0] + 0.1192 * rgb[1] + 0.9505 * rgb[2]) / 1.08883
+        fun f(t: Double) = if (t > 0.008856) Math.cbrt(t) else 7.787 * t + 16.0 / 116.0
+        return doubleArrayOf(116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z)))
+    }
+
+    private fun distance(a: DoubleArray, b: DoubleArray): Double =
+        Math.sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]))
 }

@@ -70,12 +70,14 @@ internal class LinePiece(val start: Int, val end: Int, val polyline: Polyline, v
     /** Sets the polyline to [line] at [level] (an index into [DETAIL_TOLERANCES_M]) for [coloring]. */
     fun show(line: TrackLine, level: Int, coloring: LineColoring) {
         val acceleration = (coloring as? LineColoring.ByAcceleration)?.acceleration
-        if (acceleration != null && acceleration !== cachedAcceleration) {
+        // Another acceleration for the same piece has other episode ends and means: its simplifications are redone.
+        val accelerationChanged = acceleration != null && acceleration !== cachedAcceleration
+        if (accelerationChanged) {
             accelerationCache.clear()
             cachedAcceleration = acceleration
         }
         val metricChanged = (acceleration != null) != byAcceleration
-        if (level == this.level && !metricChanged) return
+        if (level == this.level && !metricChanged && !accelerationChanged) return
         byAcceleration = acceleration != null
         val wasFull = this.level == 0
         this.level = level

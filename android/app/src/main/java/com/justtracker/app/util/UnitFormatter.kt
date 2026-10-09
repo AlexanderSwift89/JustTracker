@@ -49,13 +49,14 @@ class UnitFormatter(private val context: Context, val units: UnitSystem) {
     /** A few seconds in whole seconds ("10 s"), a minute and more as "mm:ss" — how long a speed change took. */
     fun shortDuration(ms: Long): String {
         val seconds = wholeSeconds(ms)
-        return if (seconds < 60) "$seconds ${context.getString(R.string.unit_s)}" else TimeFormat.duration(ms)
+        return if (seconds < 60) "$seconds ${context.getString(R.string.unit_s)}" else TimeFormat.duration(seconds * 1000L)
     }
 
     /** [shortDuration] as TalkBack should say it ("10 seconds"). */
     fun shortDurationSpoken(ms: Long): String {
         val seconds = wholeSeconds(ms)
-        return if (seconds < 60) context.resources.getQuantityString(R.plurals.seconds_spoken, seconds, seconds) else TimeFormat.duration(ms)
+        if (seconds >= 60) return TimeFormat.duration(seconds * 1000L)
+        return context.resources.getQuantityString(R.plurals.seconds_spoken, seconds, seconds)
     }
 
     private fun wholeSeconds(ms: Long): Int = ((ms + 500) / 1000).toInt().coerceAtLeast(0)

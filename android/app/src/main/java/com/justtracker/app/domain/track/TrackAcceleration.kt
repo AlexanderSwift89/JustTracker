@@ -65,6 +65,9 @@ class TrackAcceleration private constructor(
     /** Enough estimates while moving for the line to be worth colouring by acceleration (item 8). */
     val isAvailable: Boolean get() = movingEstimates >= MIN_MOVING_ESTIMATES
 
+    /** Episodes to show (tiles, "Speeding up and slowing down"): only on a track whose acceleration is shown at all. */
+    val hasEpisodes: Boolean get() = isAvailable && episodes.isNotEmpty()
+
     /** Acceleration at vertex [index], m/s²; NaN where there is no estimate. */
     fun mps2(index: Int): Float = if (index in values.indices) values[index] else Float.NaN
 
@@ -298,16 +301,36 @@ class TrackAcceleration private constructor(
             for (j in s..e) if (if (up) values[j] > values[peak] else values[j] < values[peak]) peak = j
             if (abs(values[peak]) < MIN_EPISODE_PEAK_MPS2) return null
 
+            // Standing still stores a point every 30 s only — a shorter stop (a traffic light) none at all — so a series
+            // starts already moving and ends still moving; its thinned edge points may even be too far apart for a
+            // window of their own. A start from rest: the run begins at the series' first estimate, and the track stood
+            // just before the series' first moving point (a standing point at the series' start, or next to it).
+            var moving = first // first moving point of the series
+            var restBefore = false
+            if (up && noEstimate(first, s - 1)) {
+                while (moving < s && points[moving].isStanding()) moving++
+                restBefore = moving > first || (first > segStart && stood(first - 1, first, first - 1))
+            }
+            var stopping = last // last moving point of the series
+            var restAfter = false
+            if (!up && noEstimate(e + 1, last)) {
+                while (stopping > e && points[stopping].isStanding()) stopping--
+                // The recording may stop before the 30 s standstill point is stored: no next point counts as standing.
+                restAfter = stopping < last || last + 1 >= segEnd || stood(last, last + 1, last + 1)
+            }
+            val runStart = if (restBefore) moving else s
+            val runEnd = if (restAfter) stopping else e
+
             // The centred window sees a ramp before it starts and after it ends: trim to the speed's extremes.
-            var from = line.speedMps(s)
-            for (j in s..peak) from = if (up) min(from, line.speedMps(j)) else max(from, line.speedMps(j))
+            var from = line.speedMps(runStart)
+            for (j in runStart..peak) from = if (up) min(from, line.speedMps(j)) else max(from, line.speedMps(j))
             var to = line.speedMps(peak)
-            for (j in peak..e) to = if (up) max(to, line.speedMps(j)) else min(to, line.speedMps(j))
+            for (j in peak..runEnd) to = if (up) max(to, line.speedMps(j)) else min(to, line.speedMps(j))
             val delta = max(TRIM_MIN_MPS, TRIM_SHARE * abs(to - from))
-            var startIndex = s
-            for (j in s..peak) if (abs(line.speedMps(j) - from) <= delta) startIndex = j
-            var endIndex = e
-            for (j in peak..e) {
+            var startIndex = runStart
+            for (j in runStart..peak) if (abs(line.speedMps(j) - from) <= delta) startIndex = j
+            var endIndex = runEnd
+            for (j in peak..runEnd) {
                 if (abs(line.speedMps(j) - to) <= delta) {
                     endIndex = j
                     break
@@ -316,29 +339,27 @@ class TrackAcceleration private constructor(
             var startMs = line.timestamp(startIndex).toDouble()
             var endMs = line.timestamp(endIndex).toDouble()
 
-            // Standing still stores a point every 30 s only — a shorter stop (a traffic light) none at all — so a series
-            // starts already moving and ends still moving: complete the speed to 0 when the track stood next to the
-            // series and the edge's own rate gets there within REST_MAX_MS.
+            // Complete the speed to 0 when the edge's own rate (its estimate, else the run's first / last one) gets
+            // there within REST_MAX_MS, not earlier than the standing point and not later than the next stored point.
             var fromRest = false
-            val before = first - 1
-            if (up && s == first && first > segStart && from <= REST_MAX_MPS && stood(before, first, before)) {
-                val restMs = restTimeMs(from, values[startIndex])
+            if (restBefore && from <= REST_MAX_MPS) {
+                val restMs = restTimeMs(from, values[startIndex].takeUnless { it.isNaN() } ?: values[s])
                 if (restMs != null) {
-                    startMs = max(startMs - restMs, line.timestamp(before).toDouble())
-                    // The place it started from: the standing point, else the first moving one (metres from the stop).
-                    if (points[before].isStanding()) startIndex = before
+                    val rest = moving - 1
+                    startMs = max(startMs - restMs, line.timestamp(rest).toDouble())
+                    // The place it started from: the standing point, unless the run already begins standing still.
+                    if (points[rest].isStanding() && !points[startIndex].isStanding()) startIndex = rest
                     from = 0f
                     fromRest = true
                 }
             }
             var toRest = false
-            val next = last + 1
-            // The recording may stop before the 30 s standstill point is stored: no next point counts as standing.
-            if (!up && e == last && to <= REST_MAX_MPS && (next >= segEnd || stood(last, next, next))) {
-                val restMs = restTimeMs(to, -values[endIndex])
+            if (restAfter && to <= REST_MAX_MPS) {
+                val restMs = restTimeMs(to, -(values[endIndex].takeUnless { it.isNaN() } ?: values[e]))
                 if (restMs != null) {
-                    endMs = if (next < segEnd) min(endMs + restMs, line.timestamp(next).toDouble()) else endMs + restMs
-                    if (next < segEnd && points[next].isStanding()) endIndex = next
+                    val rest = stopping + 1
+                    endMs = if (rest < segEnd) min(endMs + restMs, line.timestamp(rest).toDouble()) else endMs + restMs
+                    if (rest < segEnd && points[rest].isStanding() && !points[endIndex].isStanding()) endIndex = rest
                     to = 0f
                     toRest = true
                 }
@@ -361,6 +382,12 @@ class TrackAcceleration private constructor(
                 meanMps2 = dv / (durationMs / 1000f),
                 startDistanceM = line.distanceM(startIndex),
             )
+        }
+
+        /** No vertex in [from]..[to] has an estimate (true for an empty range). */
+        private fun noEstimate(from: Int, to: Int): Boolean {
+            for (k in from..to) if (!values[k].isNaN()) return false
+            return true
         }
 
         /** Time to change by [speedMps] at [rateMps2] (> 0), when within [REST_MAX_MS]; null otherwise. */

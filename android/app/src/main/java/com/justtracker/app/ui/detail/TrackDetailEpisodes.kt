@@ -100,8 +100,10 @@ private fun EpisodeRow(episode: AccelerationEpisode, formatter: UnitFormatter, o
     val to = formatter.speedWholeValue(episode.toSpeedMps.toDouble())
     val peak = episode.peakMps2.toDouble()
     val distance = formatter.distance(episode.startDistanceM)
-    val headline = stringResource(R.string.detail_episode_speeds, from, to, formatter.speedUnit(), formatter.shortDuration(episode.durationMs))
-    val supporting = stringResource(R.string.detail_episode_detail, formatter.accelerationValue(peak), formatter.accelerationUnit(), distance)
+    val duration = formatter.shortDuration(episode.durationMs)
+    val headline = stringResource(R.string.detail_episode_speeds, from, to, formatter.speedUnit(), duration)
+    val signedPeak = formatter.accelerationValue(peak)
+    val supporting = stringResource(R.string.detail_episode_detail, signedPeak, formatter.accelerationUnit(), distance)
     val spoken = stringResource(
         R.string.cd_episode,
         stringResource(episode.kind.labelRes()),

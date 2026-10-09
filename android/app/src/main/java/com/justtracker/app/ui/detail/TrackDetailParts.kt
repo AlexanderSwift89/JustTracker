@@ -112,7 +112,9 @@ internal fun TrackCursorPanel(
             if (metric == LineMetric.ACCELERATION) AccelerationCursorValue(cursor, formatter, cell)
             CursorValue(stringResource(R.string.detail_cursor_speed), formatter.speed(cursor.speedMps.toDouble()), cell)
             CursorValue(stringResource(R.string.detail_distance), formatter.distance(cursor.distanceFromStartM), cell)
-            if (metric == LineMetric.SPEED) CursorValue(stringResource(R.string.detail_cursor_time), TimeFormat.timeOfDay(cursor.timestamp), cell)
+            if (metric == LineMetric.SPEED) {
+                CursorValue(stringResource(R.string.detail_cursor_time), TimeFormat.timeOfDay(cursor.timestamp), cell)
+            }
             CursorValue(stringResource(R.string.detail_cursor_altitude), cursor.altitudeM?.let { formatter.elevation(it) } ?: "—", cell)
         }
     }
@@ -139,7 +141,12 @@ private fun AccelerationCursorValue(cursor: TrackCursor, formatter: UnitFormatte
     val spoken = if (a == null || state == null) {
         stringResource(R.string.cd_acceleration_unavailable)
     } else {
-        stringResource(R.string.cd_acceleration, formatter.accelerationMagnitude(a.toDouble()), formatter.accelerationUnitSpoken(), stringResource(state.labelRes()))
+        stringResource(
+            R.string.cd_acceleration,
+            formatter.accelerationMagnitude(a.toDouble()),
+            formatter.accelerationUnitSpoken(),
+            stringResource(state.labelRes()),
+        )
     }
     Column(
         modifier
@@ -193,16 +200,17 @@ internal fun DetailMap(
             LineColoring.BySpeed(track.maxSpeedMps)
         }
     }
-    // The fitted track goes below the overlays, which cover the top of the map.
-    var overlayHeightPx by remember { mutableIntStateOf(0) }
+    // The fitted track goes below the overlays, which cover the top of the map: it is fitted once they are measured,
+    // not first without them and again a frame later.
+    var overlayHeightPx by remember { mutableIntStateOf(-1) }
     Box(modifier) {
         TrackMap(
             line = state.line,
             modifier = Modifier.fillMaxSize(),
             coloring = coloring,
             highlight = highlight(),
-            fitToTrack = true,
-            fitTopInsetPx = overlayHeightPx,
+            fitToTrack = overlayHeightPx >= 0,
+            fitTopInsetPx = overlayHeightPx.coerceAtLeast(0),
             showStartFinish = true,
             onTrackTap = onTrackTap,
         )
@@ -290,7 +298,7 @@ internal fun statTiles(track: Track, acceleration: TrackAcceleration, formatter:
         add(StatItem(stringResource(R.string.detail_recording_time), TimeFormat.duration(track.recordingTimeMs())))
         add(StatItem(stringResource(R.string.detail_moving_time), TimeFormat.duration(track.movingTimeMs)))
         add(StatItem(stringResource(R.string.detail_avg_speed), formatter.speed(track.avgSpeedMps)))
-        if (acceleration.episodes.isNotEmpty()) {
+        if (acceleration.hasEpisodes) {
             add(accelerationTile(stringResource(R.string.detail_max_acceleration), acceleration.maxAcceleration?.peakMps2, formatter))
             add(accelerationTile(stringResource(R.string.detail_max_deceleration), acceleration.maxDeceleration?.peakMps2, formatter))
         }
@@ -309,7 +317,8 @@ internal fun statTiles(track: Track, acceleration: TrackAcceleration, formatter:
 private fun accelerationTile(label: String, mps2: Float?, formatter: UnitFormatter): StatItem {
     if (mps2 == null) return StatItem(label, "—")
     val value = "${formatter.accelerationValue(mps2.toDouble())} ${formatter.accelerationUnit()}"
-    val spoken = stringResource(R.string.cd_stat_acceleration, label, formatter.accelerationMagnitude(mps2.toDouble()), formatter.accelerationUnitSpoken())
+    val magnitude = formatter.accelerationMagnitude(mps2.toDouble())
+    val spoken = stringResource(R.string.cd_stat_acceleration, label, magnitude, formatter.accelerationUnitSpoken())
     return StatItem(label, value, spoken = spoken)
 }
 

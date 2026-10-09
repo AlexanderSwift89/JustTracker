@@ -186,7 +186,7 @@ fun TrackDetailScreen(
             }
             val offline = state.mapMode == MapMode.OFFLINE
             val tiles = statTiles(track, state.acceleration, formatter)
-            val hasEpisodes = state.acceleration.episodes.isNotEmpty()
+            val hasEpisodes = state.acceleration.hasEpisodes
             val cursorPanel = @Composable {
                 cursorState.value?.let { cursor ->
                     TrackCursorPanel(
@@ -199,7 +199,13 @@ fun TrackDetailScreen(
                 }
             }
             val episodes = @Composable { modifier: Modifier ->
-                EpisodesSection(state.acceleration, formatter, onEpisode = onEpisode, onShowAll = { showEpisodes = true }, modifier = modifier)
+                EpisodesSection(
+                    state.acceleration,
+                    formatter,
+                    onEpisode = onEpisode,
+                    onShowAll = { showEpisodes = true },
+                    modifier = modifier,
+                )
             }
             val activityRow = @Composable {
                 ActivityRow(
@@ -269,7 +275,7 @@ fun TrackDetailScreen(
             viewModel.delete(onDone = onBack)
         })
     }
-    if (showEpisodes && state.acceleration.episodes.isNotEmpty()) {
+    if (showEpisodes && state.acceleration.hasEpisodes) {
         EpisodesSheet(state.acceleration, formatter, onEpisode = onEpisode, onDismiss = { showEpisodes = false })
     }
     if (showTypeSheet && track != null) {

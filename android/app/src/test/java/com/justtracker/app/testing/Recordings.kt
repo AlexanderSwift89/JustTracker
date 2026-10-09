@@ -57,6 +57,7 @@ class Recording(val points: List<TrackPoint>, val fixTimes: List<Long>, val live
  *   speed to the last bit and passes for one derived from the position when no accuracy is stored (§3.11).
  * @param round6 positions rounded to 6 decimals, as `geo fix` sends them.
  * @param speedMissing fixes without a reported speed.
+ * @param accuracy horizontal accuracy of every fix: from 8 m on, a fix is stored only after a quarter of it (§3.1).
  */
 fun recordDrive(
     seconds: Int,
@@ -71,6 +72,7 @@ fun recordDrive(
     gap: (Double) -> Boolean = { false },
     speedOverride: (Double) -> Float? = { null },
     speedMissing: (Double) -> Boolean = { false },
+    accuracy: Float = 5f,
     sigmaOverride: (Double) -> Float? = { null },
     speedAt: (Double) -> Double,
 ): Recording = runBlocking {
@@ -98,7 +100,7 @@ fun recordDrive(
         }
         val timeMs = startMs + i * stepMs
         val fix = Fix(
-            sample = Sample(timestamp = timeMs, lat = lat, lon = 37.0, accuracyM = 5f, speedMps = speed),
+            sample = Sample(timestamp = timeMs, lat = lat, lon = 37.0, accuracyM = accuracy, speedMps = speed),
             monotonicMs = timeMs,
             speedAccuracyMps = sigmaOverride(t) ?: sigma.takeIf { reported == Reported.DOPPLER },
         )

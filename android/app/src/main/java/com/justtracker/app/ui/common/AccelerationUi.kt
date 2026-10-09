@@ -21,8 +21,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.justtracker.app.R
 import com.justtracker.app.domain.stats.AccelerationState
@@ -65,7 +65,7 @@ fun AccelerationLegend(scaleMps2: Float, palette: AccelerationColorScale.Palette
     val label = MaterialTheme.typography.labelSmall
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
-        modifier = modifier.semantics { contentDescription = cd },
+        modifier = modifier.clearAndSetSemantics { contentDescription = cd },
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f),
         tonalElevation = 2.dp,

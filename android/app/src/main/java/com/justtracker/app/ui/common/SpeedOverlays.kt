@@ -25,8 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.justtracker.app.R
@@ -35,10 +35,6 @@ import com.justtracker.app.util.TimeFormat
 import com.justtracker.app.util.UnitFormatter
 import kotlinx.coroutines.delay
 
-/**
- * Compact "0 ▬▬▬▬ max" bar explaining the speed colours of the track line
- * (docs/04_ux_design.md §2.8). Hidden while there is nothing to explain.
- */
 /** Explicit map-mode cue (US-22): shown next to the legend whenever the map runs from downloaded regions. */
 @Composable
 fun MapModeBadge(modifier: Modifier = Modifier) {
@@ -68,13 +64,17 @@ fun MapModeBadge(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * Compact "0 ▬▬▬▬ max" bar explaining the speed colours of the track line
+ * (docs/04_ux_design.md §2.8). Hidden while there is nothing to explain.
+ */
 @Composable
 fun SpeedLegend(maxSpeedMps: Double, formatter: UnitFormatter, modifier: Modifier = Modifier) {
     if (maxSpeedMps <= 0.0) return
     val maxText = formatter.speed(maxOf(maxSpeedMps, SpeedColorScale.MIN_RANGE_MPS))
     val cd = stringResource(R.string.map_speed_legend_cd, maxText)
     Surface(
-        modifier = modifier.semantics { contentDescription = cd },
+        modifier = modifier.clearAndSetSemantics { contentDescription = cd },
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f),
         tonalElevation = 2.dp,

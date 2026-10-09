@@ -152,6 +152,48 @@ class TrackAccelerationTest {
     }
 
     @Test
+    fun `a gentle start and stop whose thinned edge points have no estimate still start and end at 0`() {
+        // Accuracy 16 m: a fix is stored only after 4 m, so the first and last moving points of the series are too far
+        // apart for a window of their own. Standing 20 s, +1 m/s² to 12 m/s, 30 s, −1.5 m/s² to a stop, standing 40 s.
+        val rec = recordDrive(seconds = 110, accuracy = 16f) { t ->
+            when {
+                t < 20 -> 0.0
+                t < 32 -> t - 20
+                t < 62 -> 12.0
+                t < 70 -> 12.0 - 1.5 * (t - 62)
+                else -> 0.0
+            }
+        }
+        val acc = rec.acceleration()
+        assertEquals(2, acc.episodes.size)
+        val (up, down) = acc.episodes
+        assertTrue("from ${up.fromSpeedMps}", up.fromRest)
+        assertEquals(12_000.0, up.durationMs.toDouble(), 1_500.0)
+        assertTrue("to ${down.toSpeedMps}", down.toRest)
+        assertEquals(8_000.0, down.durationMs.toDouble(), 1_500.0)
+        // The scrubber goes to where the car stood.
+        assertTrue(rec.points[up.startIndex].speedMps!! <= 0.5f)
+    }
+
+    @Test
+    fun `a run that already starts standing still keeps its start instead of jumping to the previous standing point`() {
+        // Standing points every 30 s, then a departure: the stored standstill point right before it joins the series.
+        val rec = recordDrive(seconds = 120) { t -> if (t < 61) 0.0 else minOf(15.0, 2.0 * (t - 61)) }
+        val up = rec.acceleration().episodes.single()
+        assertTrue(up.fromRest)
+        val startTime = rec.points[up.startIndex].timestamp - 1_000_000L
+        assertTrue("starts at $startTime ms", startTime >= 55_000)
+    }
+
+    @Test
+    fun `a drive too short to be coloured by acceleration shows no episodes either`() {
+        val acc = recordDrive(seconds = 7) { t -> 2.0 * t }.acceleration()
+        assertTrue(acc.episodes.isNotEmpty())
+        assertFalse(acc.isAvailable)
+        assertFalse(acc.hasEpisodes)
+    }
+
+    @Test
     fun `a steady speed with GPS noise stays steady`() {
         val acc = recordDrive(seconds = 600, noise = 0.35, seed = 3) { 10.0 }.acceleration()
         val values = acc.estimated()
@@ -203,7 +245,9 @@ class TrackAccelerationTest {
     @Test
     fun `no episode across a tunnel`() {
         // No fixes for 10 s, during which the car went from 10 to 20 m/s.
-        val rec = recordDrive(seconds = 120, gap = { t -> t > 60 && t < 70 }) { t -> if (t < 62) 10.0 else if (t < 67) 10.0 + 2.0 * (t - 62) else 20.0 }
+        val rec = recordDrive(seconds = 120, gap = { t -> t > 60 && t < 70 }) { t ->
+            if (t < 62) 10.0 else if (t < 67) 10.0 + 2.0 * (t - 62) else 20.0
+        }
         val acc = rec.acceleration()
         assertTrue(acc.episodes.isEmpty())
         assertFalse(acc.mps2(rec.at(55.0)).isNaN())
@@ -276,7 +320,10 @@ class TrackAccelerationTest {
 
     @Test
     fun `the colour scale is the 95th percentile, rounded up to 0,5 within 1 to 6`() {
-        val hard = recordDrive(seconds = 200) { t -> val c = t % 20; if (c < 5) 10.0 + 3.0 * c else if (c < 10) 25.0 - 3.0 * (c - 5) else 10.0 }
+        val hard = recordDrive(seconds = 200) { t ->
+            val c = t % 20
+            if (c < 5) 10.0 + 3.0 * c else if (c < 10) 25.0 - 3.0 * (c - 5) else 10.0
+        }
         val acc = hard.acceleration()
         assertTrue(acc.scaleMps2 in 2.5f..3.5f)
         assertEquals(0f, acc.scaleMps2 * 2 % 1, 0f)

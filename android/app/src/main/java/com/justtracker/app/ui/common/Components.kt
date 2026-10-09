@@ -79,7 +79,11 @@ fun ActivityBadge(type: ActivityType, modifier: Modifier = Modifier, size: Int =
 @Composable
 fun StatTile(label: String, value: String, modifier: Modifier = Modifier, contentDescription: String? = null) {
     Card(
-        modifier = if (contentDescription == null) modifier else modifier.clearAndSetSemantics { this.contentDescription = contentDescription },
+        modifier = if (contentDescription == null) {
+            modifier
+        } else {
+            modifier.clearAndSetSemantics { this.contentDescription = contentDescription }
+        },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {

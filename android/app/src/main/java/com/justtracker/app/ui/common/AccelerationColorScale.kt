@@ -13,14 +13,18 @@ import kotlin.math.abs
 object AccelerationColorScale {
     class Palette(val up: Int, val down: Int, val neutral: Int)
 
-    /** On light tiles and the light panel. */
-    val LIGHT = Palette(up = 0xFF2E7D32.toInt(), down = 0xFFE65100.toInt(), neutral = 0xFF78909C.toInt())
+    /**
+     * On light tiles and the light panel. Chosen by simulated colour-vision deficiency (Machado 2009, CIELAB): the
+     * darker green differs from the orange in lightness too, so speeding up and slowing down stay apart with protanopia
+     * (ΔE 20 instead of 12 for #2E7D32) and deuteranopia (46); the blue-grey neutral keeps 3.8:1 against the tiles.
+     */
+    val LIGHT = Palette(up = 0xFF1B5E20.toInt(), down = 0xFFE65100.toInt(), neutral = 0xFF607D8B.toInt())
 
     /**
-     * On inverted (dark) tiles and the dark panel. The green is darker than the panel's former #81C784: against the
-     * orange it then differs in lightness too, which is what tells them apart with deuteranopia.
+     * On inverted (dark) tiles and the dark panel: a light green with a saturated orange — ΔE ≥ 41 between them with
+     * protanopia and deuteranopia (#FFB74D gave 30 with protanopia), 8.5:1 and more against the panel.
      */
-    val DARK = Palette(up = 0xFF4CAF50.toInt(), down = 0xFFFFB74D.toInt(), neutral = 0xFF90A4AE.toInt())
+    val DARK = Palette(up = 0xFF81C784.toInt(), down = 0xFFFFA726.toInt(), neutral = 0xFF90A4AE.toInt())
 
     fun palette(dark: Boolean): Palette = if (dark) DARK else LIGHT
 
