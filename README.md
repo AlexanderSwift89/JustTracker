@@ -34,10 +34,10 @@ android/                    Gradle-проект приложения
     ui/                     Compose: onboarding (язык → разрешения) / record / history / detail / stats / settings / maps (офлайн-карты); common — TrackMap (камера, оверлеи), Shimmer — скелетоны загрузки
     util/                   AppLocale, AppLog, AppUserAgent, UnitFormatter, Permissions, Tracing
   app/src/main/assets/maps/regions.json   каталог регионов
-  app/src/test/             unit-тесты (255, в том числе ArchitectureTest — правила слоёв); resources/gpx — подмножества XSD GPX 1.1 и Garmin TrackPointExtension v2 для проверки экспорта
-  app/src/androidTest/      Room на устройстве: TrackDaoTest, MigrationTest 1 → 2
+  app/src/test/             unit-тесты (259, в том числе ArchitectureTest — правила слоёв); resources/gpx — подмножества XSD GPX 1.1 и Garmin TrackPointExtension v2 для проверки экспорта
+  app/src/androidTest/      Room на устройстве: TrackDaoTest, MigrationTest 1 → 2, 2 → 3, 1 → 3 (7 тестов)
   app/src/release/generated/baselineProfiles/   baseline profile, поставляется в release
-  app/schemas/              экспорт схемы Room (версии 1 и 2; 1 → 2 — AutoMigration)
+  app/schemas/              экспорт схемы Room (версии 1, 2 и 3; 1 → 2 и 2 → 3 — AutoMigration)
   baselineprofile/          генератор профиля и бенчмарк холодного старта (Macrobenchmark)
 tools/perf/                 синтетические длинные треки и замер CPU/кадров на эмуляторе (docs/08_test_plan.md §2)
 CHANGELOG.md

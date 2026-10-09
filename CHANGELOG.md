@@ -22,10 +22,13 @@ requests; the database schema is 3.
   shared `AccelerationMath`), but over a window centred on each point: the colour sits where the speed changed,
   without the live value's 2 s delay. Only Doppler speeds are used; runs are trimmed to the speed change and
   completed to a standstill — also after a stop too short for a standing point (a traffic light).
+- TalkBack reads the speed legend (and the new acceleration legend) as one sentence instead of its numbers and unit
+  symbols.
 - The line is recoloured in place when switching (no rebuild of the drawn pieces); the simplified line at overview
   zoom keeps the episodes' ends; the track is fitted below the overlays of the map.
-- The dark-theme speeding-up green is `#4CAF50` (was `#81C784`) for the live indicator too: it now differs from the
-  orange in lightness as well, which is what tells them apart with deuteranopia.
+- Acceleration colours chosen by simulated colour-vision deficiency (Machado 2009, CIELAB ΔE), for the live
+  indicator too: light `#1B5E20` / `#E65100` (was `#2E7D32`, ΔE 12 between them with protanopia, now 20), dark
+  `#81C784` / `#FFA726` (was `#FFB74D`, 30 → 41); the line's neutral `#607D8B` / `#90A4AE`, 3.8:1 against light tiles.
 
 ### Data
 - Schema 3: `track_points.speedAccuracyMps`, the 68 % accuracy of the receiver's Doppler speed, written only with
@@ -36,10 +39,10 @@ requests; the database schema is 3.
   dependency of its own again (D-32).
 
 ### Tests
-- 35 new JVM tests (255 in total): `AccelerationMath`, `TrackAcceleration` on a fixture that records through the real
+- 39 new JVM tests (259 in total): `AccelerationMath`, `TrackAcceleration` on a fixture that records through the real
   `TrackRecorder` (history equals the live value shifted by half a window; the emulator's stop-and-go, also from the
-  recorded points; noise, walking, receivers without Doppler speed, contradiction, tunnel, traffic light, spikes,
-  accuracies, thresholds, 100 000 points), colours, simplification breaks, the fit, settings, view model. 7
+  recorded points; noise, walking, receivers without Doppler speed, contradiction, tunnel, traffic light, thinned series edges, a standstill inside a series, a drive too short to show, spikes,
+  accuracies, thresholds, 100 000 points), colours (also under simulated protanopia / deuteranopia), simplification breaks, the fit, settings, view model. 7
   instrumented tests: migrations 1 → 2, 2 → 3, 1 → 3, DAO.
 
 ### Docs
