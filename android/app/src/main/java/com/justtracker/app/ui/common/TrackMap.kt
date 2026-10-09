@@ -74,6 +74,7 @@ internal class MapHolder(val map: MapView, val camera: MapCamera) {
     var fitBox: BoundingBox? = null
     var fitPaddingPx = 0
     var fitMinViewportPx = 0
+    var fitTopInsetPx = 0
     var fittedWidth = 0
     var fittedHeight = 0
     val fitRunnable = Runnable { fitIfNeeded() }
@@ -91,7 +92,7 @@ internal class MapHolder(val map: MapView, val camera: MapCamera) {
         val box = fitBox ?: return
         if (camera.userMoved) return
         if (map.width == fittedWidth && map.height == fittedHeight) return
-        if (fitCamera(map, box, fitPaddingPx, fitMinViewportPx)) {
+        if (fitCamera(map, box, fitPaddingPx, fitMinViewportPx, fitTopInsetPx)) {
             fittedWidth = map.width
             fittedHeight = map.height
         }
@@ -130,6 +131,7 @@ val LocalMapTiles = staticCompositionLocalOf<MapTiles> { error("MapTiles not pro
  * @param highlight vertex to mark with a small ring (the tapped section).
  * @param fitToTrack when true, the camera fits the whole track for every new view size until the
  *   user pans or zooms (detail mode); the camera itself survives activity recreation.
+ * @param fitTopInsetPx height covered by overlays at the top: the fitted track goes below it.
  * @param onUserGesture invoked when the user drags the map (used to disable follow mode).
  * @param onTrackTap invoked with the line vertex index when the user taps the line.
  */
@@ -143,6 +145,7 @@ fun TrackMap(
     highlight: LatLon? = null,
     follow: Boolean = false,
     fitToTrack: Boolean = false,
+    fitTopInsetPx: Int = 0,
     showStartFinish: Boolean = false,
     onUserGesture: (() -> Unit)? = null,
     onTrackTap: ((index: Int) -> Unit)? = null,
@@ -264,6 +267,13 @@ fun TrackMap(
             changed = syncPosition(holder, position, primaryArgb) || changed
             changed = syncHighlight(holder, highlight, highlightColor) || changed
 
+            if (fitToTrack && fitTopInsetPx != holder.fitTopInsetPx) {
+                // The overlays were measured or changed (the metric switch appears, a larger font): fit again.
+                holder.fitTopInsetPx = fitTopInsetPx
+                holder.fittedWidth = 0
+                holder.fittedHeight = 0
+                if (holder.fitBox != null) holder.requestFit(immediately = false)
+            }
             if (fitToTrack && holder.fitBox == null) {
                 line.bounds?.let { b ->
                     holder.fitBox = BoundingBox(b.maxLat, b.maxLon, b.minLat, b.minLon)

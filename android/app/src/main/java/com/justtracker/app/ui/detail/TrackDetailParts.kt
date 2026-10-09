@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
@@ -29,11 +28,15 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -190,6 +193,8 @@ internal fun DetailMap(
             LineColoring.BySpeed(track.maxSpeedMps)
         }
     }
+    // The fitted track goes below the overlays, which cover the top of the map.
+    var overlayHeightPx by remember { mutableIntStateOf(0) }
     Box(modifier) {
         TrackMap(
             line = state.line,
@@ -197,12 +202,14 @@ internal fun DetailMap(
             coloring = coloring,
             highlight = highlight(),
             fitToTrack = true,
+            fitTopInsetPx = overlayHeightPx,
             showStartFinish = true,
             onTrackTap = onTrackTap,
         )
         FlowRow(
             modifier = Modifier
                 .align(Alignment.TopStart)
+                .onSizeChanged { overlayHeightPx = it.height }
                 .padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -219,13 +226,14 @@ internal fun DetailMap(
 
 /**
  * "Speed | Acceleration" over the map. The inactive segment gets the overlays' surface: M3 leaves it transparent,
- * unreadable over map tiles. No check mark — the filled segment is the selection; two short labels fit 280 dp.
+ * unreadable over map tiles. No check mark — the filled segment is the selection. As wide as its labels, within the
+ * map's width (a label ends with "…" only when a large font does not fit even that).
  */
 @Composable
 private fun LineMetricSwitch(metric: LineMetric, onChange: (LineMetric) -> Unit) {
     val options = listOf(LineMetric.SPEED to R.string.detail_line_speed, LineMetric.ACCELERATION to R.string.detail_line_acceleration)
     val colors = SegmentedButtonDefaults.colors(inactiveContainerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f))
-    SingleChoiceSegmentedButtonRow(Modifier.widthIn(max = METRIC_SWITCH_MAX_WIDTH)) {
+    SingleChoiceSegmentedButtonRow {
         options.forEachIndexed { i, (option, label) ->
             SegmentedButton(
                 selected = metric == option,
@@ -239,7 +247,6 @@ private fun LineMetricSwitch(metric: LineMetric, onChange: (LineMetric) -> Unit)
     }
 }
 
-private val METRIC_SWITCH_MAX_WIDTH = 280.dp
 
 /** Activity type (tap → type sheet) and the button that folds the stats grid away. */
 @Composable
