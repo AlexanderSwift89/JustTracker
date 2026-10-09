@@ -16,7 +16,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -59,9 +58,8 @@ internal class MapHolder(val map: MapView, val camera: MapCamera) {
     var finishMarker: Marker? = null
     var highlightMarker: Marker? = null
     var lastFollowTarget: LatLon? = null
-    var lineColor: Int = 0
-    var speedColors = false
-    var maxSpeedMps = 0.0
+    /** Colouring the pieces are drawn in; see [syncLine]. */
+    var coloring: LineColoring? = null
     /** Configuration the current tile provider was built for. */
     var tileConfig: TileConfig? = null
     /** Detail level the pieces are drawn at ([DETAIL_TOLERANCES_M]). */
@@ -105,7 +103,8 @@ internal class MapHolder(val map: MapView, val camera: MapCamera) {
         if (l == level) return
         level = l
         val current = line ?: return
-        for (piece in pieces) piece.show(current, l)
+        val c = coloring ?: return
+        for (piece in pieces) piece.show(current, l, c)
         map.invalidate()
     }
 
@@ -125,9 +124,8 @@ val LocalMapTiles = staticCompositionLocalOf<MapTiles> { error("MapTiles not pro
  * Compose wrapper over osmdroid's MapView (docs/05_architecture.md §7).
  *
  * @param line the track; recording segments are not connected to each other.
- * @param speedColors colour the line by each vertex's speed relative to [maxSpeedMps]
- *   (see [SpeedColorScale]); when false the line is drawn in [lineColor].
- * @param maxSpeedMps top of the speed colour scale (the track's max speed).
+ * @param coloring the line's colours: by speed relative to the track's max speed ([SpeedColorScale]) or by
+ *   acceleration ([AccelerationColorScale]).
  * @param position current user position; drawn as a dot and followed when [follow] is true.
  * @param highlight vertex to mark with a small ring (the tapped section).
  * @param fitToTrack when true, the camera fits the whole track for every new view size until the
@@ -140,9 +138,7 @@ val LocalMapTiles = staticCompositionLocalOf<MapTiles> { error("MapTiles not pro
 fun TrackMap(
     line: TrackLine,
     modifier: Modifier = Modifier,
-    lineColor: Color = MaterialTheme.colorScheme.primary,
-    speedColors: Boolean = true,
-    maxSpeedMps: Double = 0.0,
+    coloring: LineColoring = LineColoring.BySpeed(0.0),
     position: LatLon? = null,
     highlight: LatLon? = null,
     follow: Boolean = false,
@@ -263,7 +259,7 @@ fun TrackMap(
             holder.onTrackTap = onTrackTap
             holder.onUserGesture = onUserGesture
             // Only a real change redraws the map: an unchanged recomposition used to invalidate it as well (D-28).
-            var changed = syncLine(holder, line, lineColor.toArgb(), strokePx, speedColors, maxSpeedMps)
+            var changed = syncLine(holder, line, strokePx, coloring)
             changed = syncStartFinish(holder, line, showStartFinish, startColor, finishColor) || changed
             changed = syncPosition(holder, position, primaryArgb) || changed
             changed = syncHighlight(holder, highlight, highlightColor) || changed

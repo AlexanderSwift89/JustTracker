@@ -36,11 +36,11 @@ import com.justtracker.app.domain.model.Track
 import com.justtracker.app.domain.track.TrackCursor
 import com.justtracker.app.ui.common.ActivityBadge
 import com.justtracker.app.ui.common.FittedText
+import com.justtracker.app.ui.common.LineColoring
 import com.justtracker.app.ui.common.MapModeBadge
 import com.justtracker.app.ui.common.SpeedLegend
 import com.justtracker.app.ui.common.StatTile
 import com.justtracker.app.ui.common.TrackMap
-import com.justtracker.app.ui.theme.ActivityColors
 import com.justtracker.app.util.TimeFormat
 import com.justtracker.app.util.UnitFormatter
 import com.justtracker.app.util.labelRes
@@ -115,8 +115,7 @@ internal fun DetailMap(
         TrackMap(
             line = state.line,
             modifier = Modifier.fillMaxSize(),
-            lineColor = ActivityColors.of(track.activityType),
-            maxSpeedMps = track.maxSpeedMps,
+            coloring = LineColoring.BySpeed(track.maxSpeedMps),
             highlight = highlight(),
             fitToTrack = true,
             showStartFinish = true,

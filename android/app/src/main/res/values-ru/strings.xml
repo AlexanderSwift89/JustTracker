@@ -59,6 +59,7 @@
     <string name="record_expand_stats">Показать больше показателей</string>
     <string name="record_collapse_stats">Скрыть дополнительные показатели</string>
     <string name="map_speed_legend_cd">Цвет линии: скорость от 0 до %1$s</string>
+    <string name="map_acceleration_legend_cd">Цвет линии: ускорение, замедление до %1$s и разгон до %2$s %3$s</string>
     <string name="map_tap_speed_title">Скорость на участке</string>
     <string name="map_tap_speed_detail">%1$s от старта · %2$s с начала записи</string>
     <string name="record_speed_unavailable">—</string>

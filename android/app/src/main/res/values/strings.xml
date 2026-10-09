@@ -74,6 +74,7 @@
     <string name="record_hide_acceleration">Hide acceleration</string>
     <string name="record_acceleration_hint">Tap the speed to see acceleration</string>
     <string name="map_speed_legend_cd">Line colour: speed from 0 to %1$s</string>
+    <string name="map_acceleration_legend_cd">Line colour: acceleration, slowing down to %1$s and speeding up to %2$s %3$s</string>
     <string name="map_tap_speed_title">Speed on this section</string>
     <string name="map_tap_speed_detail">%1$s from start · %2$s into the recording</string>
 

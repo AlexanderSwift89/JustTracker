@@ -64,7 +64,7 @@ class LineSimplifierTest {
         val s = LineSimplifier.simplify(line, 0, 10, 1.0)
         assertArrayEquals(intArrayOf(0, 10), s.kept)
         val mean = (0 until 10).sumOf { line.speedMps(it).toDouble() } / 10
-        assertEquals(mean, s.segmentSpeedsMps.single().toDouble(), 1e-5)
+        assertEquals(mean, s.segmentMeans.single().toDouble(), 1e-5)
     }
 
     @Test
@@ -73,6 +73,37 @@ class LineSimplifierTest {
         val s = LineSimplifier.simplify(line, 100, 200, 4.0)
         assertEquals(100, s.kept.first())
         assertEquals(200, s.kept.last())
-        assertEquals(s.kept.size - 1, s.segmentSpeedsMps.size)
+        assertEquals(s.kept.size - 1, s.segmentMeans.size)
+    }
+
+    @Test
+    fun `breaks are always kept and every stretch stays within the tolerance`() {
+        val line = walk(Random(4), 400)
+        val coarse = LineSimplifier.simplify(line, 0, 399, 64.0)
+        val breaks = intArrayOf(37, 38, 150, 399, 500)
+        val s = LineSimplifier.simplify(line, 0, 399, 64.0, breaks)
+        for (b in intArrayOf(37, 38, 150, 399)) assertTrue("break $b", b in s.kept)
+        assertTrue(s.kept.size <= coarse.kept.size + 3)
+        for (seg in 0 until s.kept.size - 1) {
+            val a = s.kept[seg]
+            val b = s.kept[seg + 1]
+            for (v in a..b) {
+                val d = Geo.distanceToSegmentMeters(line.lat(v), line.lon(v), line.lat(a), line.lon(a), line.lat(b), line.lon(b))
+                assertTrue(d <= 64.0 + 1e-6)
+            }
+        }
+    }
+
+    @Test
+    fun `the mean of another value leaves out vertices without one`() {
+        val line = TrackLine.of(List(11) { i ->
+            TrackPoint(trackId = 1, segment = 0, timestamp = i * 1000L, lat = 55.0 + i * 1e-5, lon = 37.0, altitudeM = null,
+                accuracyM = 5f, speedMps = 1f, bearingDeg = null)
+        })
+        val values = floatArrayOf(Float.NaN, 1f, 3f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, 9f)
+        val s = LineSimplifier.simplify(line, 0, 10, 1.0, intArrayOf(5)) { values[it] }
+        assertArrayEquals(intArrayOf(0, 5, 10), s.kept)
+        assertEquals(2f, s.segmentMeans[0], 1e-6f)
+        assertTrue(s.segmentMeans[1].isNaN())
     }
 }
