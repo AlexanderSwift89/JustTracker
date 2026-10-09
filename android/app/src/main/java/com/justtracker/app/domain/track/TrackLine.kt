@@ -4,6 +4,7 @@ import com.justtracker.app.domain.geo.Geo
 import com.justtracker.app.domain.geo.LatLon
 import com.justtracker.app.domain.maps.LatLonBox
 import com.justtracker.app.domain.model.TrackPoint
+import com.justtracker.app.domain.stats.AccelerationState
 import com.justtracker.app.domain.stats.TrackStatsCalculator
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -23,6 +24,9 @@ data class TrackCursor(
     val timestamp: Long,
     /** null when the fix had no altitude. */
     val altitudeM: Double?,
+    /** Acceleration at the vertex ([TrackAcceleration.annotate]); null where there is no estimate. */
+    val accelerationMps2: Float? = null,
+    val accelerationState: AccelerationState? = null,
 )
 
 /** Vertex the user tapped on the line, resolved to the values the map cannot know. */
