@@ -126,6 +126,32 @@ class TrackAccelerationTest {
     }
 
     @Test
+    fun `a stop at a traffic light too short for a standing point still ends and starts at 0`() {
+        // 15 m/s, braking at 2.5 m/s² to a stop, 20 s standing (no standing point is stored), +2 m/s² back to 15 m/s.
+        val rec = recordDrive(seconds = 100, noise = 0.1) { t ->
+            when {
+                t < 30 -> 15.0
+                t < 36 -> 15.0 - 2.5 * (t - 30)
+                t < 56 -> 0.0
+                t < 63.5 -> 2.0 * (t - 56)
+                else -> 15.0
+            }
+        }
+        assertTrue(rec.points.none { it.timestamp in 1_037_000L..1_055_000L })
+        val acc = rec.acceleration()
+        assertEquals(2, acc.episodes.size)
+        val (down, up) = acc.episodes
+        assertEquals(DECELERATING, down.kind)
+        assertTrue(down.toRest)
+        assertEquals(0f, down.toSpeedMps, 0f)
+        assertEquals(6_000.0, down.durationMs.toDouble(), 1_000.0)
+        assertEquals(ACCELERATING, up.kind)
+        assertTrue(up.fromRest)
+        assertEquals(0f, up.fromSpeedMps, 0f)
+        assertEquals(7_500.0, up.durationMs.toDouble(), 1_000.0)
+    }
+
+    @Test
     fun `a steady speed with GPS noise stays steady`() {
         val acc = recordDrive(seconds = 600, noise = 0.35, seed = 3) { 10.0 }.acceleration()
         val values = acc.estimated()

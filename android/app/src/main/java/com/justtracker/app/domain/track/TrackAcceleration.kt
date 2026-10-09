@@ -6,6 +6,7 @@ import com.justtracker.app.domain.stats.AccelerationEstimator
 import com.justtracker.app.domain.stats.AccelerationMath
 import com.justtracker.app.domain.stats.AccelerationState
 import com.justtracker.app.domain.stats.LiveMotion
+import com.justtracker.app.domain.stats.SpeedMath
 import com.justtracker.app.domain.stats.TrackStatsCalculator
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -315,14 +316,17 @@ class TrackAcceleration private constructor(
             var startMs = line.timestamp(startIndex).toDouble()
             var endMs = line.timestamp(endIndex).toDouble()
 
-            // Standing still stores a point every 30 s only, so a series starts already moving (and ends still moving):
-            // complete the speed to 0 when the neighbouring stored point stands and the edge's rate gets there quickly.
+            // Standing still stores a point every 30 s only — a shorter stop (a traffic light) none at all — so a series
+            // starts already moving and ends still moving: complete the speed to 0 when the track stood next to the
+            // series and the edge's own rate gets there within REST_MAX_MS.
             var fromRest = false
-            if (up && s == first && first > segStart && points[first - 1].isStanding() && from <= REST_MAX_MPS) {
+            val before = first - 1
+            if (up && s == first && first > segStart && from <= REST_MAX_MPS && stood(before, first, before)) {
                 val restMs = restTimeMs(from, values[startIndex])
                 if (restMs != null) {
-                    startMs = max(startMs - restMs, line.timestamp(first - 1).toDouble())
-                    startIndex = first - 1
+                    startMs = max(startMs - restMs, line.timestamp(before).toDouble())
+                    // The place it started from: the standing point, else the first moving one (metres from the stop).
+                    if (points[before].isStanding()) startIndex = before
                     from = 0f
                     fromRest = true
                 }
@@ -330,11 +334,11 @@ class TrackAcceleration private constructor(
             var toRest = false
             val next = last + 1
             // The recording may stop before the 30 s standstill point is stored: no next point counts as standing.
-            if (!up && e == last && (next >= segEnd || points[next].isStanding()) && to <= REST_MAX_MPS) {
+            if (!up && e == last && to <= REST_MAX_MPS && (next >= segEnd || stood(last, next, next))) {
                 val restMs = restTimeMs(to, -values[endIndex])
                 if (restMs != null) {
                     endMs = if (next < segEnd) min(endMs + restMs, line.timestamp(next).toDouble()) else endMs + restMs
-                    if (next < segEnd) endIndex = next
+                    if (next < segEnd && points[next].isStanding()) endIndex = next
                     to = 0f
                     toRest = true
                 }
@@ -367,5 +371,17 @@ class TrackAcceleration private constructor(
         }
 
         private fun TrackPoint.isStanding(): Boolean = (speedMps ?: 0f) <= TrackStatsCalculator.MOVING_THRESHOLD_MPS
+
+        /**
+         * The track stood between the stored points [a] and [b] (a < b): [standing] — the one outside the series — stands,
+         * or they are more than a series gap apart and the position barely moved in between (≤ 0.5 m/s on average): a
+         * stop too short for a standing point of its own. A tunnel moves on, so it is no stop.
+         */
+        private fun stood(a: Int, b: Int, standing: Int): Boolean {
+            if (points[standing].isStanding()) return true
+            val dtMs = points[b].timestamp - points[a].timestamp
+            if (dtMs <= AccelerationEstimator.MAX_GAP_MS) return false
+            return !SpeedMath.isMoving(Geo.distanceMeters(points[a].lat, points[a].lon, points[b].lat, points[b].lon), dtMs)
+        }
     }
 }
