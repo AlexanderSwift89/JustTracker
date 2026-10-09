@@ -1,10 +1,10 @@
 package com.justtracker.app.ui.common
 
 import androidx.compose.runtime.saveable.Saver
-import com.justtracker.app.domain.geo.Geo
 import org.osmdroid.util.BoundingBox
-import org.osmdroid.util.TileSystem
+import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
+import org.osmdroid.views.Projection
 
 /**
  * Camera of a [TrackMap] kept across activity recreation (theme or language change, process death):
@@ -35,23 +35,38 @@ internal class MapCamera(
  * happens until the view is at least [minViewportPx] in both directions. Returns whether it fitted.
  *
  * [topInsetPx] is covered by overlays (the detail's metric switch and legend): the track goes below it — the padding
- * above the track grows to the inset — so its northern end is not hidden behind them.
+ * above the track grows to the inset — so its northern end is not hidden behind them; the bottom padding is then halved,
+ * so the overlays cost the track less of a short map.
  */
 internal fun fitCamera(map: MapView, box: BoundingBox, paddingPx: Int, minViewportPx: Int, topInsetPx: Int = 0): Boolean {
     val width = map.width
     val height = map.height
     val padding = fitPadding(width, height, paddingPx, minViewportPx) ?: return false
     val extra = fitTopExtra(height, padding, minViewportPx, topInsetPx)
-    val zoom = MapView.getTileSystem().getBoundingBoxZoom(box, width - 2 * padding, height - 2 * padding - extra)
-    if (zoom.isNaN() || zoom.isInfinite()) return false
     if (extra == 0) {
+        val zoom = MapView.getTileSystem().getBoundingBoxZoom(box, width - 2 * padding, height - 2 * padding)
+        if (zoom.isNaN() || zoom.isInfinite()) return false
         map.zoomToBoundingBox(box, false, padding, FIT_MAX_ZOOM, null)
         return true
     }
-    // The box grows north by the extra pixels at the zoom it gets, so osmdroid's centred fit leaves them free on top.
-    val z = minOf(zoom, FIT_MAX_ZOOM)
-    val extraLat = extra * TileSystem.GroundResolution(box.centerLatitude, z) / Geo.METERS_PER_DEGREE
-    map.zoomToBoundingBox(BoundingBox(box.latNorth + extraLat, box.lonEast, box.latSouth, box.lonWest), false, padding, z, null)
+    // Below the overlays: the track starts under them, and at the bottom it needs only room for the finish marker.
+    val top = padding + extra
+    val bottom = padding / 2
+    val zoom = MapView.getTileSystem().getBoundingBoxZoom(box, width - 2 * padding, height - top - bottom)
+    if (zoom.isNaN() || zoom.isInfinite()) return false
+    // osmdroid's fit would centre the box; here the centre moves so that the box's middle, in screen pixels (Mercator is
+    // not linear in latitude), sits in the middle of the free band between the overlays and the bottom.
+    val z = zoom.coerceAtMost(FIT_MAX_ZOOM).coerceIn(map.minZoomLevel, map.maxZoomLevel)
+    val center = box.centerWithDateLine
+    val projection = Projection(
+        z, width, height, center, map.mapOrientation,
+        map.isHorizontalMapRepetitionEnabled, map.isVerticalMapRepetitionEnabled, map.mapCenterOffsetX, map.mapCenterOffsetY,
+    )
+    val north = projection.toPixels(GeoPoint(box.actualNorth, center.longitude), null).y
+    val south = projection.toPixels(GeoPoint(box.actualSouth, center.longitude), null).y
+    val shift = (top + height - bottom) / 2 - (north + south) / 2
+    map.controller.setZoom(z)
+    map.controller.setCenter(projection.fromPixels(width / 2, height / 2 - shift))
     return true
 }
 
