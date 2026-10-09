@@ -3,6 +3,12 @@
 
     python tools/perf/make_track_db.py --points 10000 --status RECORDING
     python tools/perf/make_track_db.py --points 100000 --status FINISHED --segments 3 --lat 59.93 --lon 30.33
+    python tools/perf/make_track_db.py --points 100000 --status FINISHED --profile drive
+
+--profile walk (default) is a walk at --speed with a fix stored every second. --profile drive is stop-and-go driving
+(standing, speeding up at 1.5-3 m/s², cruising at 12-25 m/s, braking at 2-4 m/s²) with the receiver's Doppler speed
+(noise 0.15 m/s) and its accuracy, thinned by the app's storage rule (>= 2 m or >= 30 s) — a track with acceleration
+episodes for the track detail (US-24). The speed accuracy is written when the schema has it (3, JustTracker 1.2.0).
 
 The app is force-stopped, its database (with the WAL) is copied out through `run-as`, the track is appended with
 Python's sqlite3, and the checkpointed file is copied back without -wal/-shm. Only debuggable builds allow `run-as`
@@ -39,6 +45,38 @@ def haversine(lat1, lon1, lat2, lon2):
     return 2 * r * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
+class DriveProfile:
+    """Stop-and-go driving, one true speed per second: stand, speed up, cruise, brake to a stop, again."""
+
+    def __init__(self, rnd):
+        self.rnd = rnd
+        self.speed = 0.0
+        self.phase, self.left = "stand", rnd.randint(5, 30)
+        self.rate, self.target = 0.0, 0.0
+
+    def next(self):
+        rnd = self.rnd
+        if self.phase == "stand":
+            self.speed = 0.0
+            self.left -= 1
+            if self.left <= 0:
+                self.phase, self.rate, self.target = "up", rnd.uniform(1.5, 3.0), rnd.uniform(12, 25)
+        elif self.phase == "up":
+            self.speed = min(self.target, self.speed + self.rate)
+            if self.speed >= self.target:
+                self.phase, self.left = "cruise", rnd.randint(30, 90)
+        elif self.phase == "cruise":
+            self.speed = max(5.0, self.speed + rnd.gauss(0, 0.2))
+            self.left -= 1
+            if self.left <= 0:
+                self.phase, self.rate = "down", rnd.uniform(2.0, 4.0)
+        else:
+            self.speed = max(0.0, self.speed - self.rate)
+            if self.speed == 0.0:
+                self.phase, self.left = "stand", rnd.randint(5, 40)
+        return self.speed
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--package", default="com.justtracker.app.debug")
@@ -48,7 +86,8 @@ def main():
     ap.add_argument("--status", choices=["RECORDING", "FINISHED"], default="RECORDING")
     ap.add_argument("--lat", type=float, default=55.7558)
     ap.add_argument("--lon", type=float, default=37.6173)
-    ap.add_argument("--speed", type=float, default=1.6, help="mean speed, m/s")
+    ap.add_argument("--speed", type=float, default=1.6, help="mean speed of a walk, m/s")
+    ap.add_argument("--profile", choices=["walk", "drive"], default="walk")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--newest", action="store_true", help="FINISHED track listed first in History (starts now)")
     args = ap.parse_args()
@@ -67,6 +106,7 @@ def main():
 
     con = sqlite3.connect(local)
     con.execute("PRAGMA foreign_keys=ON")
+    has_speed_accuracy = any(row[1] == "speedAccuracyMps" for row in con.execute("PRAGMA table_info(track_points)"))
     now_ms = int(time.time() * 1000)
     started = now_ms - 60_000 if args.newest else now_ms - args.points * 1000 - 60_000
     if args.status == "RECORDING":
@@ -74,7 +114,8 @@ def main():
     cur = con.execute(
         "INSERT INTO tracks (name,status,activityType,activityManual,startedAt,finishedAt,distanceM,movingTimeMs,totalTimeMs,"
         "pausedTimeMs,avgSpeedMps,maxSpeedMps,elevationGainM,elevationLossM,pointCount) VALUES (?,?,?,?,?,?,0,0,0,0,0,0,0,0,0)",
-        (f"Perf {args.points} pts", args.status, "WALK", 0, started, None if args.status == "RECORDING" else started + args.points * 1000),
+        (f"Perf {args.points} pts", args.status, "CAR" if args.profile == "drive" else "WALK", 0, started,
+         None if args.status == "RECORDING" else started + args.points * 1000),
     )
     track_id = cur.lastrowid
 
@@ -84,35 +125,52 @@ def main():
     rows, distance, moving_ms, max_speed = [], 0.0, 0, 0.0
     prev = None
     t = started
-    for i in range(args.points):
-        segment = min(i // per_segment, args.segments - 1)
+    drive = DriveProfile(rnd) if args.profile == "drive" else None
+    since_stored, last_stored_t = 0.0, None
+    while len(rows) < args.points:
+        segment = min(len(rows) // per_segment, args.segments - 1)
         if prev is not None and segment != prev[0]:
             t += 120_000  # a pause between segments
-        speed = max(0.0, rnd.gauss(args.speed, args.speed * 0.25))
-        heading += rnd.gauss(0, 0.08)
+            since_stored, last_stored_t = 0.0, None
+        if drive is None:
+            speed = max(0.0, rnd.gauss(args.speed, args.speed * 0.25))
+            reported = speed
+        else:
+            speed = drive.next()
+            reported = max(0.0, speed + rnd.gauss(0, 0.15))
+        heading += rnd.gauss(0, 0.08 if drive is None else 0.01)
         step = speed  # one fix per second
         nlat = lat + step * math.cos(heading) / 111_195.0
         nlon = lon + step * math.sin(heading) / (111_195.0 * math.cos(math.radians(lat)))
         alt += rnd.gauss(0, 0.4)
-        if prev is not None and prev[0] == segment:
-            d = haversine(lat, lon, nlat, nlon)
-            distance += d
-            if speed > 0.5:
-                moving_ms += 1000
+        moved = haversine(lat, lon, nlat, nlon)
         lat, lon = nlat, nlon
-        max_speed = max(max_speed, speed)
-        rows.append((track_id, segment, t, lat, lon, alt, rnd.uniform(3, 12), speed, math.degrees(heading) % 360, rnd.uniform(2, 8)))
+        since_stored += moved
+        # The app stores a fix that moved >= 2 m from the last stored one, or after 30 s (docs/06_system_analysis.md §3.1).
+        if drive is not None and last_stored_t is not None and since_stored < 2.0 and t - last_stored_t < 30_000:
+            t += 1000
+            continue
+        if prev is not None and prev[0] == segment:
+            distance += since_stored
+            if since_stored / max(1.0, (t - last_stored_t) / 1000) > 0.5:
+                moving_ms += t - last_stored_t
+        max_speed = max(max_speed, reported)
+        accuracy = round(rnd.uniform(0.1, 0.5), 2) if drive is not None else 0.3
+        rows.append((track_id, segment, t, lat, lon, alt, rnd.uniform(3, 12), reported, math.degrees(heading) % 360, rnd.uniform(2, 8),
+                     accuracy))
         prev = (segment,)
+        since_stored, last_stored_t = 0.0, t
         t += 1000
-    con.executemany(
-        "INSERT INTO track_points (trackId,segment,timestamp,lat,lon,altitudeM,accuracyM,speedMps,bearingDeg,verticalAccuracyM) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?)",
-        rows,
-    )
+    columns = "trackId,segment,timestamp,lat,lon,altitudeM,accuracyM,speedMps,bearingDeg,verticalAccuracyM"
+    if has_speed_accuracy:
+        con.executemany(f"INSERT INTO track_points ({columns},speedAccuracyMps) VALUES (?,?,?,?,?,?,?,?,?,?,?)", rows)
+    else:
+        con.executemany(f"INSERT INTO track_points ({columns}) VALUES (?,?,?,?,?,?,?,?,?,?)", [r[:-1] for r in rows])
     total_ms = rows[-1][2] - started
     con.execute(
-        "UPDATE tracks SET distanceM=?, movingTimeMs=?, totalTimeMs=?, avgSpeedMps=?, maxSpeedMps=?, pointCount=? WHERE id=?",
-        (distance, moving_ms, total_ms, distance / (moving_ms / 1000) if moving_ms else 0.0, max_speed, len(rows), track_id),
+        "UPDATE tracks SET distanceM=?, movingTimeMs=?, totalTimeMs=?, avgSpeedMps=?, maxSpeedMps=?, pointCount=?, "
+        "finishedAt=CASE WHEN finishedAt IS NULL THEN NULL ELSE ? END WHERE id=?",
+        (distance, moving_ms, total_ms, distance / (moving_ms / 1000) if moving_ms else 0.0, max_speed, len(rows), rows[-1][2], track_id),
     )
     con.commit()
     con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
