@@ -28,6 +28,7 @@ OFFLINE MAPS
 HISTORY AND STATISTICS
 • Every track in a list: date, distance, time, activity type.
 • Track details: map with the route, a scrubber along the track (speed, time, altitude at any point), distance, recording and moving time, average and maximum speed, elevation gain and loss.
+• Where you sped up and braked: the track line by acceleration, the maximum speed-up and slow-down, a "0 → 72 km/h in 10 s" list that takes you to the place on the map.
 • Activity type — walking, running, cycling, driving — is detected automatically and can be changed.
 • Overall statistics by activity and by week.
 • GPX export — open your tracks in any mapping software.
@@ -43,6 +44,12 @@ SIMPLE AND SELF-CONTAINED
 Map data © OpenStreetMap contributors (ODbL). Offline maps: Mapsforge files.
 
 Privacy policy: https://alexanderswift89.github.io/JustTracker/privacy/
+
+## What's new (version 1.2.0)
+
+• Acceleration in your history: a "Speed | Acceleration" switch in the track details. The line shows where you sped up (green) and slowed down (orange); the scrubber shows the acceleration at that point.
+• Maximum speed-up and slow-down in the track statistics and a "Speeding up and slowing down" list, such as "0 → 72 km/h in 10 s"; tap a row to see the place on the map.
+• Works for earlier tracks too if the GPS receiver reported the speed. No new permissions.
 
 ## What's new (version 1.1.2)
 

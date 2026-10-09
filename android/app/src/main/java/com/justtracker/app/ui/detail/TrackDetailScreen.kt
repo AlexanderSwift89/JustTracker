@@ -57,6 +57,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.justtracker.app.R
 import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.domain.model.ActivityType
+import com.justtracker.app.domain.track.AccelerationEpisode
 import com.justtracker.app.ui.common.ActivityBadge
 import com.justtracker.app.ui.common.StatTile
 import com.justtracker.app.ui.common.appViewModelWithState
@@ -88,6 +89,7 @@ fun TrackDetailScreen(
     var showRename by rememberSaveable { mutableStateOf(false) }
     var showTypeSheet by rememberSaveable { mutableStateOf(false) }
     var showDelete by rememberSaveable { mutableStateOf(false) }
+    var showEpisodes by rememberSaveable { mutableStateOf(false) }
     // Stats grid is shown by default; the user can fold it away to give the map the whole screen while the
     // scrubber and its values stay put (docs/04_ux_design.md §2.4). Survives rotation, not navigation.
     var statsVisible by rememberSaveable { mutableStateOf(true) }
@@ -105,6 +107,7 @@ fun TrackDetailScreen(
                 formatter = f,
                 offline = offline,
                 onTrackTap = viewModel::onTrackTap,
+                onMetricChange = viewModel::setLineMetric,
                 highlight = { cursorState.value?.point },
                 modifier = modifier,
             )
@@ -113,6 +116,12 @@ fun TrackDetailScreen(
 
     val track = state.track
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    // An episode moves the scrubber to its start; in landscape the pane scrolls back up to the scrubber's values.
+    val onEpisode = { episode: AccelerationEpisode ->
+        viewModel.onEpisodeTap(episode)
+        scope.launch { paneScroll.animateScrollTo(0) }
+        Unit
+    }
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         snackbarHost = { SnackbarHost(snackbar) },
@@ -176,11 +185,27 @@ fun TrackDetailScreen(
                 return@BoxWithConstraints
             }
             val offline = state.mapMode == MapMode.OFFLINE
-            val tiles = statTiles(track, formatter)
+            val tiles = statTiles(track, state.acceleration, formatter)
+            val hasEpisodes = state.acceleration.hasEpisodes
             val cursorPanel = @Composable {
                 cursorState.value?.let { cursor ->
-                    TrackCursorPanel(cursor = cursor, formatter = formatter, onFraction = viewModel::scrubToFraction, onStep = viewModel::stepCursor)
+                    TrackCursorPanel(
+                        cursor = cursor,
+                        metric = state.lineMetric,
+                        formatter = formatter,
+                        onFraction = viewModel::scrubToFraction,
+                        onStep = viewModel::stepCursor,
+                    )
                 }
+            }
+            val episodes = @Composable { modifier: Modifier ->
+                EpisodesSection(
+                    state.acceleration,
+                    formatter,
+                    onEpisode = onEpisode,
+                    onShowAll = { showEpisodes = true },
+                    modifier = modifier,
+                )
             }
             val activityRow = @Composable {
                 ActivityRow(
@@ -202,7 +227,10 @@ fun TrackDetailScreen(
                     ) {
                         cursorPanel()
                         activityRow()
-                        if (statsVisible) StatTileRows(tiles, Modifier.padding(bottom = 8.dp))
+                        if (statsVisible) {
+                            StatTileRows(tiles, Modifier.padding(bottom = 8.dp))
+                            if (hasEpisodes) episodes(Modifier.padding(bottom = 8.dp))
+                        }
                     }
                 }
             } else {
@@ -223,7 +251,10 @@ fun TrackDetailScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             items(tiles, span = { item -> GridItemSpan(if (item.wide) maxLineSpan else 1) }) { item ->
-                                StatTile(label = item.label, value = item.value)
+                                StatTile(label = item.label, value = item.value, contentDescription = item.spoken)
+                            }
+                            if (hasEpisodes) {
+                                item(span = { GridItemSpan(maxLineSpan) }) { episodes(Modifier) }
                             }
                         }
                     }
@@ -243,6 +274,9 @@ fun TrackDetailScreen(
             showDelete = false
             viewModel.delete(onDone = onBack)
         })
+    }
+    if (showEpisodes && state.acceleration.hasEpisodes) {
+        EpisodesSheet(state.acceleration, formatter, onEpisode = onEpisode, onDismiss = { showEpisodes = false })
     }
     if (showTypeSheet && track != null) {
         ModalBottomSheet(onDismissRequest = { showTypeSheet = false }) {

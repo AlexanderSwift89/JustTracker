@@ -8,6 +8,9 @@ enum class UnitSystem { METRIC, IMPERIAL }
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** What the track line of the detail screen is coloured by (US-24). */
+enum class LineMetric { SPEED, ACCELERATION }
+
 /**
  * UI language chosen explicitly by the user (US-18). There is no "system" option: the choice is
  * made once during onboarding (pre-selected from the device locale) and can be changed in Settings.
@@ -43,6 +46,11 @@ data class TrackPoint(
     val bearingDeg: Float?,
     /** Receiver's 68 % vertical accuracy of [altitudeM]; null when not reported (points recorded before 1.0.2 too). */
     val verticalAccuracyM: Float? = null,
+    /**
+     * Receiver's 68 % accuracy of [speedMps], stored only when [speedMps] is the receiver's own (Doppler) speed: null when
+     * the speed came from the displacement, when the receiver gave no accuracy, and for points recorded before 1.2.0.
+     */
+    val speedAccuracyMps: Float? = null,
 )
 
 data class Track(
@@ -122,4 +130,6 @@ data class AppSettings(
     val showAcceleration: Boolean = false,
     /** The one-time "tap the speed to see acceleration" hint was shown (or the user found the indicator first). */
     val accelerationHintShown: Boolean = false,
+    /** The track detail's line colouring (US-24), kept for the next track; speed until the user switches. */
+    val detailLineMetric: LineMetric = LineMetric.SPEED,
 )

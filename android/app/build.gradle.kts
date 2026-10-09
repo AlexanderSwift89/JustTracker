@@ -35,8 +35,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // Overridable from the command line for CI builds: -PversionCode=12 -PversionName=1.2.0
-        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 6
-        versionName = (project.findProperty("versionName") as String?) ?: "1.1.2"
+        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 7
+        versionName = (project.findProperty("versionName") as String?) ?: "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -222,6 +222,7 @@ dependencies {
     testImplementation(libs.org.json)
 
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.room.testing)
 
     debugImplementation(libs.androidx.compose.ui.tooling)

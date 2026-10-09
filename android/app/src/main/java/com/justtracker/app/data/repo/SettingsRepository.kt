@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.emptyPreferences
 import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.domain.model.AppLanguage
 import com.justtracker.app.domain.model.AppSettings
+import com.justtracker.app.domain.model.LineMetric
 import com.justtracker.app.domain.model.ThemeMode
 import com.justtracker.app.domain.model.UnitSystem
 import kotlinx.coroutines.flow.Flow
@@ -50,6 +51,7 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
         val MAP_MODE = stringPreferencesKey("map_mode")
         val SHOW_ACCELERATION = booleanPreferencesKey("show_acceleration")
         val ACCELERATION_HINT_SHOWN = booleanPreferencesKey("acceleration_hint_shown")
+        val DETAIL_LINE_METRIC = stringPreferencesKey("detail_line_metric")
     }
 
     // An unreadable file (I/O error) gives the defaults instead of an exception in every screen; corruption is
@@ -66,6 +68,7 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
             mapMode = p[Keys.MAP_MODE]?.let { runCatching { MapMode.valueOf(it) }.getOrNull() } ?: MapMode.ONLINE,
             showAcceleration = p[Keys.SHOW_ACCELERATION] ?: false,
             accelerationHintShown = p[Keys.ACCELERATION_HINT_SHOWN] ?: false,
+            detailLineMetric = p[Keys.DETAIL_LINE_METRIC]?.let { runCatching { LineMetric.valueOf(it) }.getOrNull() } ?: LineMetric.SPEED,
         )
     }
 
@@ -84,4 +87,5 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
         it[Keys.ACCELERATION_HINT_SHOWN] = true
     }
     suspend fun setAccelerationHintShown() = store.edit { it[Keys.ACCELERATION_HINT_SHOWN] = true }
+    suspend fun setDetailLineMetric(metric: LineMetric) = store.edit { it[Keys.DETAIL_LINE_METRIC] = metric.name }
 }

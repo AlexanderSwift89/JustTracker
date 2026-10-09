@@ -28,17 +28,18 @@ object SpeedColorScale {
     fun colorFor(fraction: Float): Int {
         val f = fraction.coerceIn(0f, 1f) * (STOPS.size - 1)
         val i = f.toInt().coerceAtMost(STOPS.size - 2)
-        return lerp(STOPS[i], STOPS[i + 1], f - i)
+        return lerpArgb(STOPS[i], STOPS[i + 1], f - i)
     }
 
     fun colorForSpeed(speedMps: Float, maxMps: Double): Int = colorFor(fraction(speedMps, maxMps))
+}
 
-    private fun lerp(a: Int, b: Int, t: Float): Int {
-        fun ch(shift: Int): Int {
-            val x = (a shr shift) and 0xFF
-            val y = (b shr shift) and 0xFF
-            return (x + (y - x) * t + 0.5f).toInt().coerceIn(0, 255)
-        }
-        return (ch(24) shl 24) or (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
+/** Channel-wise linear interpolation of two ARGB colours, [t] in 0..1. */
+internal fun lerpArgb(a: Int, b: Int, t: Float): Int {
+    fun ch(shift: Int): Int {
+        val x = (a shr shift) and 0xFF
+        val y = (b shr shift) and 0xFF
+        return (x + (y - x) * t + 0.5f).toInt().coerceIn(0, 255)
     }
+    return (ch(24) shl 24) or (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
 }

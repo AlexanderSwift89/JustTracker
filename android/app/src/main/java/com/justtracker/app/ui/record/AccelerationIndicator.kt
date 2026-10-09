@@ -11,10 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -24,16 +20,17 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.justtracker.app.R
 import com.justtracker.app.domain.stats.Acceleration
 import com.justtracker.app.domain.stats.AccelerationEstimator
-import com.justtracker.app.domain.stats.AccelerationState
 import com.justtracker.app.domain.stats.AccelerationTrace
 import com.justtracker.app.ui.common.FittedText
+import com.justtracker.app.ui.common.icon
+import com.justtracker.app.ui.common.labelRes
+import com.justtracker.app.ui.common.tint
 import com.justtracker.app.ui.theme.AccelerationColors
 import com.justtracker.app.ui.theme.tabular
 import com.justtracker.app.util.UnitFormatter
@@ -138,25 +135,6 @@ private fun AccelerationChart(
             }
         }
     }
-}
-
-internal fun AccelerationState.labelRes(): Int = when (this) {
-    AccelerationState.ACCELERATING -> R.string.record_accel_accelerating
-    AccelerationState.DECELERATING -> R.string.record_accel_decelerating
-    AccelerationState.STEADY -> R.string.record_accel_steady
-    AccelerationState.STATIONARY -> R.string.record_accel_stationary
-}
-
-private fun AccelerationState.icon(): ImageVector = when (this) {
-    AccelerationState.ACCELERATING -> Icons.Filled.ArrowUpward
-    AccelerationState.DECELERATING -> Icons.Filled.ArrowDownward
-    AccelerationState.STEADY, AccelerationState.STATIONARY -> Icons.Filled.Remove
-}
-
-private fun AccelerationState.tint(up: Color, down: Color, neutral: Color): Color = when (this) {
-    AccelerationState.ACCELERATING -> up
-    AccelerationState.DECELERATING -> down
-    AccelerationState.STEADY, AccelerationState.STATIONARY -> neutral
 }
 
 private val CHART_HEIGHT = 32.dp

@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.justtracker.app.domain.model.ActivityType
 import com.justtracker.app.domain.model.ThemeMode
+import com.justtracker.app.ui.common.AccelerationColorScale
 
 // Fallback seed palette (docs/04_ux_design.md §3) for devices without dynamic color.
 private val LightColors = lightColorScheme(
@@ -85,13 +86,13 @@ object TrackColors {
 }
 
 /**
- * Speeding up / slowing down on the acceleration indicator (docs/04_ux_design.md §2.12). Fixed hues rather than
- * dynamic-color roles, so the meaning never changes with the wallpaper; only icons and chart bars are tinted, which
- * need 3:1 against the panel — lighter tones on dark surfaces.
+ * Speeding up / slowing down on the acceleration indicator and the track detail (docs/04_ux_design.md §2.12, §2.13):
+ * the hues of [AccelerationColorScale], so the panel and the line coloured by acceleration agree. Only icons, chart
+ * bars and the line are tinted, which need 3:1 against their background.
  */
 object AccelerationColors {
-    fun up(dark: Boolean): Color = if (dark) Color(0xFF81C784) else Color(0xFF2E7D32)
-    fun down(dark: Boolean): Color = if (dark) Color(0xFFFFB74D) else Color(0xFFE65100)
+    fun up(dark: Boolean): Color = Color(AccelerationColorScale.palette(dark).up)
+    fun down(dark: Boolean): Color = Color(AccelerationColorScale.palette(dark).down)
 }
 
 @Composable

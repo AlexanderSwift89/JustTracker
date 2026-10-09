@@ -31,6 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -72,11 +74,16 @@ fun ActivityBadge(type: ActivityType, modifier: Modifier = Modifier, size: Int =
 /**
  * Label above a prominent value; used in detail and stats grids. Both stay on one line and scale down when
  * they do not fit, so tiles of a row keep one height and their values one baseline at any font size.
+ * [contentDescription] replaces what TalkBack reads where the value's unit is not speakable ("m/s²").
  */
 @Composable
-fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
+fun StatTile(label: String, value: String, modifier: Modifier = Modifier, contentDescription: String? = null) {
     Card(
-        modifier = modifier,
+        modifier = if (contentDescription == null) {
+            modifier
+        } else {
+            modifier.clearAndSetSemantics { this.contentDescription = contentDescription }
+        },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {

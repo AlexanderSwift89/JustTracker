@@ -8,13 +8,14 @@ import androidx.room.RoomDatabase
 
 /**
  * Schema history (exported to `schemas/`): 1 — JustTracker 1.0.0; 2 — 1.0.2, `track_points.verticalAccuracyM`
- * (nullable, added by an automatic migration; old points keep null).
+ * (nullable, added by an automatic migration; old points keep null); 3 — 1.2.0, `track_points.speedAccuracyMps`
+ * (the same way), the weight of a point's speed in the track's acceleration (ADR-30).
  */
 @Database(
     entities = [TrackEntity::class, TrackPointEntity::class, OfflineRegionEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
 )
 abstract class JustTrackerDatabase : RoomDatabase() {
     abstract fun trackDao(): TrackDao

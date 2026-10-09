@@ -25,6 +25,17 @@ class TrackMapFitTest {
     private val minViewportPx = 112
 
     @Test
+    fun `the track moves below overlays taller than the padding, keeping its minimum height`() {
+        // 263 dp portrait map at 3.5 dpi, padding 48 dp, overlays (switch and legend, stacked) 95 dp.
+        assertEquals(332 - 168, fitTopExtra(height = 920, paddingPx = 168, minViewportPx = 112, topInsetPx = 332))
+        assertEquals(0, fitTopExtra(height = 920, paddingPx = 168, minViewportPx = 112, topInsetPx = 150))
+        assertEquals(0, fitTopExtra(height = 920, paddingPx = 168, minViewportPx = 112, topInsetPx = 0))
+        // A short map keeps its minimum viewport: the overlays may then overlap the track.
+        assertEquals(500 - 2 * 168 - 112, fitTopExtra(height = 500, paddingPx = 168, minViewportPx = 112, topInsetPx = 400))
+        assertEquals(0, fitTopExtra(height = 300, paddingPx = 94, minViewportPx = 112, topInsetPx = 400))
+    }
+
+    @Test
     fun `fixed padding larger than the view gave a NaN zoom`() {
         assertTrue(tiles.getBoundingBoxZoom(box, width - 2 * paddingPx, height - 2 * paddingPx).isNaN())
     }

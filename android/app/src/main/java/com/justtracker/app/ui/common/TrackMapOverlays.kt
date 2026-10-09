@@ -2,9 +2,9 @@ package com.justtracker.app.ui.common
 
 import android.graphics.Paint
 import android.graphics.drawable.GradientDrawable
-import androidx.compose.ui.graphics.Color
 import com.justtracker.app.domain.geo.LatLon
 import com.justtracker.app.domain.track.LineSimplifier
+import com.justtracker.app.domain.track.TrackAcceleration
 import com.justtracker.app.domain.track.TrackLine
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.util.TileSystem
@@ -15,48 +15,88 @@ import org.osmdroid.views.overlay.advancedpolyline.ColorMapping
 import org.osmdroid.views.overlay.advancedpolyline.PolychromaticPaintList
 
 /**
- * Colour per vertex for osmdroid's [PolychromaticPaintList] of one piece of the line: the line between vertex i and
- * i+1 of the piece is painted with the colour of line vertex [start] + i. The snapshot and the scale top are swapped
- * in place, so a growing live track (whose last vertex's speed is still provisional) and a rising max speed only
- * need an invalidate, not a rebuild.
+ * How the track line is coloured (docs/04_ux_design.md §2.8, §2.13). Changing it recolours the drawn pieces in place:
+ * their polylines and simplifications stay (ADR-26).
  */
-internal class SpeedMapping(var line: TrackLine, val start: Int, val end: Int, var maxMps: Double) : ColorMapping {
-    /** Mean speed per drawn segment when the piece is simplified; null: one segment per vertex. */
-    var simplifiedSpeeds: FloatArray? = null
+sealed interface LineColoring {
+    /** By each vertex's speed relative to [maxMps] ([SpeedColorScale]). */
+    data class BySpeed(val maxMps: Double) : LineColoring
+
+    /** By each vertex's acceleration ([AccelerationColorScale]); simplification keeps the episodes' ends. */
+    data class ByAcceleration(val acceleration: TrackAcceleration, val palette: AccelerationColorScale.Palette) : LineColoring
+}
+
+/**
+ * Colour per vertex for osmdroid's [PolychromaticPaintList] of one piece of the line: the line between vertex i and
+ * i+1 of the piece is painted with the colour of line vertex [start] + i. The snapshot and the colouring are swapped
+ * in place, so a growing live track (whose last vertex's speed is still provisional), a rising max speed and a switch
+ * between speed and acceleration only need an invalidate, not a rebuild. Called per segment on every frame: no boxing.
+ */
+internal class LineColorMapping(var line: TrackLine, val start: Int, val end: Int, var coloring: LineColoring) : ColorMapping {
+    /** Mean value per drawn segment when the piece is simplified; null: one segment per vertex. */
+    var simplifiedValues: FloatArray? = null
 
     override fun getColorForIndex(index: Int): Int {
-        val simplified = simplifiedSpeeds
-        val speed = if (simplified != null && simplified.isNotEmpty()) {
-            simplified[index.coerceIn(0, simplified.size - 1)]
-        } else {
-            line.speedMps((start + index).coerceIn(start, minOf(end, line.size - 1)))
+        val simplified = simplifiedValues
+        val useSimplified = simplified != null && simplified.isNotEmpty()
+        val vertex = (start + index).coerceIn(start, minOf(end, line.size - 1))
+        return when (val c = coloring) {
+            is LineColoring.BySpeed -> {
+                val speed = if (useSimplified) simplified!![index.coerceIn(0, simplified.size - 1)] else line.speedMps(vertex)
+                SpeedColorScale.colorForSpeed(speed, c.maxMps)
+            }
+            is LineColoring.ByAcceleration -> {
+                val a = if (useSimplified) simplified!![index.coerceIn(0, simplified.size - 1)] else c.acceleration.mps2(vertex)
+                AccelerationColorScale.colorFor(a, c.acceleration.scaleMps2, c.palette)
+            }
         }
-        return SpeedColorScale.colorForSpeed(speed, maxMps)
     }
 }
 
 /**
  * One polyline of the line: vertices [start]..[end] (inclusive) of a [TrackLine], within one segment and chunk. Drawn
- * at the detail [level] the zoom asks for; simplifications are cached per level (a finished piece never changes).
+ * at the detail [level] the zoom asks for; simplifications are cached per level and per metric (a finished piece never
+ * changes; for acceleration they keep the episodes' ends).
  */
-internal class LinePiece(val start: Int, val end: Int, val polyline: Polyline, val mapping: SpeedMapping?) {
+internal class LinePiece(val start: Int, val end: Int, val polyline: Polyline, val mapping: LineColorMapping) {
     var level = -1
     /** Line indices of the drawn vertices; null at full detail. */
     var kept: IntArray? = null
-    private val cache = HashMap<Int, LineSimplifier.Simplified>()
+    private var byAcceleration = false
+    private val speedCache = HashMap<Int, LineSimplifier.Simplified>()
+    private val accelerationCache = HashMap<Int, LineSimplifier.Simplified>()
+    private var cachedAcceleration: TrackAcceleration? = null
 
-    /** Sets the polyline to [line] at [level] (an index into [DETAIL_TOLERANCES_M]). */
-    fun show(line: TrackLine, level: Int) {
-        if (level == this.level) return
+    /** Sets the polyline to [line] at [level] (an index into [DETAIL_TOLERANCES_M]) for [coloring]. */
+    fun show(line: TrackLine, level: Int, coloring: LineColoring) {
+        val acceleration = (coloring as? LineColoring.ByAcceleration)?.acceleration
+        // Another acceleration for the same piece has other episode ends and means: its simplifications are redone.
+        val accelerationChanged = acceleration != null && acceleration !== cachedAcceleration
+        if (accelerationChanged) {
+            accelerationCache.clear()
+            cachedAcceleration = acceleration
+        }
+        val metricChanged = (acceleration != null) != byAcceleration
+        if (level == this.level && !metricChanged && !accelerationChanged) return
+        byAcceleration = acceleration != null
+        val wasFull = this.level == 0
         this.level = level
         if (level == 0) {
             kept = null
-            mapping?.simplifiedSpeeds = null
-            polyline.setPoints((start..end).map { GeoPoint(line.lat(it), line.lon(it)) })
+            mapping.simplifiedValues = null
+            // Full detail draws the same vertices for either metric.
+            if (!wasFull) polyline.setPoints((start..end).map { GeoPoint(line.lat(it), line.lon(it)) })
         } else {
-            val s = cache.getOrPut(level) { LineSimplifier.simplify(line, start, end, DETAIL_TOLERANCES_M[level]) }
+            val tolerance = DETAIL_TOLERANCES_M[level]
+            val s = if (acceleration != null) {
+                accelerationCache.getOrPut(level) {
+                    LineSimplifier.simplify(line, start, end, tolerance, acceleration.boundaries, acceleration::mps2)
+                }
+            } else {
+                speedCache.getOrPut(level) { LineSimplifier.simplify(line, start, end, tolerance) }
+            }
             kept = s.kept
-            mapping?.simplifiedSpeeds = s.segmentSpeedsMps
+            mapping.simplifiedValues = s.segmentMeans
             polyline.setPoints(s.kept.map { GeoPoint(line.lat(it), line.lon(it)) })
         }
     }
@@ -96,43 +136,39 @@ internal fun detailLevel(map: MapView): Int {
  * Draws [line] as pieces — a segment cut at chunk boundaries, each piece also holding the first vertex of the next
  * chunk so the line has no gaps. While a recording grows (same generation, more vertices) only the pieces from the
  * previously last vertex on are rebuilt: O(chunk) per fix instead of the whole track (ADR-25); osmdroid also skips
- * pieces outside the view. A new generation, colour or colour mode rebuilds everything. Returns whether anything changed.
+ * pieces outside the view. A new [coloring] recolours the pieces in place; a new generation rebuilds everything.
+ * Returns whether anything changed.
  */
-internal fun syncLine(
-    holder: MapHolder,
-    line: TrackLine,
-    color: Int,
-    strokePx: Float,
-    speedColors: Boolean,
-    maxSpeedMps: Double,
-): Boolean {
+internal fun syncLine(holder: MapHolder, line: TrackLine, strokePx: Float, coloring: LineColoring): Boolean {
     val previous = holder.line
-    if (previous === line && holder.lineColor == color && holder.speedColors == speedColors && holder.maxSpeedMps == maxSpeedMps) return false
+    if (previous === line && holder.coloring == coloring) return false
     val map = holder.map
-    val extends = previous != null && previous.generation == line.generation && line.size >= previous.size &&
-        holder.lineColor == color && holder.speedColors == speedColors
-    // Vertices before the previously last one are final: pieces that end before it are kept as they are.
+    val extends = previous != null && previous.generation == line.generation && line.size >= previous.size
+    // Vertices before the previously last one are final: pieces that end before it are kept as they are. The same
+    // line in another colouring (speed and acceleration, a new max speed) keeps every piece.
     val keepBefore = if (extends) previous!!.size - 1 else 0
     var kept = 0
-    if (extends) {
+    if (previous === line) {
+        kept = holder.pieces.size
+    } else if (extends) {
         while (kept < holder.pieces.size && holder.pieces[kept].end < keepBefore) kept++
     }
     for (i in holder.pieces.size - 1 downTo kept) map.overlays.remove(holder.pieces.removeAt(i).polyline)
-    holder.lineColor = color
-    holder.speedColors = speedColors
-    holder.maxSpeedMps = maxSpeedMps
+    holder.coloring = coloring
     holder.line = line
-    for (piece in holder.pieces) piece.mapping?.let {
-        it.line = line
-        it.maxMps = maxSpeedMps
+    for (piece in holder.pieces) {
+        piece.mapping.line = line
+        piece.mapping.coloring = coloring
     }
     holder.level = detailLevel(map)
-    val from = holder.pieces.lastOrNull()?.end ?: 0
-    forEachPiece(line) { a, b ->
-        if (b <= from && holder.pieces.isNotEmpty()) return@forEachPiece
-        holder.pieces.add(newPiece(holder, line, a, b, color, strokePx, speedColors, maxSpeedMps))
+    if (previous !== line) {
+        val from = holder.pieces.lastOrNull()?.end ?: 0
+        forEachPiece(line) { a, b ->
+            if (b <= from && holder.pieces.isNotEmpty()) return@forEachPiece
+            holder.pieces.add(newPiece(holder, line, a, b, strokePx, coloring))
+        }
     }
-    for (piece in holder.pieces) piece.show(line, holder.level)
+    for (piece in holder.pieces) piece.show(line, holder.level, coloring)
     return true
 }
 
@@ -156,26 +192,20 @@ internal fun newPiece(
     line: TrackLine,
     start: Int,
     end: Int,
-    color: Int,
     strokePx: Float,
-    speedColors: Boolean,
-    maxSpeedMps: Double,
+    coloring: LineColoring,
 ): LinePiece {
     val map = holder.map
-    var mapping: SpeedMapping? = null
+    val mapping = LineColorMapping(line, start, end, coloring)
     val pl = Polyline(map).apply {
-        outlinePaint.color = color
         outlinePaint.strokeWidth = strokePx
         outlinePaint.strokeCap = Paint.Cap.ROUND
         outlinePaint.strokeJoin = Paint.Join.ROUND
-        if (speedColors) {
-            mapping = SpeedMapping(line, start, end, maxSpeedMps)
-            // osmdroid picks the draw mode by whichever getter was called LAST: getOutlinePaint()
-            // selects the single-paint path, getOutlinePaintLists() the per-segment one. Copy the
-            // paint first, touch the lists last.
-            val paint = Paint(outlinePaint)
-            outlinePaintLists.add(PolychromaticPaintList(paint, mapping, false))
-        }
+        // osmdroid picks the draw mode by whichever getter was called LAST: getOutlinePaint()
+        // selects the single-paint path, getOutlinePaintLists() the per-segment one. Copy the
+        // paint first, touch the lists last, and never the paint again: a new colouring changes the mapping.
+        val paint = Paint(outlinePaint)
+        outlinePaintLists.add(PolychromaticPaintList(paint, mapping, false))
         isGeodesic = false
         infoWindow = null
     }

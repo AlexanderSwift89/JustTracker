@@ -16,7 +16,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -59,9 +58,8 @@ internal class MapHolder(val map: MapView, val camera: MapCamera) {
     var finishMarker: Marker? = null
     var highlightMarker: Marker? = null
     var lastFollowTarget: LatLon? = null
-    var lineColor: Int = 0
-    var speedColors = false
-    var maxSpeedMps = 0.0
+    /** Colouring the pieces are drawn in; see [syncLine]. */
+    var coloring: LineColoring? = null
     /** Configuration the current tile provider was built for. */
     var tileConfig: TileConfig? = null
     /** Detail level the pieces are drawn at ([DETAIL_TOLERANCES_M]). */
@@ -76,6 +74,7 @@ internal class MapHolder(val map: MapView, val camera: MapCamera) {
     var fitBox: BoundingBox? = null
     var fitPaddingPx = 0
     var fitMinViewportPx = 0
+    var fitTopInsetPx = 0
     var fittedWidth = 0
     var fittedHeight = 0
     val fitRunnable = Runnable { fitIfNeeded() }
@@ -93,7 +92,7 @@ internal class MapHolder(val map: MapView, val camera: MapCamera) {
         val box = fitBox ?: return
         if (camera.userMoved) return
         if (map.width == fittedWidth && map.height == fittedHeight) return
-        if (fitCamera(map, box, fitPaddingPx, fitMinViewportPx)) {
+        if (fitCamera(map, box, fitPaddingPx, fitMinViewportPx, fitTopInsetPx)) {
             fittedWidth = map.width
             fittedHeight = map.height
         }
@@ -105,7 +104,8 @@ internal class MapHolder(val map: MapView, val camera: MapCamera) {
         if (l == level) return
         level = l
         val current = line ?: return
-        for (piece in pieces) piece.show(current, l)
+        val c = coloring ?: return
+        for (piece in pieces) piece.show(current, l, c)
         map.invalidate()
     }
 
@@ -125,13 +125,13 @@ val LocalMapTiles = staticCompositionLocalOf<MapTiles> { error("MapTiles not pro
  * Compose wrapper over osmdroid's MapView (docs/05_architecture.md §7).
  *
  * @param line the track; recording segments are not connected to each other.
- * @param speedColors colour the line by each vertex's speed relative to [maxSpeedMps]
- *   (see [SpeedColorScale]); when false the line is drawn in [lineColor].
- * @param maxSpeedMps top of the speed colour scale (the track's max speed).
+ * @param coloring the line's colours: by speed relative to the track's max speed ([SpeedColorScale]) or by
+ *   acceleration ([AccelerationColorScale]).
  * @param position current user position; drawn as a dot and followed when [follow] is true.
  * @param highlight vertex to mark with a small ring (the tapped section).
  * @param fitToTrack when true, the camera fits the whole track for every new view size until the
  *   user pans or zooms (detail mode); the camera itself survives activity recreation.
+ * @param fitTopInsetPx height covered by overlays at the top: the fitted track goes below it.
  * @param onUserGesture invoked when the user drags the map (used to disable follow mode).
  * @param onTrackTap invoked with the line vertex index when the user taps the line.
  */
@@ -140,13 +140,12 @@ val LocalMapTiles = staticCompositionLocalOf<MapTiles> { error("MapTiles not pro
 fun TrackMap(
     line: TrackLine,
     modifier: Modifier = Modifier,
-    lineColor: Color = MaterialTheme.colorScheme.primary,
-    speedColors: Boolean = true,
-    maxSpeedMps: Double = 0.0,
+    coloring: LineColoring = LineColoring.BySpeed(0.0),
     position: LatLon? = null,
     highlight: LatLon? = null,
     follow: Boolean = false,
     fitToTrack: Boolean = false,
+    fitTopInsetPx: Int = 0,
     showStartFinish: Boolean = false,
     onUserGesture: (() -> Unit)? = null,
     onTrackTap: ((index: Int) -> Unit)? = null,
@@ -263,11 +262,18 @@ fun TrackMap(
             holder.onTrackTap = onTrackTap
             holder.onUserGesture = onUserGesture
             // Only a real change redraws the map: an unchanged recomposition used to invalidate it as well (D-28).
-            var changed = syncLine(holder, line, lineColor.toArgb(), strokePx, speedColors, maxSpeedMps)
+            var changed = syncLine(holder, line, strokePx, coloring)
             changed = syncStartFinish(holder, line, showStartFinish, startColor, finishColor) || changed
             changed = syncPosition(holder, position, primaryArgb) || changed
             changed = syncHighlight(holder, highlight, highlightColor) || changed
 
+            if (fitToTrack && fitTopInsetPx != holder.fitTopInsetPx) {
+                // The overlays were measured or changed (the metric switch appears, a larger font): fit again.
+                holder.fitTopInsetPx = fitTopInsetPx
+                holder.fittedWidth = 0
+                holder.fittedHeight = 0
+                if (holder.fitBox != null) holder.requestFit(immediately = false)
+            }
             if (fitToTrack && holder.fitBox == null) {
                 line.bounds?.let { b ->
                     holder.fitBox = BoundingBox(b.maxLat, b.maxLon, b.minLat, b.minLon)

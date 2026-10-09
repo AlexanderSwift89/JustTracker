@@ -58,6 +58,8 @@ data class TrackPointEntity(
     val bearingDeg: Float?,
     /** Schema v2 (1.0.2, auto-migrated): vertical accuracy of [altitudeM]; null for older rows. */
     val verticalAccuracyM: Float? = null,
+    /** Schema v3 (1.2.0, auto-migrated): 68 % accuracy of [speedMps] when it is the receiver's speed; null for older rows. */
+    val speedAccuracyMps: Float? = null,
 )
 
 /** Aggregates per activity type for the Stats screen. */
@@ -118,6 +120,7 @@ fun TrackPointEntity.toDomain() = TrackPoint(
     speedMps = speedMps,
     bearingDeg = bearingDeg,
     verticalAccuracyM = verticalAccuracyM,
+    speedAccuracyMps = speedAccuracyMps,
 )
 
 fun TrackPoint.toEntity() = TrackPointEntity(
@@ -132,4 +135,5 @@ fun TrackPoint.toEntity() = TrackPointEntity(
     speedMps = speedMps,
     bearingDeg = bearingDeg,
     verticalAccuracyM = verticalAccuracyM,
+    speedAccuracyMps = speedAccuracyMps,
 )

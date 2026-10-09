@@ -1,5 +1,54 @@
 # Changelog
 
+## JustTracker [1.2.0] - 2026-10-09 (versionCode 7)
+
+**Acceleration in the track history:** where and how you sped up and slowed down, shown the way speed is (US-24,
+ADR-30). For every track, including those recorded before the update. No new permissions, sensors or network
+requests; the database schema is 3.
+
+### Added
+- **Speed | Acceleration** switch over the track detail map (only when the track has acceleration: the receiver's
+  own Doppler speed): the line is coloured green where you sped up, orange where you slowed down, blue-grey where
+  the speed was steady or unknown; the legend shows the scale (the 95th percentile, 1…6 m/s², ft/s² in imperial
+  units). The choice is remembered (`detail_line_metric`).
+- The **acceleration at the scrubber** — signed value with a direction arrow, "—" without an estimate — as the first
+  value in acceleration mode; TalkBack reads it in words.
+- **Max speed-up / Max slow-down** tiles and **Speeding up and slowing down**: the strongest episodes of each kind
+  ("0 → 72 km/h in 10 s, +2.0 m/s² · 9.4 km from start"); a tap moves the scrubber and the ring to where it started;
+  "Show all (N)" lists every episode in order.
+
+### Changed
+- Acceleration is computed when a track is opened from its stored points with the live indicator's formula (one
+  shared `AccelerationMath`), but over a window centred on each point: the colour sits where the speed changed,
+  without the live value's 2 s delay. Only Doppler speeds are used; runs are trimmed to the speed change and
+  completed to a standstill — also after a stop too short for a standing point (a traffic light).
+- TalkBack reads the speed legend (and the new acceleration legend) as one sentence instead of its numbers and unit
+  symbols.
+- The line is recoloured in place when switching (no rebuild of the drawn pieces); the simplified line at overview
+  zoom keeps the episodes' ends; the track is fitted below the overlays of the map.
+- Acceleration colours chosen by simulated colour-vision deficiency (Machado 2009, CIELAB ΔE), for the live
+  indicator too: light `#1B5E20` / `#E65100` (was `#2E7D32`, ΔE 12 between them with protanopia, now 20), dark
+  `#81C784` / `#FFA726` (was `#FFB74D`, 30 → 41); the line's neutral `#607D8B` / `#90A4AE`, 3.8:1 against light tiles.
+
+### Data
+- Schema 3: `track_points.speedAccuracyMps`, the 68 % accuracy of the receiver's Doppler speed, written only with
+  that speed (automatic migration, existing points keep null). It stays on the device and is not exported to GPX.
+
+### Fixed
+- Instrumented tests ran 0 tests and passed since espresso-core was removed in 1.1.2: the test runner is a
+  dependency of its own again (D-32).
+
+### Tests
+- 39 new JVM tests (259 in total): `AccelerationMath`, `TrackAcceleration` on a fixture that records through the real
+  `TrackRecorder` (history equals the live value shifted by half a window; the emulator's stop-and-go, also from the
+  recorded points; noise, walking, receivers without Doppler speed, contradiction, tunnel, traffic light, thinned series edges, a standstill inside a series, a drive too short to show, spikes,
+  accuracies, thresholds, 100 000 points), colours (also under simulated protanopia / deuteranopia), simplification breaks, the fit, settings, view model. 7
+  instrumented tests: migrations 1 → 2, 2 → 3, 1 → 3, DAO.
+
+### Docs
+- PRD US-24, UX §2.13, ADR-30, system analysis §3.11 / NFR-28, security review §10 (no findings, privacy policy
+  unchanged), test plan TC-147…157, user guide; store screenshot `02_detail.png` retaken, `07_acceleration.png` added.
+
 ## JustTracker [1.1.2] - 2026-10-06 (versionCode 6)
 
 Privacy, performance and refactoring release. **Places nearby is removed: in the Online map mode the app only

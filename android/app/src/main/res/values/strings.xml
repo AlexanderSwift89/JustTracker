@@ -74,6 +74,7 @@
     <string name="record_hide_acceleration">Hide acceleration</string>
     <string name="record_acceleration_hint">Tap the speed to see acceleration</string>
     <string name="map_speed_legend_cd">Line colour: speed from 0 to %1$s</string>
+    <string name="map_acceleration_legend_cd">Line colour: acceleration, slowing down to %1$s and speeding up to %2$s %3$s</string>
     <string name="map_tap_speed_title">Speed on this section</string>
     <string name="map_tap_speed_detail">%1$s from start · %2$s into the recording</string>
 
@@ -120,6 +121,17 @@
     <string name="detail_cursor_altitude">Altitude</string>
     <string name="detail_hide_stats">Hide statistics, enlarge the map</string>
     <string name="detail_show_stats">Show statistics</string>
+    <string name="detail_line_speed">Speed</string>
+    <string name="detail_line_acceleration">Acceleration</string>
+    <string name="detail_cursor_acceleration">Acceleration</string>
+    <string name="detail_max_acceleration">Max speed-up</string>
+    <string name="detail_max_deceleration">Max slow-down</string>
+    <string name="detail_episodes_title">Speeding up and slowing down</string>
+    <string name="detail_episode_speeds">%1$s → %2$s %3$s in %4$s</string>
+    <string name="detail_episode_detail">%1$s %2$s · %3$s from start</string>
+    <string name="detail_episodes_show_all">Show all (%1$d)</string>
+    <string name="cd_episode">%1$s from %2$s to %3$s %4$s in %5$s, peak %6$s %7$s, %8$s from start</string>
+    <string name="cd_stat_acceleration">%1$s %2$s %3$s</string>
 
     <!-- Stats -->
     <string name="stats_title">Statistics</string>
@@ -237,6 +249,11 @@
     <string name="unit_fps2">ft/s²</string>
     <string name="unit_mps2_spoken">meters per second squared</string>
     <string name="unit_fps2_spoken">feet per second squared</string>
+    <string name="unit_s">s</string>
+    <plurals name="seconds_spoken">
+        <item quantity="one">%d second</item>
+        <item quantity="other">%d seconds</item>
+    </plurals>
 
     <!-- Accessibility -->
     <string name="cd_activity_icon">Activity type: %1$s</string>

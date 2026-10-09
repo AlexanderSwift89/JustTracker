@@ -53,6 +53,7 @@ import com.justtracker.app.R
 import com.justtracker.app.domain.maps.MapMode
 import com.justtracker.app.ui.common.MapModeBadge
 import com.justtracker.app.ui.common.SpeedLegend
+import com.justtracker.app.ui.common.LineColoring
 import com.justtracker.app.ui.common.TrackMap
 import com.justtracker.app.ui.common.TrackTapCard
 import com.justtracker.app.ui.common.appViewModel
@@ -171,7 +172,7 @@ fun RecordScreen(
             TrackMap(
                 line = state.line,
                 modifier = Modifier.fillMaxSize(),
-                maxSpeedMps = state.track?.maxSpeedMps ?: 0.0,
+                coloring = LineColoring.BySpeed(state.track?.maxSpeedMps ?: 0.0),
                 position = state.position,
                 highlight = state.tapped?.point,
                 follow = follow,
