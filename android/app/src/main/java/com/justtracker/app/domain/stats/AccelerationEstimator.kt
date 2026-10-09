@@ -1,9 +1,5 @@
 package com.justtracker.app.domain.stats
 
-import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.sqrt
-
 /** Whether the user is speeding up or slowing down, decided with hysteresis so it does not flicker (docs/06_system_analysis.md §3.10). */
 enum class AccelerationState { ACCELERATING, DECELERATING, STEADY, STATIONARY }
 
@@ -59,15 +55,14 @@ class AccelerationEstimator(
             if (dtMs <= 0) return current
             if (dtMs > maxGapMs) {
                 reset()
-            } else if (abs(speedMps - speeds[last]) * 1000f / dtMs > MAX_PLAUSIBLE_MPS2) {
+            } else if (AccelerationMath.isOutlier(speedMps - speeds[last], dtMs)) {
                 // One impossible step is the receiver's glitch; a second one in a row means the speed really is elsewhere.
                 if (++outliersInRow < 2) return current
                 reset()
             }
         }
         outliersInRow = 0
-        val sigma = max(sigmaMps, MIN_SIGMA_MPS)
-        add(timeMs, speedMps, 1f / (sigma * sigma))
+        add(timeMs, speedMps, AccelerationMath.weight(sigmaMps))
         while (timeMs - times[first] > windowMs) drop()
         current = estimate(timeMs)
         return current
@@ -75,39 +70,9 @@ class AccelerationEstimator(
 
     private fun estimate(nowMs: Long): Acceleration? {
         if (count < MIN_SAMPLES || times[slot(count - 1)] - times[first] < minSpanMs) return null
-        // Seconds relative to the newest fix keep the sums small and exact.
-        var sw = 0.0
-        var st = 0.0
-        var sv = 0.0
-        var maxSpeed = 0f
-        for (i in 0 until count) {
-            val k = slot(i)
-            val w = weights[k].toDouble()
-            sw += w
-            st += w * (times[k] - nowMs) / 1000.0
-            sv += w * speeds[k]
-            maxSpeed = max(maxSpeed, speeds[k])
-        }
-        val tMean = st / sw
-        val vMean = sv / sw
-        var stt = 0.0
-        var stv = 0.0
-        for (i in 0 until count) {
-            val k = slot(i)
-            val dt = (times[k] - nowMs) / 1000.0 - tMean
-            stt += weights[k] * dt * dt
-            stv += weights[k] * dt * (speeds[k] - vMean)
-        }
-        if (stt <= 0.0) return null
-        val sigma = sqrt(1.0 / stt).toFloat()
-        if (sigma > MAX_SIGMA_MPS2) return null
-        if (maxSpeed < STATIONARY_MPS) {
-            state = AccelerationState.STATIONARY
-            return Acceleration(0f, sigma, state)
-        }
-        val mps2 = (stv / stt).toFloat().coerceIn(-MAX_PLAUSIBLE_MPS2, MAX_PLAUSIBLE_MPS2)
-        state = nextState(state, mps2)
-        return Acceleration(mps2, sigma, state)
+        val fit = AccelerationMath.fit(count, nowMs, { times[slot(it)] }, { speeds[slot(it)] }, { weights[slot(it)] }) ?: return null
+        state = if (fit.stationary) AccelerationState.STATIONARY else nextState(state, fit.mps2)
+        return Acceleration(fit.mps2, fit.sigmaMps2, state)
     }
 
     private fun add(timeMs: Long, speedMps: Float, weight: Float) {
