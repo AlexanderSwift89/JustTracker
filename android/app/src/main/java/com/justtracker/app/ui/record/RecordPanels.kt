@@ -61,6 +61,7 @@ import com.justtracker.app.R
 import com.justtracker.app.domain.model.ActivityType
 import com.justtracker.app.ui.common.ActivityBadge
 import com.justtracker.app.ui.common.FittedText
+import com.justtracker.app.ui.common.labelRes
 import com.justtracker.app.ui.theme.TrackColors
 import com.justtracker.app.ui.theme.tabular
 import com.justtracker.app.util.TimeFormat
