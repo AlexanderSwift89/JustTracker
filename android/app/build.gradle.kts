@@ -222,6 +222,7 @@ dependencies {
     testImplementation(libs.org.json)
 
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.room.testing)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
