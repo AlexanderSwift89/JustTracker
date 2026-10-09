@@ -197,4 +197,19 @@ class TrackRecorderTest {
         r.onFix(fix(1, 3.0, altitude = 151.0))
         assertEquals(listOf(150.0, 151.0), store.points.map { it.altitudeM })
     }
+
+    @Test
+    fun `the speed accuracy is stored only with the receiver's own speed`() = runTest {
+        val store = FakeStore()
+        val r = recorder(store)
+        r.onFix(fix(0, 0.0, speed = 3f, speedAccuracy = 0.2f))
+        r.onFix(fix(1, 3.0, speed = 3f, speedAccuracy = 0.3f))
+        // The receiver claims a standstill while the position moved 3 m: the stored speed is the displacement's.
+        r.onFix(fix(2, 6.0, speed = 0f, speedAccuracy = 0.4f))
+        // No accuracy reported, no speed reported.
+        r.onFix(fix(3, 9.0, speed = 3f))
+        r.onFix(fix(4, 12.0, speedAccuracy = 0.5f))
+        assertEquals(listOf(0.2f, 0.3f, null, null, null), store.points.map { it.speedAccuracyMps })
+        assertEquals(3f, store.points[2].speedMps!!, 1e-3f)
+    }
 }

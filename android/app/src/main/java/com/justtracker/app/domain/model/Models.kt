@@ -43,6 +43,11 @@ data class TrackPoint(
     val bearingDeg: Float?,
     /** Receiver's 68 % vertical accuracy of [altitudeM]; null when not reported (points recorded before 1.0.2 too). */
     val verticalAccuracyM: Float? = null,
+    /**
+     * Receiver's 68 % accuracy of [speedMps], stored only when [speedMps] is the receiver's own (Doppler) speed: null when
+     * the speed came from the displacement, when the receiver gave no accuracy, and for points recorded before 1.2.0.
+     */
+    val speedAccuracyMps: Float? = null,
 )
 
 data class Track(

@@ -65,6 +65,14 @@ class TrackDaoTest {
     }
 
     @Test
+    fun speedAccuracyIsStoredAndReadBack() = runBlocking {
+        val id = dao.insertTrack(track())
+        dao.insertPoint(point(id, 0).copy(speedAccuracyMps = 0.25f))
+        dao.insertPoint(point(id, 1))
+        assertEquals(listOf(0.25f, null), dao.getPoints(id).map { it.speedAccuracyMps })
+    }
+
+    @Test
     fun deletingATrackCascadesToItsPoints() = runBlocking {
         val id = dao.insertTrack(track())
         val p = dao.insertPoint(point(id, 0))

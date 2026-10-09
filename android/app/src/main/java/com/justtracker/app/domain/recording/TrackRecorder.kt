@@ -206,6 +206,8 @@ class TrackRecorder(
             speedMps = speedMps,
             bearingDeg = fix.bearingDeg,
             verticalAccuracyM = fix.verticalAccuracyM,
+            // Only for the receiver's own speed: a non-null accuracy then proves a Doppler speed (§3.11).
+            speedAccuracyMps = fix.speedAccuracyMps.takeIf { sample.speedMps != null && speedMps == sample.speedMps },
         )
         if (!store.insert(point, totals)) {
             out.stop = StopReason.STORAGE_FULL
