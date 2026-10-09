@@ -117,8 +117,12 @@ class TrackAcceleration private constructor(
         const val TRIM_MIN_MPS = 0.3f
         const val TRIM_SHARE = 0.05f
 
-        /** Completion from / to a standstill: at most this speed, reached within this time at the edge's rate. */
-        const val REST_MAX_MPS = 5f
+        /**
+         * Completion from / to a standstill: at most this speed, reached within this time at the edge's rate. A fix is
+         * stored after max(2 m, a quarter of its accuracy), and a fused provider smooths the speed, so the last stored
+         * moving point before a stop was at 5.9 m/s on the emulator (TC-147).
+         */
+        const val REST_MAX_MPS = 8f
         const val REST_MAX_MS = 3_000L
 
         const val MIN_SCALE_MPS2 = 1f

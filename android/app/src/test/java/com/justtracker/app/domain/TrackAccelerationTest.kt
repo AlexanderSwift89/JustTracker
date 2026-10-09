@@ -94,6 +94,38 @@ class TrackAccelerationTest {
     }
 
     @Test
+    fun `the stop-and-go recorded on the emulator ends at a standstill too`() {
+        // Stored points of TC-147 (API 34, fused provider: smoothed speeds, accuracy 0.5 m/s), 30 s of standing at the end.
+        fun p(t: Long, lat: Double, v: Float) = TrackPoint(
+            trackId = 1, segment = 0, timestamp = t, lat = lat, lon = 37.6199983, altitudeM = 150.0, accuracyM = 5f, speedMps = v,
+            bearingDeg = null, speedAccuracyMps = 0.5f,
+        )
+        val points = listOf(
+            p(0, 55.7599983, 0.0f), p(18223, 55.7600476, 3.466144f), p(19283, 55.7601009, 5.437324f),
+            p(20329, 55.7601724, 7.427564f), p(21389, 55.7602627, 9.430217f), p(22444, 55.7603713, 11.430347f),
+            p(23505, 55.7604972, 13.428694f), p(24574, 55.7606424, 15.431631f), p(25637, 55.7608035, 17.431349f),
+            p(26697, 55.7609833, 19.430971f), p(27763, 55.7611677, 19.874371f), p(28827, 55.7613498, 19.971777f),
+            p(29894, 55.7615307, 19.992973f), p(30964, 55.7617111, 19.997480f), p(32016, 55.7618892, 19.998600f),
+            p(33023, 55.7619364, 19.975931f), p(34024, 55.7620793, 19.988766f), p(35025, 55.762249, 19.996700f),
+            p(36264, 55.7625721, 20.017580f), p(37323, 55.762779, 20.008135f), p(38383, 55.7629651, 20.002153f),
+            p(39448, 55.7631469, 19.999928f), p(40513, 55.7633066, 17.663029f), p(41575, 55.7634344, 14.806805f),
+            p(42636, 55.7635332, 11.839733f), p(43692, 55.7636045, 8.850333f), p(44742, 55.7636488, 5.856818f),
+            p(75050, 55.763655, 0f),
+        )
+        val acc = TrackAcceleration.of(points, TrackLine.of(points))
+        assertEquals(2, acc.episodes.size)
+        val (up, down) = acc.episodes
+        assertTrue(up.fromRest)
+        assertEquals(20f, up.toSpeedMps, 0.6f)
+        assertEquals(10_000.0, up.durationMs.toDouble(), 1_000.0)
+        assertTrue(down.toRest)
+        assertEquals(0f, down.toSpeedMps, 0f)
+        assertEquals(points.lastIndex, down.endIndex)
+        assertEquals(6_900.0, down.durationMs.toDouble(), 1_000.0)
+        assertEquals(-2.8f, down.peakMps2, 0.3f)
+    }
+
+    @Test
     fun `a steady speed with GPS noise stays steady`() {
         val acc = recordDrive(seconds = 600, noise = 0.35, seed = 3) { 10.0 }.acceleration()
         val values = acc.estimated()
