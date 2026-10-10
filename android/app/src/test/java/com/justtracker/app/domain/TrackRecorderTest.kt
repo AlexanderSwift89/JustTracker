@@ -10,6 +10,7 @@ import com.justtracker.app.domain.recording.TrackRecorder
 import com.justtracker.app.domain.recording.TrackTotals
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -91,6 +92,18 @@ class TrackRecorderTest {
         assertEquals(0, r.onFix(fix(2, 6.0, accuracy = 80f)).stored)
         assertEquals(0, r.onFix(fix(1, 9.0)).stored) // not newer
         assertEquals(2, store.points.size)
+    }
+
+    @Test
+    fun `only accurate new fixes keep the GPS fresh (D-39)`() = runTest {
+        val r = recorder(FakeStore())
+        assertTrue(r.onFix(fix(0, 0.0)).usable)
+        assertTrue(r.onFix(fix(1, 3.0)).usable)
+        // Underground: cell positions far too coarse to store, and the same fix delivered again.
+        assertFalse(r.onFix(fix(2, 900.0, accuracy = 900f)).usable)
+        assertFalse(r.onFix(fix(1, 3.0)).usable)
+        // A fix too close to store is still the receiver delivering positions.
+        assertTrue(r.onFix(fix(3, 3.5)).usable)
     }
 
     @Test

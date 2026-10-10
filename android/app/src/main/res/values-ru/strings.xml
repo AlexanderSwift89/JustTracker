@@ -59,7 +59,7 @@
     <string name="record_expand_stats">Показать больше показателей</string>
     <string name="record_collapse_stats">Скрыть дополнительные показатели</string>
     <string name="map_speed_legend_cd">Цвет линии: скорость от 0 до %1$s</string>
-    <string name="map_acceleration_legend_cd">Цвет линии: ускорение, замедление до %1$s и разгон до %2$s %3$s</string>
+    <string name="map_acceleration_legend_cd">Цвет линии: замедление до %1$s и ускорение до %2$s %3$s</string>
     <string name="map_tap_speed_title">Скорость на участке</string>
     <string name="map_tap_speed_detail">%1$s от старта · %2$s с начала записи</string>
     <string name="record_speed_unavailable">—</string>
@@ -69,9 +69,6 @@
     <string name="record_accel_decelerating">замедление</string>
     <string name="record_accel_steady">равномерно</string>
     <string name="record_accel_stationary">на месте</string>
-    <string name="record_show_acceleration">Показать ускорение</string>
-    <string name="record_hide_acceleration">Скрыть ускорение</string>
-    <string name="record_acceleration_hint">Нажмите на скорость, чтобы видеть ускорение</string>
 
     <string name="notification_channel_name">Запись трека</string>
     <string name="notification_channel_description">Показывается во время записи трека</string>
@@ -116,9 +113,11 @@
     <string name="detail_line_speed">Скорость</string>
     <string name="detail_line_acceleration">Ускорение</string>
     <string name="detail_cursor_acceleration">Ускорение</string>
-    <string name="detail_max_acceleration">Макс. разгон</string>
+    <string name="detail_max_acceleration">Макс. ускорение</string>
     <string name="detail_max_deceleration">Макс. замедление</string>
-    <string name="detail_episodes_title">Разгоны и замедления</string>
+    <string name="detail_episodes_title">Ускорения и замедления</string>
+    <string name="detail_episode_acceleration">Ускорение</string>
+    <string name="detail_episode_deceleration">Замедление</string>
     <string name="detail_episode_speeds">%1$s → %2$s %3$s за %4$s</string>
     <string name="detail_episode_detail">%1$s %2$s · %3$s от старта</string>
     <string name="detail_episodes_show_all">Показать все (%1$d)</string>

@@ -31,12 +31,11 @@ import com.justtracker.app.domain.track.TrackAcceleration
 import com.justtracker.app.ui.common.AccelerationColorScale
 import com.justtracker.app.ui.common.ListSectionHeader
 import com.justtracker.app.ui.common.icon
-import com.justtracker.app.ui.common.labelRes
 import com.justtracker.app.ui.common.tint
 import com.justtracker.app.util.UnitFormatter
 
 /**
- * "Speeding up and slowing down" under the stats tiles (US-24, docs/04_ux_design.md §2.13): the strongest episodes of
+ * "Acceleration and deceleration" under the stats tiles (US-24, docs/04_ux_design.md §2.13): the strongest episodes of
  * each kind, strongest first; a tap moves the scrubber to where the episode starts. "Show all (N)" lists every episode
  * in the order they happened. Shown only when the track has episodes.
  */
@@ -106,7 +105,7 @@ private fun EpisodeRow(episode: AccelerationEpisode, formatter: UnitFormatter, o
     val supporting = stringResource(R.string.detail_episode_detail, signedPeak, formatter.accelerationUnit(), distance)
     val spoken = stringResource(
         R.string.cd_episode,
-        stringResource(episode.kind.labelRes()),
+        stringResource(if (episode.speedingUp) R.string.detail_episode_acceleration else R.string.detail_episode_deceleration),
         from,
         to,
         formatter.speedUnit(),

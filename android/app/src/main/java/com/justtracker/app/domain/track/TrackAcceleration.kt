@@ -65,7 +65,7 @@ class TrackAcceleration private constructor(
     /** Enough estimates while moving for the line to be worth colouring by acceleration (item 8). */
     val isAvailable: Boolean get() = movingEstimates >= MIN_MOVING_ESTIMATES
 
-    /** Episodes to show (tiles, "Speeding up and slowing down"): only on a track whose acceleration is shown at all. */
+    /** Episodes to show (tiles, "Acceleration and deceleration"): only on a track whose acceleration is shown at all. */
     val hasEpisodes: Boolean get() = isAvailable && episodes.isNotEmpty()
 
     /** Acceleration at vertex [index], m/s²; NaN where there is no estimate. */
@@ -77,7 +77,7 @@ class TrackAcceleration private constructor(
         return if (s == NO_STATE) null else STATES[s.toInt()]
     }
 
-    /** The strongest speeding up, by its peak — the "Max speed-up" tile and the first row of its kind. */
+    /** The strongest speeding up, by its peak — the "Max acceleration" tile and the first row of its kind. */
     val maxAcceleration: AccelerationEpisode? = episodes.filter { it.speedingUp }.maxByOrNull { it.peakMps2 }
 
     /** The strongest slowing down, by its peak. */
@@ -103,7 +103,7 @@ class TrackAcceleration private constructor(
         val NONE = TrackAcceleration(FloatArray(0), ByteArray(0), emptyList(), MIN_SCALE_MPS2, 0)
 
         /** Half of the live window plus a margin for fix-time jitter and a walk thinned to a point every 2 s (item 3). */
-        const val HALF_WINDOW_MS = AccelerationEstimator.WINDOW_MS / 2 + 250
+        const val HALF_WINDOW_MS = AccelerationEstimator.WINDOW_MS / 2 + AccelerationEstimator.WINDOW_JITTER_MS
 
         /** A stored speed equal to the displacement speed within this share was derived from the position (item 1). */
         const val DERIVED_TOLERANCE = 1e-6f
@@ -216,8 +216,8 @@ class TrackAcceleration private constructor(
                         !derived
                     }
                 }
+                // The stored accuracy only weighs the speed (D-38), as in the live estimate.
                 if (!doppler || p.timestamp <= distrustedUntil) continue
-                if (sigma != null && sigma > LiveMotion.MAX_SPEED_ACCURACY_MPS) continue
                 if (sCount > 0) {
                     val dtMs = p.timestamp - sTime[sCount - 1]
                     if (dtMs <= 0) continue

@@ -37,9 +37,10 @@ import com.justtracker.app.util.UnitFormatter
 import kotlin.math.abs
 
 /**
- * Acceleration next to the live speed (US-23, docs/04_ux_design.md §2.12): direction arrow, signed value with its unit,
- * "Acceleration · speeding up", and the last minute as bars — up while speeding up, down while slowing down. Only the
- * arrow and the bars are tinted; the number keeps the panel's text colour, so the meaning never rests on colour alone.
+ * Acceleration among the recording panel's secondary metrics (US-23, docs/04_ux_design.md §2.12): direction arrow,
+ * signed value with its unit — as large as avg / max speed beside it — "Acceleration · speeding up", and the last minute
+ * as bars, up while speeding up, down while slowing down. Only the arrow and the bars are tinted; the number keeps the
+ * panel's text colour, so the meaning never rests on colour alone.
  */
 @Composable
 internal fun AccelerationIndicator(
@@ -67,18 +68,18 @@ internal fun AccelerationIndicator(
                             contentDescription = null,
                             tint = state.tint(up, down, colors.onSurfaceVariant).copy(alpha = contentAlpha),
                             modifier = Modifier
-                                .padding(end = 4.dp, bottom = 4.dp)
-                                .size(20.dp),
+                                .padding(end = 4.dp, bottom = 3.dp)
+                                .size(18.dp),
                         )
                     }
                 }
                 FittedText(
                     value,
-                    style = MaterialTheme.typography.titleLarge.tabular().copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.titleMedium.tabular().copy(fontWeight = FontWeight.SemiBold),
                     color = colors.onSurface.copy(alpha = contentAlpha),
                     modifier = Modifier.weight(1f, fill = false),
                 )
-                UnitText(formatter.accelerationUnit(), style = MaterialTheme.typography.labelMedium, bottomPadding = 3.dp)
+                UnitText(formatter.accelerationUnit(), style = MaterialTheme.typography.labelMedium, bottomPadding = 2.dp)
             }
             MetricLabel(label)
         }

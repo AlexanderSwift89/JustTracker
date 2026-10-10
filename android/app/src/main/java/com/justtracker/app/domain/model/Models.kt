@@ -126,10 +126,6 @@ data class AppSettings(
     val mapsWifiOnly: Boolean = true,
     /** Explicit map source (US-22); switched only by the user. */
     val mapMode: com.justtracker.app.domain.maps.MapMode = com.justtracker.app.domain.maps.MapMode.ONLINE,
-    /** Acceleration indicator under the live speed (US-23): hidden until the user taps the speed, then remembered. */
-    val showAcceleration: Boolean = false,
-    /** The one-time "tap the speed to see acceleration" hint was shown (or the user found the indicator first). */
-    val accelerationHintShown: Boolean = false,
     /** The track detail's line colouring (US-24), kept for the next track; speed until the user switches. */
     val detailLineMetric: LineMetric = LineMetric.SPEED,
 )

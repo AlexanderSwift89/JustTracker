@@ -271,7 +271,8 @@ class TrackingService : Service() {
         val now = System.currentTimeMillis()
         container.trackingController.update {
             it.copy(
-                lastFixAt = now,
+                // Coarse or repeated fixes alone do not count: the panel then says "searching GPS" (D-39).
+                lastFixAt = if (outcome.usable) now else it.lastFixAt,
                 lastLat = outcome.marker?.lat ?: it.lastLat,
                 lastLon = outcome.marker?.lon ?: it.lastLon,
                 currentSpeedMps = outcome.speedMps ?: it.currentSpeedMps,

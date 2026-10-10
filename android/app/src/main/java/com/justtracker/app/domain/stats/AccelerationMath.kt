@@ -1,6 +1,7 @@
 package com.justtracker.app.domain.stats
 
 import com.justtracker.app.domain.stats.AccelerationEstimator.Companion.MAX_PLAUSIBLE_MPS2
+import com.justtracker.app.domain.stats.AccelerationEstimator.Companion.MAX_SIGMA_MPS
 import com.justtracker.app.domain.stats.AccelerationEstimator.Companion.MAX_SIGMA_MPS2
 import com.justtracker.app.domain.stats.AccelerationEstimator.Companion.MIN_SIGMA_MPS
 import com.justtracker.app.domain.stats.AccelerationEstimator.Companion.STATIONARY_MPS
@@ -18,9 +19,12 @@ object AccelerationMath {
     /** One window's estimate: [mps2] clamped to ±[MAX_PLAUSIBLE_MPS2]; 0 when [stationary]. */
     class Fit(val mps2: Float, val sigmaMps2: Float, val stationary: Boolean)
 
-    /** Weight of a speed with the 68 % accuracy [sigmaMps]: 1/σ², the accuracy floored at [MIN_SIGMA_MPS]. */
+    /**
+     * Weight of a speed with the 68 % accuracy [sigmaMps]: 1/σ², the accuracy within [MIN_SIGMA_MPS]…[MAX_SIGMA_MPS] —
+     * a receiver's pessimistic claim must not drop a usable speed (D-38); NaN counts as the ceiling.
+     */
     fun weight(sigmaMps: Float): Float {
-        val sigma = max(sigmaMps, MIN_SIGMA_MPS)
+        val sigma = if (sigmaMps.isNaN()) MAX_SIGMA_MPS else sigmaMps.coerceIn(MIN_SIGMA_MPS, MAX_SIGMA_MPS)
         return 1f / (sigma * sigma)
     }
 

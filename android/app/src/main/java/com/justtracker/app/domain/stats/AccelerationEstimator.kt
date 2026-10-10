@@ -8,11 +8,12 @@ data class Acceleration(val mps2: Float, val sigmaMps2: Float, val state: Accele
 
 /**
  * Horizontal acceleration from the receiver's Doppler ground speed (ADR-20): the weighted least-squares slope of the
- * speed over the last [windowMs], weights 1/σv². Differentiating a position-derived speed would turn metres of
+ * speed over the last [windowMs] (plus [WINDOW_JITTER_MS]), weights 1/σv². Differentiating a position-derived speed would turn metres of
  * position noise into m/s², so only reported speed is fed here — from every usable fix, not only from those the track
  * keeps (OBS-12).
  *
  * Rules (docs/06_system_analysis.md §3.10):
+ * - the reported accuracy only weighs a fix against the others, within [MIN_SIGMA_MPS]…[MAX_SIGMA_MPS];
  * - a fix not newer than the previous one is ignored; a gap longer than [maxGapMs] restarts the window;
  * - a speed step implying more than [MAX_PLAUSIBLE_MPS2] is an outlier; two in a row restart the window;
  * - no estimate until the window holds [MIN_SAMPLES] fixes over at least [minSpanMs], nor when its σ exceeds [MAX_SIGMA_MPS2];
@@ -63,7 +64,7 @@ class AccelerationEstimator(
         }
         outliersInRow = 0
         add(timeMs, speedMps, AccelerationMath.weight(sigmaMps))
-        while (timeMs - times[first] > windowMs) drop()
+        while (timeMs - times[first] > windowMs + WINDOW_JITTER_MS) drop()
         current = estimate(timeMs)
         return current
     }
@@ -93,6 +94,12 @@ class AccelerationEstimator(
 
     companion object {
         const val WINDOW_MS = 4_000L
+
+        /**
+         * Fix times jitter by milliseconds: a fix 4.01 s old still belongs to the window, so a receiver delivering every
+         * 2 s fills it with three fixes. Without the margin the window held two and there was never an estimate (D-41).
+         */
+        const val WINDOW_JITTER_MS = 250L
         const val MIN_SPAN_MS = 2_000L
         const val MAX_GAP_MS = 3_000L
         const val MIN_SAMPLES = 3
@@ -108,6 +115,13 @@ class AccelerationEstimator(
 
         /** Floor for the reported speed accuracy so one over-optimistic fix cannot outweigh the rest of the window. */
         const val MIN_SIGMA_MPS = 0.05f
+
+        /**
+         * Ceiling for the reported speed accuracy: a worse one weighs as this, and no speed is dropped for its accuracy.
+         * Receivers state it very differently — a phone in a car claimed more than 1 m/s while its speeds scattered by
+         * ≈ 0.3 m/s, and dropping them left no acceleration at all, live or in the history (TC-157, D-38).
+         */
+        const val MAX_SIGMA_MPS = 1.0f
 
         /** Room for a 4 s window at up to 4 Hz; older fixes give way first. */
         private const val CAPACITY = 16
