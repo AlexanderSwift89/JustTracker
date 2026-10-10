@@ -128,7 +128,7 @@ class TrackDetailViewModel(
         cursorIndex.value = state.value.line.indexForFraction(fraction)
     }
 
-    /** An episode in "Speeding up and slowing down": the scrubber goes to where it starts. */
+    /** An episode in "Acceleration and deceleration": the scrubber goes to where it starts. */
     fun onEpisodeTap(episode: AccelerationEpisode) {
         cursorIndex.value = episode.startIndex.coerceIn(0, (state.value.line.size - 1).coerceAtLeast(0))
     }

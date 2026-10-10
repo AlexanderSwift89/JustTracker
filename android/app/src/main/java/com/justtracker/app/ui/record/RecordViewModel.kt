@@ -52,10 +52,6 @@ data class RecordUiState(
     val nowMs: Long = System.currentTimeMillis(),
     /** Section of the line the user tapped, if any. */
     val tapped: TrackTapInfo? = null,
-    /** The acceleration indicator is open under the speed (US-23). */
-    val showAcceleration: Boolean = false,
-    /** The one-time hint "tap the speed to see acceleration" is still to be shown. */
-    val accelerationHintPending: Boolean = false,
 ) {
     /** Primary time: from Start until now, pauses included (US-06). */
     val recordingTimeMs: Long
@@ -68,7 +64,7 @@ data class RecordUiState(
             else -> RecordStatus.IDLE
         }
 
-    /** No fix for 10 s while recording → "searching GPS" (US-06). */
+    /** No usable fix (accurate enough and new) for 10 s while recording → "searching GPS", the speed "—" (US-06, D-39). */
     val gpsSearching: Boolean
         get() = status == RecordStatus.RECORDING && nowMs - live.lastFixAt > GPS_STALE_MS
 
@@ -149,8 +145,6 @@ class RecordViewModel(
             // A tap belongs to the line it was resolved on: a finished track, the next recording or a line rebuilt
             // after a stray start was deleted (all a new generation) drop it; the same line growing keeps it.
             tapped = src.tapped?.takeIf { src.track != null && it.generation == src.line.generation }?.info,
-            showAcceleration = prefs.showAcceleration,
-            accelerationHintPending = !prefs.accelerationHintShown && !prefs.showAcceleration,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RecordUiState())
 
@@ -176,16 +170,6 @@ class RecordViewModel(
     }
 
     fun dismissTap() = tapped.update { null }
-
-    /** Tap on the speed: shows or hides the acceleration indicator; the choice is kept between recordings. */
-    fun toggleAcceleration() {
-        val show = !state.value.showAcceleration
-        viewModelScope.launch { settings.setShowAcceleration(show) }
-    }
-
-    fun onAccelerationHintShown() {
-        viewModelScope.launch { settings.setAccelerationHintShown() }
-    }
 
     /** Seeds the position marker from the last known location so the map opens near the user ([TrackingControl.seedPosition]). */
     fun seedLastKnownLocation() {

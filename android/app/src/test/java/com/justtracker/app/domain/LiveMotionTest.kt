@@ -1,5 +1,6 @@
 package com.justtracker.app.domain
 
+import com.justtracker.app.domain.stats.AccelerationTrace
 import com.justtracker.app.domain.stats.LiveMotion
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -35,13 +36,23 @@ class LiveMotionTest {
     }
 
     @Test
-    fun `inaccurate fixes and poor speed accuracy are ignored`() {
+    fun `inaccurate fixes are ignored, a poor speed accuracy is not`() {
         val motion = LiveMotion()
         motion.onFix(0, 5f, 0.2f, accurate = false)
-        motion.onFix(1_000, 5f, 1.5f, accurate = true)
-        assertFalse(motion.hasDopplerSpeed(1_000))
+        assertFalse(motion.hasDopplerSpeed(0))
+        motion.onFix(1_000, 5f, 1.5f, accurate = true) // only weighs less (D-38)
+        assertTrue(motion.hasDopplerSpeed(1_000))
         motion.onFix(2_000, 5f, null, accurate = true) // unknown accuracy is fine
         assertTrue(motion.hasDopplerSpeed(2_000))
+    }
+
+    @Test
+    fun `a receiver claiming a poor speed accuracy still gives acceleration (TC-157, D-38)`() {
+        // A phone in a car reported more than 1 m/s for every speed: they were all dropped, and "—" stayed for good.
+        val motion = LiveMotion()
+        motion.drive(listOf(5f, 6f, 7f, 8f, 9f), sigma = 2.5f)
+        assertEquals(1f, motion.acceleration!!.mps2, 0.05f)
+        assertEquals(1f, motion.trace()[AccelerationTrace.SECONDS - 1], 0.05f)
     }
 
     @Test

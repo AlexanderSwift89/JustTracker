@@ -51,6 +51,12 @@ data class FixOutcome(
     val marker: LatLon?,
     /** Live speed; null keeps the previous value. */
     val speedMps: Float?,
+    /**
+     * The fix passed the accuracy gate (rule 1) and is newer than the last one that did: the receiver is delivering
+     * positions. Coarse or repeated fixes alone mean "searching GPS" (US-06) — underground they kept the panel on a
+     * 10-minute-old speed beside "GPS" (TC-157, D-39).
+     */
+    val usable: Boolean,
     val acceleration: Acceleration?,
     val accelerationTrace: AccelerationTrace,
     /** Points stored by this fix: 0, 1, or 2 (a confirmed segment start and the fix itself). */
@@ -90,6 +96,7 @@ class TrackRecorder(
     )
     private val motion = LiveMotion()
     private var pendingStart: PendingFix? = null
+    private var lastUsableMs = Long.MIN_VALUE
 
     /** Segment of the next stored point. */
     var segment: Int = startSegment
@@ -100,8 +107,12 @@ class TrackRecorder(
 
     suspend fun onFix(fix: Fix): FixOutcome {
         val sample = fix.sample
-        // Every usable fix feeds the live speed and acceleration before the storage rules drop near-duplicates.
-        motion.onFix(fix.monotonicMs, sample.speedMps, fix.speedAccuracyMps, filter.isAccurate(sample))
+        val accurate = filter.isAccurate(sample)
+        val usable = accurate && fix.monotonicMs > lastUsableMs
+        if (usable) lastUsableMs = fix.monotonicMs
+        // Every fix feeds the live speed and acceleration (an inaccurate one only as "no speed") before the storage
+        // rules drop near-duplicates.
+        motion.onFix(fix.monotonicMs, sample.speedMps, fix.speedAccuracyMps, accurate)
         val result = store(fix)
         val doppler = motion.hasDopplerSpeed(fix.monotonicMs)
         // Doppler speed of every fix when the receiver gives a trustworthy one, the stored points' speed otherwise.
@@ -113,6 +124,7 @@ class TrackRecorder(
         return FixOutcome(
             marker = if (sample.accuracyM <= POSITION_MARKER_ACCURACY_M) LatLon(sample.lat, sample.lon) else null,
             speedMps = speed,
+            usable = usable,
             acceleration = motion.acceleration,
             accelerationTrace = motion.trace(),
             stored = result.stored,

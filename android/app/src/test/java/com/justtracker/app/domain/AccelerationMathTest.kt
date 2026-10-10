@@ -45,7 +45,9 @@ class AccelerationMathTest {
         assertTrue(AccelerationMath.isOutlier(13f, 1_000))
         assertFalse(AccelerationMath.isOutlier(-11f, 1_000))
         assertEquals(1f / (0.3f * 0.3f), AccelerationMath.weight(0.3f), 1e-3f)
-        // Over-optimistic accuracies are floored at 0.05 m/s.
+        // Over-optimistic accuracies are floored at 0.05 m/s, pessimistic ones capped at 1 m/s (D-38), NaN is the cap.
         assertEquals(AccelerationMath.weight(0.05f), AccelerationMath.weight(0.01f), 0f)
+        assertEquals(1f, AccelerationMath.weight(2.5f), 0f)
+        assertEquals(1f, AccelerationMath.weight(Float.NaN), 0f)
     }
 }

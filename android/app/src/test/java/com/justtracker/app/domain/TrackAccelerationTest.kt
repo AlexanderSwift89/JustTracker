@@ -268,8 +268,8 @@ class TrackAccelerationTest {
     }
 
     @Test
-    fun `a poor speed accuracy is left out and accuracies weigh the window`() {
-        // One fix 2 m/s off: with its accuracy 1.2 it is ignored, with 0.9 it weighs little, without accuracies it weighs as the rest.
+    fun `accuracies weigh the window and a poor one is not left out`() {
+        // One fix 2 m/s off: with its accuracy 1.2 (capped at 1, D-38) or 0.9 it weighs little, without accuracies as the rest.
         fun at30(sigma: Float?, outlierSigma: Float?): Float {
             val rec = recordDrive(
                 seconds = 60,
@@ -280,10 +280,36 @@ class TrackAccelerationTest {
             ) { 10.0 }
             return rec.acceleration().mps2(rec.at(29.0))
         }
-        assertEquals(0f, at30(0.1f, 1.2f), 1e-4f)
+        val capped = abs(at30(0.1f, 1.2f))
         val weighted = abs(at30(0.1f, 0.9f))
         val equal = abs(at30(null, null))
-        assertTrue("weighted $weighted, equal $equal", weighted < equal / 10)
+        assertTrue("capped $capped, weighted $weighted, equal $equal", capped > 0f && capped <= weighted && weighted < equal / 10)
+    }
+
+    @Test
+    fun `a receiver claiming a poor speed accuracy still has acceleration and episodes (TC-157, D-38)`() {
+        // Every speed with 2.5 m/s accuracy, scattered by ±0.3 m/s: a car's stop and go, as a phone recorded it in the
+        // field. Dropping speeds above 1 m/s left the track without acceleration; the claim now only weighs them.
+        val profile = { t: Double ->
+            when {
+                t < 5 -> 0.0
+                t < 15 -> 2.0 * (t - 5)
+                t < 40 -> 20.0
+                t < 47 -> 20.0 - 20.0 / 7.0 * (t - 40)
+                else -> 0.0
+            }
+        }
+        val pessimistic = recordDrive(seconds = 60, sigma = 2.5f, noise = 0.3, positionNoise = 0.3, speedAt = profile)
+        assertTrue(pessimistic.points.all { it.speedAccuracyMps == null || it.speedAccuracyMps == 2.5f })
+        assertTrue("live estimates", pessimistic.live.count { it != null } > 40)
+        val acc = pessimistic.acceleration()
+        assertTrue(acc.isAvailable)
+        assertTrue(acc.hasEpisodes)
+        assertEquals(2.0f, acc.maxAcceleration!!.peakMps2, 0.4f)
+        assertEquals(-2.9f, acc.maxDeceleration!!.peakMps2, 0.5f)
+        // The same drive from a receiver claiming 1 m/s gives the same result: beyond the cap the claim is not believed.
+        val capped = recordDrive(seconds = 60, sigma = 1.0f, noise = 0.3, positionNoise = 0.3, speedAt = profile).acceleration()
+        for (k in 0 until acc.size) assertEquals("vertex $k", capped.mps2(k), acc.mps2(k), 0f)
     }
 
     @Test

@@ -24,6 +24,7 @@ data class LiveTrackingState(
     val accelerationAt: Long = 0L,
     /** Acceleration over the last minute, one value per second. */
     val accelerationTrace: AccelerationTrace = AccelerationTrace.EMPTY,
+    /** Wall-clock time of the last usable fix (accurate enough and new, `FixOutcome.usable`): "searching GPS" without one. */
     val lastFixAt: Long = 0L,
     val lastLat: Double? = null,
     val lastLon: Double? = null,

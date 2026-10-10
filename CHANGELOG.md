@@ -13,11 +13,18 @@ requests; the database schema is 3.
   units). The choice is remembered (`detail_line_metric`).
 - The **acceleration at the scrubber** — signed value with a direction arrow, "—" without an estimate — as the first
   value in acceleration mode; TalkBack reads it in words.
-- **Max speed-up / Max slow-down** tiles and **Speeding up and slowing down**: the strongest episodes of each kind
+- **Max acceleration / Max deceleration** tiles and **Acceleration and deceleration** (RU «Макс. ускорение»,
+  «Ускорения и замедления»; first named "Max speed-up" / «Макс. разгон»): the strongest episodes of each kind
   ("0 → 72 km/h in 10 s, +2.0 m/s² · 9.4 km from start"); a tap moves the scrubber and the ring to where it started;
   "Show all (N)" lists every episode in order.
 
 ### Changed
+- The live **acceleration** on the recording screen is one of the **extra stats**: tapping the panel opens and closes
+  it together with average / max speed and moving time (in one row on a wide panel); its own tap on the speed, the
+  chart icon and the "Tap the speed to see acceleration" hint are gone, and the `show_acceleration` /
+  `acceleration_hint_shown` keys are removed on update (US-23, D-40). TalkBack reads the panel as one sentence, the
+  extra stats included while they are open. On a wide panel (landscape, a tablet) the acceleration opens beside the
+  speed, and the other three keep a row of their own with whole labels.
 - Acceleration is computed when a track is opened from its stored points with the live indicator's formula (one
   shared `AccelerationMath`), but over a window centred on each point: the colour sits where the speed changed,
   without the live value's 2 s delay. Only Doppler speeds are used; runs are trimmed to the speed change and
@@ -35,11 +42,22 @@ requests; the database schema is 3.
   that speed (automatic migration, existing points keep null). It stays on the device and is not exported to GPX.
 
 ### Fixed
+- No acceleration at all on a real phone — "—" on the recording screen for the whole drive and no switch, tiles or
+  episodes in the track (TC-157, D-38): speeds whose reported accuracy was worse than 1 m/s were dropped, and the phone
+  claimed that while its speeds scattered by ≈ 0.3 m/s. The reported accuracy now only weighs a speed, clamped to
+  0.05…1 m/s, live and in the history (ADR-31); tracks recorded before the fix get their acceleration when opened.
+- With fixes every 2 s (the emulator, a phone saving power) the live acceleration stayed "—" (D-41): the 4 s window
+  dropped the third fix back, 4.01 s old. The window now has the 0.25 s jitter margin the history already had.
+- Underground the panel kept "GPS" and a speed from 10 minutes earlier (D-39): coarse cell positions refreshed the GPS
+  state. Only a fix that passes the accuracy limit and is newer than the last such one does now; otherwise after 10 s
+  the panel shows "Searching GPS" and "—".
 - Instrumented tests ran 0 tests and passed since espresso-core was removed in 1.1.2: the test runner is a
   dependency of its own again (D-32).
 
 ### Tests
-- 39 new JVM tests (259 in total): `AccelerationMath`, `TrackAcceleration` on a fixture that records through the real
+- 44 new JVM tests (264 in total) — 5 of them from the field check: a receiver claiming 2.5 m/s speed accuracy still
+  gives live acceleration and episodes, fixes every 2 s, "Searching GPS" with only coarse or repeated fixes, the removed
+  settings keys: `AccelerationMath`, `TrackAcceleration` on a fixture that records through the real
   `TrackRecorder` (history equals the live value shifted by half a window; the emulator's stop-and-go, also from the
   recorded points; noise, walking, receivers without Doppler speed, contradiction, tunnel, traffic light, thinned series edges, a standstill inside a series, a drive too short to show, spikes,
   accuracies, thresholds, 100 000 points), colours (also under simulated protanopia / deuteranopia), simplification breaks, the fit, settings, view model. 7
@@ -48,6 +66,9 @@ requests; the database schema is 3.
 ### Docs
 - PRD US-24, UX §2.13, ADR-30, system analysis §3.11 / NFR-28, security review §10 (no findings, privacy policy
   unchanged), test plan TC-147…157, user guide; store screenshot `02_detail.png` retaken, `07_acceleration.png` added.
+- Field check (TC-157): ADR-31, PRD US-06 / US-23 / US-24, UX §2.2 / §2.12 / §2.13 / §4, system analysis UC-01 6a / 6f,
+  §3.3, §3.10, §3.11, settings keys, security §10 addendum, test plan TC-105/106/111/112, TC-158…161, D-38…D-41,
+  OBS-23/24, user guide, store texts; `01_record.png`, `06_dark.png` and `07_acceleration.png` retaken.
 
 ## JustTracker [1.1.2] - 2026-10-06 (versionCode 6)
 

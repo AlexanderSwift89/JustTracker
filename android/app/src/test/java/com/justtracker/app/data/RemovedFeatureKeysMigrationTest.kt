@@ -31,6 +31,22 @@ class RemovedFeatureKeysMigrationTest {
     }
 
     @Test
+    fun `settings of 1_1_x lose the acceleration switch and hint, the line metric stays`() = runTest {
+        val showAcceleration = booleanPreferencesKey("show_acceleration")
+        val hintShown = booleanPreferencesKey("acceleration_hint_shown")
+        val lineMetric = stringPreferencesKey("detail_line_metric")
+        val old = mutablePreferencesOf(showAcceleration to true, hintShown to true, lineMetric to "ACCELERATION", units to "METRIC")
+
+        assertTrue(RemovedFeatureKeysMigration.shouldMigrate(old))
+        val migrated = RemovedFeatureKeysMigration.migrate(old)
+
+        assertFalse(showAcceleration in migrated)
+        assertFalse(hintShown in migrated)
+        assertEquals("ACCELERATION", migrated[lineMetric])
+        assertEquals("METRIC", migrated[units])
+    }
+
+    @Test
     fun `nothing to do once the keys are gone`() = runTest {
         assertFalse(RemovedFeatureKeysMigration.shouldMigrate(mutablePreferencesOf(units to "METRIC")))
     }

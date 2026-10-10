@@ -9,7 +9,8 @@ package com.justtracker.app.domain.stats
  * The receiver's Doppler ground speed is used while it can be trusted ([hasDopplerSpeed]); otherwise the caller keeps
  * showing the speed of stored points ([IncrementalStats.currentSpeedMps]) as before — e.g. on the emulator, which
  * reports 0 while the position moves (D-02). The same trusted speeds give the along-track [acceleration] and its last
- * minute ([trace], ADR-20).
+ * minute ([trace], ADR-20). The reported speed accuracy never makes a speed untrusted: it only weighs the speed in the
+ * estimate ([AccelerationMath.weight], D-38).
  */
 class LiveMotion {
     private val estimator = AccelerationEstimator()
@@ -38,9 +39,7 @@ class LiveMotion {
      */
     fun onFix(timeMs: Long, speedMps: Float?, speedAccuracyMps: Float?, accurate: Boolean) {
         latestFixAt = timeMs
-        val speed = speedMps?.takeIf {
-            accurate && timeMs >= distrustedUntil && (speedAccuracyMps == null || speedAccuracyMps <= MAX_SPEED_ACCURACY_MPS)
-        }
+        val speed = speedMps?.takeIf { accurate && timeMs >= distrustedUntil }
         if (speed == null) {
             history.record(timeMs, null)
             return
@@ -74,7 +73,6 @@ class LiveMotion {
 
     companion object {
         const val STALE_MS = AccelerationEstimator.MAX_GAP_MS
-        const val MAX_SPEED_ACCURACY_MPS = 1.0f
 
         /** Assumed when the receiver gives no speed accuracy: a typical phone in town. */
         const val DEFAULT_SPEED_ACCURACY_MPS = 0.3f

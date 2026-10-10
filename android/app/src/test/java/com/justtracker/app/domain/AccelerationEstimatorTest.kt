@@ -93,6 +93,15 @@ class AccelerationEstimatorTest {
     }
 
     @Test
+    fun `fixes every 2 s with jittering times still give the slope (D-41)`() {
+        // The emulator's fused provider and phones saving power deliver every 2 s: the third fix back is 4.01 s old.
+        val times = longArrayOf(0, 2_007, 4_013, 6_020, 8_031, 10_036)
+        val estimates = AccelerationEstimator().feed(times.map { t -> t to (5.0 + t / 1000.0).toFloat() })
+        assertNull(estimates[1])
+        for (a in estimates.drop(2)) assertEquals(1.0f, a!!.mps2, 0.01f)
+    }
+
+    @Test
     fun `no estimate until three fixes span two seconds`() {
         val estimator = AccelerationEstimator()
         assertNull(estimator.offer(0, 5f, 0.2f))

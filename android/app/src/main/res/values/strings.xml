@@ -70,11 +70,8 @@
     <string name="record_accel_decelerating">slowing down</string>
     <string name="record_accel_steady">steady</string>
     <string name="record_accel_stationary">standing still</string>
-    <string name="record_show_acceleration">Show acceleration</string>
-    <string name="record_hide_acceleration">Hide acceleration</string>
-    <string name="record_acceleration_hint">Tap the speed to see acceleration</string>
     <string name="map_speed_legend_cd">Line colour: speed from 0 to %1$s</string>
-    <string name="map_acceleration_legend_cd">Line colour: acceleration, slowing down to %1$s and speeding up to %2$s %3$s</string>
+    <string name="map_acceleration_legend_cd">Line colour: deceleration up to %1$s and acceleration up to %2$s %3$s</string>
     <string name="map_tap_speed_title">Speed on this section</string>
     <string name="map_tap_speed_detail">%1$s from start · %2$s into the recording</string>
 
@@ -124,9 +121,11 @@
     <string name="detail_line_speed">Speed</string>
     <string name="detail_line_acceleration">Acceleration</string>
     <string name="detail_cursor_acceleration">Acceleration</string>
-    <string name="detail_max_acceleration">Max speed-up</string>
-    <string name="detail_max_deceleration">Max slow-down</string>
-    <string name="detail_episodes_title">Speeding up and slowing down</string>
+    <string name="detail_max_acceleration">Max acceleration</string>
+    <string name="detail_max_deceleration">Max deceleration</string>
+    <string name="detail_episodes_title">Acceleration and deceleration</string>
+    <string name="detail_episode_acceleration">Acceleration</string>
+    <string name="detail_episode_deceleration">Deceleration</string>
     <string name="detail_episode_speeds">%1$s → %2$s %3$s in %4$s</string>
     <string name="detail_episode_detail">%1$s %2$s · %3$s from start</string>
     <string name="detail_episodes_show_all">Show all (%1$d)</string>

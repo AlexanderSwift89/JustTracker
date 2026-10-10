@@ -22,10 +22,16 @@ import java.io.IOException
 
 /**
  * Drops the preferences of features that no longer exist, so nothing about them stays on the device:
- * "Places nearby" and its auto-announcements were removed in 1.1.2 (SEC-14, ADR-24).
+ * "Places nearby" and its auto-announcements were removed in 1.1.2 (SEC-14, ADR-24); in 1.2.0 the acceleration
+ * indicator moved into the recording panel's expandable metrics, so its own switch and the "tap the speed" hint went.
  */
 internal object RemovedFeatureKeysMigration : DataMigration<Preferences> {
-    val removedKeys = listOf(booleanPreferencesKey("poi_enabled"), booleanPreferencesKey("poi_auto_speak"))
+    val removedKeys = listOf(
+        booleanPreferencesKey("poi_enabled"),
+        booleanPreferencesKey("poi_auto_speak"),
+        booleanPreferencesKey("show_acceleration"),
+        booleanPreferencesKey("acceleration_hint_shown"),
+    )
 
     override suspend fun shouldMigrate(currentData: Preferences): Boolean = removedKeys.any { it in currentData }
 
@@ -49,8 +55,6 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
         val LANGUAGE = stringPreferencesKey("language")
         val MAPS_WIFI_ONLY = booleanPreferencesKey("maps_wifi_only")
         val MAP_MODE = stringPreferencesKey("map_mode")
-        val SHOW_ACCELERATION = booleanPreferencesKey("show_acceleration")
-        val ACCELERATION_HINT_SHOWN = booleanPreferencesKey("acceleration_hint_shown")
         val DETAIL_LINE_METRIC = stringPreferencesKey("detail_line_metric")
     }
 
@@ -66,8 +70,6 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
             language = AppLanguage.fromTag(p[Keys.LANGUAGE]),
             mapsWifiOnly = p[Keys.MAPS_WIFI_ONLY] ?: true,
             mapMode = p[Keys.MAP_MODE]?.let { runCatching { MapMode.valueOf(it) }.getOrNull() } ?: MapMode.ONLINE,
-            showAcceleration = p[Keys.SHOW_ACCELERATION] ?: false,
-            accelerationHintShown = p[Keys.ACCELERATION_HINT_SHOWN] ?: false,
             detailLineMetric = p[Keys.DETAIL_LINE_METRIC]?.let { runCatching { LineMetric.valueOf(it) }.getOrNull() } ?: LineMetric.SPEED,
         )
     }
@@ -82,10 +84,5 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
     suspend fun setLanguage(language: AppLanguage) = store.edit { it[Keys.LANGUAGE] = language.tag }
     suspend fun setMapsWifiOnly(on: Boolean) = store.edit { it[Keys.MAPS_WIFI_ONLY] = on }
     suspend fun setMapMode(mode: MapMode) = store.edit { it[Keys.MAP_MODE] = mode.name }
-    suspend fun setShowAcceleration(on: Boolean) = store.edit {
-        it[Keys.SHOW_ACCELERATION] = on
-        it[Keys.ACCELERATION_HINT_SHOWN] = true
-    }
-    suspend fun setAccelerationHintShown() = store.edit { it[Keys.ACCELERATION_HINT_SHOWN] = true }
     suspend fun setDetailLineMetric(metric: LineMetric) = store.edit { it[Keys.DETAIL_LINE_METRIC] = metric.name }
 }

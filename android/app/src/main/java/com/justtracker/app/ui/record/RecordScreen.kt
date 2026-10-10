@@ -262,8 +262,6 @@ fun RecordScreen(
                                 formatter = formatter,
                                 expanded = statsExpanded,
                                 onToggleExpanded = { statsExpanded = !statsExpanded },
-                                onToggleAcceleration = viewModel::toggleAcceleration,
-                                onAccelerationHintShown = viewModel::onAccelerationHintShown,
                                 onPause = viewModel::pause,
                                 onResume = viewModel::resume,
                                 onStop = { showStopDialog = true },

@@ -16,7 +16,7 @@ RECORDING
 • One big button: start, pause, stop.
 • Keeps recording with the screen off or in your pocket — the notification shows recording time, distance and speed.
 • Live map with the route coloured by speed and a stats panel: speed, distance, recording time, average and maximum speed.
-• Acceleration: tap the speed to see whether you are speeding up or slowing down, with a chart of the last minute.
+• Acceleration: tap the panel to open it next to average and maximum speed and moving time — whether you are speeding up or slowing down, with a chart of the last minute.
 • A smart GPS filter drops jumps and inaccurate fixes.
 
 OFFLINE MAPS
@@ -28,7 +28,7 @@ OFFLINE MAPS
 HISTORY AND STATISTICS
 • Every track in a list: date, distance, time, activity type.
 • Track details: map with the route, a scrubber along the track (speed, time, altitude at any point), distance, recording and moving time, average and maximum speed, elevation gain and loss.
-• Where you sped up and braked: the track line by acceleration, the maximum speed-up and slow-down, a "0 → 72 km/h in 10 s" list that takes you to the place on the map.
+• Where you sped up and braked: the track line by acceleration, the maximum acceleration and deceleration, a "0 → 72 km/h in 10 s" list that takes you to the place on the map.
 • Activity type — walking, running, cycling, driving — is detected automatically and can be changed.
 • Overall statistics by activity and by week.
 • GPX export — open your tracks in any mapping software.
@@ -48,7 +48,9 @@ Privacy policy: https://alexanderswift89.github.io/JustTracker/privacy/
 ## What's new (version 1.2.0)
 
 • Acceleration in your history: a "Speed | Acceleration" switch in the track details. The line shows where you sped up (green) and slowed down (orange); the scrubber shows the acceleration at that point.
-• Maximum speed-up and slow-down in the track statistics and a "Speeding up and slowing down" list, such as "0 → 72 km/h in 10 s"; tap a row to see the place on the map.
+• Maximum acceleration and deceleration in the track statistics and an "Acceleration and deceleration" list, such as "0 → 72 km/h in 10 s"; tap a row to see the place on the map.
+• Acceleration on the recording screen is now among the extra stats: tap the panel and it appears next to average and maximum speed, with its chart.
+• Acceleration works on every phone that reports the GPS speed, even one that rates its accuracy modestly. In the metro the panel shows "Searching GPS" instead of the last speed.
 • Works for earlier tracks too if the GPS receiver reported the speed. No new permissions.
 
 ## What's new (version 1.1.2)
